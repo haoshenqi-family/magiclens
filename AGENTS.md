@@ -27,7 +27,7 @@
 
 ## Git 约定
 
-- 主分支 `main`，日常开发直接在 `main` 进行（个人项目，单人开发）；如需实验可开 `feat/*` 短分支。
+- 默认分支 `develop`，日常开发一律在 `develop` 进行（对齐家族 magicbook / moon-well 惯例）；`main` 仅用于发布：需要发版时将 `develop` 合并到 `main` 并推送，禁止在 `main` 上直接开发或临时提交。
 - 提交信息用 `类型: 摘要`（init / feat / fix / docs / chore）。
 - 仓库在 `haoshenqi-family` 组织下，**private**。
 
