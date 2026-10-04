@@ -41,7 +41,8 @@ moon-well 认证三通道：
 
 ## 5. 分期
 
-- **P0（本仓库当前）**：划词翻译 + 认识/生词标记 + 本地朗读 + 设置页。
-- **P1**：段落整页翻译（translate-batch 并发池，从 epub.js 移植）+ 生词波浪线标注（analyze）+ Token 自助化。
+- **P0（已交付）**：划词翻译 + 认识/生词标记 + 本地朗读 + 设置页（US1/US2）。
+- **P0.5（进行中，LLD 已完成 2026-10-04）**：AI 伴读聊天抽屉（R119 评估并入当前批次，与划词共享全部基建）+ moon-well 侧两改动（web 场景 prompt 分支 + skipMemoryExtract），设计见 `docs/feat/chrome-extension/design/lld.md`。
+- **P1**：段落整页翻译（translate-batch）+ 生词波浪线标注（analyze）+ OIDC 登录与 JWT 静默刷新。
 - **P2**：moon-well TTS 朗读（/tts/speak 音频播放状态机 + speechSynthesis 降级）。
-- **P3**：AI 伴读聊天面板（SSE 消费移植 ai_chat.js ~1.2k 行；唯一建议的 moon-well 改动是 system prompt 增加 web 场景分支）。
+- **储备**：chrome.sidePanel 兜底方案、Readability 深度正文抽取、右键菜单「问 AI」。
