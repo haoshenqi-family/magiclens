@@ -61,6 +61,7 @@
         <button data-act="speak" title="朗读原文（浏览器本地语音）">🔊</button>
         <button data-act="known" title="标记为已认识">认识</button>
         <button data-act="unknown" title="加入生词本">生词</button>
+        <button data-act="ask" title="把选中内容发给伴读 AI">AI</button>
         <span class="gap"></span>
         <button data-act="close" title="关闭">✕</button>
       </div>
@@ -203,6 +204,12 @@
     else if (act === 'speak') speak();
     else if (act === 'known') mark(btn, true);
     else if (act === 'unknown') mark(btn, false);
+    else if (act === 'ask') {
+      // 「问 AI」：把选中文本带进伴读抽屉（chat.js 同隔离世界，经隔离世界全局钩子）
+      const text = current ? current.text : '';
+      hide();
+      if (window.__magicLensAsk) window.__magicLensAsk(text);
+    }
   });
 
   // mouseup 后延迟一帧等待选区稳定；dblclick 选词后也会触发 mouseup

@@ -27,7 +27,7 @@ flowchart LR
 | 标记认识 / 加入生词本 | ✅ | `GET /vocabulary/known/{word}` · `GET /vocabulary/unknown/{word}` |
 | 本地朗读 | ✅ | 浏览器 speechSynthesis（不走后端） |
 | 设置页（服务地址 / Token / 自动翻译） | ✅ | `chrome.storage.sync` 本地保存 |
-| AI 伴读聊天抽屉 | 🔨 LLD 已完成 | `POST /ai/agent/chat` SSE（LLD 见 `docs/feat/chrome-extension/design/lld.md`，前置 moon-well 两改动） |
+| AI 伴读聊天抽屉 | ✅（v0.2.0） | `POST /ai/agent/chat` SSE 直连 content script；会话/记忆/学情面板；划词「问 AI」联动；moon-well 前置（web prompt + skipMemoryExtract）已上线 |
 | 段落整页翻译 + 生词波浪线标注 | 规划 P1 | `translate-batch` + `analyze` |
 | moon-well 声音朗读（DashScope） | 规划 P2 | `POST /tts/speak` |
 
@@ -60,7 +60,7 @@ flowchart LR
 
 ## 待办（启动前置）
 
-- [ ] moon-well：`agent-chat-system-web` prompt 分支 + `skipMemoryExtract` 字段（LLD §5，伴读聊天前置）；
+- [x] moon-well：`agent-chat-system-web` prompt 分支 + `skipMemoryExtract` 字段（2026-10-04 已上线，moon-well R97）；
 - [ ] moon-well 公网 HTTPS 入口（Server 2 Traefik 加路由，如 `api.haoshenqi.top` → fnOS 8082），外网场景可用；
 - [ ] Token 自助获取方案（目前需手动从库里取 `user.token`，或用 Authentik OIDC 换 JWT）；
 - [ ] P1：段落翻译与生词标注。

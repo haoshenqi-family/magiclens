@@ -4,17 +4,22 @@ const $token = document.getElementById('token');
 const $auto = document.getElementById('autoTranslate');
 const $result = document.getElementById('testResult');
 
-chrome.storage.sync.get({ apiBase: 'http://192.168.31.9:8082', token: '', autoTranslate: true }, (c) => {
-  $apiBase.value = c.apiBase;
-  $token.value = c.token;
-  $auto.checked = c.autoTranslate;
-});
+chrome.storage.sync.get(
+  { apiBase: 'http://192.168.31.9:8082', token: '', autoTranslate: true, skipMemoryDefault: true },
+  (c) => {
+    $apiBase.value = c.apiBase;
+    $token.value = c.token;
+    $auto.checked = c.autoTranslate;
+    document.getElementById('skipMemoryDefault').checked = c.skipMemoryDefault;
+  }
+);
 
 function save() {
   chrome.storage.sync.set({
     apiBase: $apiBase.value.trim().replace(/\/+$/, ''),
     token: $token.value.trim(),
     autoTranslate: $auto.checked,
+    skipMemoryDefault: document.getElementById('skipMemoryDefault').checked,
   });
 }
 

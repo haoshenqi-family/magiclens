@@ -60,6 +60,21 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       case 'ml:settings':
         sendResponse(await callApi('/vocabulary/reading/settings', { method: 'GET' }));
         break;
+      case 'ml:api': {
+        // Why 白名单：chat.js 面板端点经此中转，防任意 path 透传
+        const ALLOWED = new Set([
+          '/ai/agent/conversations', '/ai/agent/history',
+          '/ai/agent/conversation/rename', '/ai/agent/conversation/delete',
+          '/ai/agent/memory/list', '/ai/agent/memory/save', '/ai/agent/memory/delete',
+          '/ai/agent/book-profile',
+        ]);
+        if (!ALLOWED.has(msg.path)) {
+          sendResponse({ ok: false, error: 'path not allowed', status: 0 });
+          break;
+        }
+        sendResponse(await callApi(msg.path, { body: msg.body || {} }));
+        break;
+      }
       case 'ml:openOptions':
         chrome.runtime.openOptionsPage();
         sendResponse({ ok: true });
