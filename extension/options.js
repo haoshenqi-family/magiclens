@@ -10,6 +10,7 @@ function renderLoginState(loggedIn) {
   $loginStatus.textContent = loggedIn ? '已登录（令牌自动续期）' : '未登录';
   $loginStatus.className = loggedIn ? 'ok' : 'bad';
   $loginBtn.hidden = loggedIn;
+  document.getElementById('registerBtn').hidden = loggedIn;
   $logoutBtn.hidden = !loggedIn;
 }
 
@@ -26,6 +27,11 @@ $auto.addEventListener('change', () => {
 
 $loginBtn.addEventListener('click', () => {
   chrome.runtime.sendMessage({ type: 'ml:login' });
+});
+
+document.getElementById('registerBtn').addEventListener('click', () => {
+  // 邀请制注册（Authentik invitation-enrollment），注册完回来登录
+  chrome.runtime.sendMessage({ type: 'ml:register' });
 });
 
 $logoutBtn.addEventListener('click', () => {

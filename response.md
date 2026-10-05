@@ -55,3 +55,10 @@
   - response.md：本条。
   - 冲突记录：R4 推翻 R2 LLD 的「skipMemoryExtract 插件默认 true」决策（用户要求记忆始终开启）与 §6.3 mk- key 手动配置方案（改 OIDC 登录化）；均已在 LLD §10 记录。
   - 待用户验收：真机登录流（Authentik 页 → 回调捕获 → 划词/伴读）。
+
+## 2026-10-04（五）
+
+### R5（v0.3.1：注册按钮 + magicbook 关系说明）
+
+- **回应**：①设置页账号卡新增「注册」按钮（未登录时与「登录」并列展示）→ `ml:register` 打开 Authentik 邀请制注册页（invitation-enrollment，链接与 magicbook 登录页注册入口同源：fnOS magicbook/.env `AUTHENTIK_ENROLLMENT_INVITE_URL`）；②账号卡 hint 补注册引导，新增「与 magicbook 的关系」说明块（同账号/同后端、数据互通、场景差异）；③README 同步。**运维耦合注意**：邀请令牌内置于扩展常量，fnOS 轮换 `AUTHENTIK_ENROLLMENT_INVITE_URL` 时需同步发版扩展。
+- **总结**：requests.md 占号 R5；response.md 本条；冲突记录：无。

@@ -13,6 +13,11 @@ const DEFAULT_CFG = {
 // v0.2 时代的旧默认（内网直连），一次性迁移到公网域名
 const LEGACY_INTERNAL_BASE = 'http://192.168.31.9:8082';
 const LOGIN_PATH = '/auth/oidc/login';
+// Authentik 邀请制注册链接（与 magicbook 登录页注册入口同源：fnOS magicbook/.env 的
+// AUTHENTIK_ENROLLMENT_INVITE_URL）。Why 内置：注册是打开邀请流程页而非 OAuth 端点；
+// 注意邀请令牌轮换时需同步更新本常量并发版。
+const ENROLLMENT_URL =
+  'https://authentik.haoshenqi.top/if/flow/invitation-enrollment/?itoken=5566492c-5d73-49dd-abe0-8dc9d48c14d8';
 
 async function getCfg() {
   const cfg = await chrome.storage.sync.get(DEFAULT_CFG);
@@ -126,6 +131,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         // 打开 moon-well 的 Authentik 登录页（与 magicbook 同一登录入口）；
         // 成功后 callback 页由 content.js 自动捕获令牌
         chrome.tabs.create({ url: (await getCfg()).apiBase + LOGIN_PATH });
+        sendResponse({ ok: true });
+        break;
+      case 'ml:register':
+        // 邀请制注册（Authentik invitation-enrollment 流程，注册完回到登录页正常登录）
+        chrome.tabs.create({ url: ENROLLMENT_URL });
         sendResponse({ ok: true });
         break;
       case 'ml:logout':

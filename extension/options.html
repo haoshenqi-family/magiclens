@@ -18,6 +18,8 @@
     #testResult.ok { color: #059669; }
     #testResult.err { color: #dc2626; }
     .hint { color: #6b7280; font-size: 12px; margin-top: 6px; }
+    .about { color: #374151; font-size: 13px; line-height: 1.8; }
+    .about b { color: #4f46e5; }
   </style>
 </head>
 <body>
@@ -28,11 +30,19 @@
     <div id="loginStatus" class="bad">检测中…</div>
     <div class="row">
       <button id="loginBtn">登录</button>
+      <button id="registerBtn" class="ghost">注册</button>
       <button id="logoutBtn" class="ghost" hidden>退出登录</button>
       <button id="test" class="ghost">测试连接</button>
       <span id="testResult"></span>
     </div>
-    <div class="hint">登录会打开 moon-well 的统一登录页（Authentik，与 magicbook 同一账号）。登录成功后令牌自动保存，无需手动填写；后端固定走公网域名 moon-well.haoshenqi.top，内外网均可使用。</div>
+    <div class="hint">登录会打开 moon-well 的统一登录页（Authentik，与 magicbook 同一账号），成功后令牌自动保存，无需手动填写；后端固定走公网域名 moon-well.haoshenqi.top，内外网均可使用。还没有账号？点「注册」走邀请制流程，注册完成后回到这里登录。</div>
+  </div>
+
+  <div class="field">
+    <label>与 magicbook 的关系</label>
+    <div class="about">
+      MagicLens 是 <b>magicbook 阅读能力的浏览器插件版</b>：两者共用同一套 Authentik 账号与 moon-well 后端，划词翻译、生词本、长期记忆、伴读 AI 的数据<b>完全互通</b>——在网页上查过的词、和 AI 聊出的记忆，回到 magicbook 阅读器里同样生效，反之亦然。区别只在使用场景：magicbook 读你书架里的电子书，MagicLens 把你正在浏览的<b>整个网页当作你的书</b>。
+    </div>
   </div>
 
   <div class="field">
