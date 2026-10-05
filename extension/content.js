@@ -1,6 +1,53 @@
-/* MagicLens content script（P0：划词翻译 + 认识/生词标记 + 浏览器本地朗读）。
+/* MagicLens content script（划词翻译 + 认识/生词标记 + 本地朗读 + OIDC 回调捕获）。
  * Why：UI 挂在 closed Shadow DOM 里与页面样式完全隔离；
  * 翻译/标记请求经 background 中转（content script fetch 受页面 CORS 约束）。 */
+
+/* ---------- OIDC 登录回调捕获（v0.3） ----------
+ * moon-well /auth/oidc/callback 成功时页面 body 即 Result{accessToken, refreshToken}
+ * 的 JSON 文本：在此读出并写入 chrome.storage，用户全程无需手动填 Token。 */
+(() => {
+  if (location.hostname !== 'moon-well.haoshenqi.top'
+    || location.pathname !== '/auth/oidc/callback') return;
+
+  function banner(ok, message) {
+    document.body.innerHTML = '';
+    const style = document.createElement('style');
+    style.textContent = 'body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;'
+      + "font:16px/1.7 -apple-system,'PingFang SC','Segoe UI',sans-serif;background:#f8fafc;color:#1f2937;}"
+      + '.card{padding:40px 48px;border-radius:16px;background:#fff;box-shadow:0 10px 40px rgba(0,0,0,.1);text-align:center;}'
+      + 'h1{font-size:20px;margin:0 0 8px;} .ok{color:#059669;} .bad{color:#dc2626;} p{color:#6b7280;margin:0;}';
+    const card = document.createElement('div');
+    card.className = 'card';
+    const h = document.createElement('h1');
+    h.textContent = ok ? '✓ MagicLens 登录成功' : '✗ MagicLens 登录失败';
+    h.className = ok ? 'ok' : 'bad';
+    const p = document.createElement('p');
+    p.textContent = ok ? '令牌已自动保存，本窗口稍后自动关闭。' : (message || '未获取到登录信息');
+    card.append(h, p);
+    document.head.appendChild(style);
+    document.body.appendChild(card);
+  }
+
+  try {
+    const payload = JSON.parse(document.body.innerText);
+    if (payload && payload.success && payload.result && payload.result.accessToken) {
+      chrome.storage.sync.set({
+        token: payload.result.accessToken,
+        refreshToken: payload.result.refreshToken || '',
+      }, () => {
+        banner(true);
+        // 通知 options 页刷新登录状态；background 稍后关闭本标签
+        chrome.runtime.sendMessage({ type: 'ml:login-ok' }, () => void chrome.runtime.lastError);
+        setTimeout(() => { try { window.close(); } catch { /* 非脚本打开时静默 */ } }, 3000);
+      });
+      return;
+    }
+    banner(false, (payload && payload.message) || '未获取到登录信息');
+  } catch (e) {
+    banner(false, '回调页面解析失败：' + e.message);
+  }
+})();
+
 (() => {
   if (window.__magicLensLoaded) return;
   window.__magicLensLoaded = true;
@@ -108,11 +155,11 @@
     elMsg.className = 'msg err';
     elMsg.textContent = message;
     if (status === 401 || status === 403) {
-      elMsg.textContent = 'Token 无效或未配置，请前往 ';
+      elMsg.textContent = '登录已失效，请 ';
       const link = document.createElement('span');
       link.className = 'cfg-link';
-      link.textContent = '扩展设置';
-      link.addEventListener('click', () => chrome.runtime.sendMessage({ type: 'ml:openOptions' }));
+      link.textContent = '重新登录';
+      link.addEventListener('click', () => chrome.runtime.sendMessage({ type: 'ml:login' }));
       elMsg.appendChild(link);
     }
   }

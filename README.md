@@ -26,7 +26,7 @@ flowchart LR
 | 划词翻译（单词/段落，≤2000 字符） | ✅ | `POST /vocabulary/reading/translate` |
 | 标记认识 / 加入生词本 | ✅ | `GET /vocabulary/known/{word}` · `GET /vocabulary/unknown/{word}` |
 | 本地朗读 | ✅ | 浏览器 speechSynthesis（不走后端） |
-| 设置页（服务地址 / Token / 自动翻译） | ✅ | `chrome.storage.sync` 本地保存 |
+| 设置页 | ✅ | 登录化（v0.3.0）：Authentik OIDC 登录 + 回调自动捕获令牌 + 401 静默刷新；无手动配置项 |
 | AI 伴读聊天抽屉 | ✅（v0.2.0） | `POST /ai/agent/chat` SSE 直连 content script；会话/记忆/学情面板；划词「问 AI」联动；moon-well 前置（web prompt + skipMemoryExtract）已上线 |
 | 段落整页翻译 + 生词波浪线标注 | 规划 P1 | `translate-batch` + `analyze` |
 | moon-well 声音朗读（DashScope） | 规划 P2 | `POST /tts/speak` |
@@ -36,9 +36,7 @@ flowchart LR
 1. 克隆本仓库；
 2. Chrome 打开 `chrome://extensions`，右上角开启「开发者模式」；
 3. 「加载已解压的扩展程序」，选择本仓库的 `extension/` 目录；
-4. 点击扩展图标 → 「设置」，填入 moon-well 地址与 Token：
-   - **服务地址**：目前 moon-well 仅内网可达，填 `http://192.168.31.9:8082`（公网入口建立后替换）；
-   - **Token**：moon-well 静态 API-key（`user.token`，`mk-` 前缀）或登录 JWT，以 `Authorization: Bearer` 携带，仅存浏览器本地。
+4. 点击扩展图标 → 「设置」→ **「登录」**：打开 moon-well 的统一登录页（Authentik，与 magicbook 同一账号），成功后令牌自动保存并静默续期（access 7 天 / refresh 30 天自动刷新），**无需手动填任何 Token**。后端固定走公网域名 `https://moon-well.haoshenqi.top`（Server 2 Traefik → fnOS，含 X-User-* 信任头剥离），内外网均可用。
 
 ## API 契约
 
@@ -61,6 +59,6 @@ flowchart LR
 ## 待办（启动前置）
 
 - [x] moon-well：`agent-chat-system-web` prompt 分支 + `skipMemoryExtract` 字段（2026-10-04 已上线，moon-well R97）；
-- [ ] moon-well 公网 HTTPS 入口（Server 2 Traefik 加路由，如 `api.haoshenqi.top` → fnOS 8082），外网场景可用；
-- [ ] Token 自助获取方案（目前需手动从库里取 `user.token`，或用 Authentik OIDC 换 JWT）；
+- [x] moon-well 公网 HTTPS 入口：`moon-well.haoshenqi.top`（2026-10-04 上线，Traefik → fnOS:8082，含 X-User-* 信任头剥离）；
+- [x] Token 自助获取：v0.3.0 登录化（Authentik 登录 + 回调自动捕获 + 静默刷新）；
 - [ ] P1：段落翻译与生词标注。

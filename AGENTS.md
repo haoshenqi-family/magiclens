@@ -20,6 +20,7 @@
 - **所有 moon-well 请求必须经 background service worker 中转**：MV3 中 content script 的 fetch 遵循页面源 CORS，且 http 页面有混合内容限制；SW 持有 `host_permissions` 豁免。
 - **UI 一律挂 closed Shadow DOM**，禁止向页面注入全局样式或污染 `window`（仅保留 `__magicLensLoaded` 防重入门）。
 - **Token 只存 `chrome.storage.sync`**（浏览器本地）；任何真实 token、密钥、上游凭据禁止入库。
+- **后端默认走公网域名 `https://moon-well.haoshenqi.top`**（Server 2 Traefik → fnOS:8082，含 X-User-* 信任头剥离中间件，配置源 `app-manager/deploy/traefik-dynamic/moonwell.yml`）；用户经 Authentik 统一登录（与 magicbook 同一账号），令牌由 `/auth/oidc/callback` 页自动捕获、`/auth/refreshToken` 静默续期——**设置页不提供手动地址/Token 配置项**；记忆始终开启（不携带 skipMemoryExtract）。
 - 无构建链，`extension/` 目录即最终产物：改完在 `chrome://extensions` 重新加载即可验证；`manifest.json` 的 `version` 按语义化版本递增。
 - 选区文本上限 2000 字符（moon-well translate 接口约束）；生词标记仅英文单词（正则提取首个英文词）；`known`=标记已认识（移出学习队列）、`unknown`=加入生词本。
 - 图标由 `scripts/gen_icons.py` 生成（纯标准库）并入库，改图标改脚本后重新生成，不手工编辑 PNG。

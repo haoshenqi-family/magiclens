@@ -199,3 +199,7 @@ flowchart LR
 | 公网入口与信任头剥离 | 前置条件不变（R118 风险①）；agent 走 JWT，上公网前完成 Traefik 路由 + 信任头剥离审计 |
 | 防检测站点拦截 | 兜底 chrome.sidePanel 承载抽屉（P1 可选，本文不展开） |
 | SSE 长流与页面生命周期 | 断流提示 + 会话历史服务端可恢复（§4.5），不做后台保活 |
+
+## 10. 变更记录
+
+- **2026-10-04 · v0.3.0（R4）**：①**登录方案定稿**——放弃「设置页手动填 mk- key / JWT」（§6.3 的 mk- 方案降级为兼容残留），改为：设置页点「登录」→ `GET /auth/oidc/login`（Authentik 统一登录页，与 magicbook 同一账号）→ Authentik 回调白名单仍指老域名 `moonwell.haoshenqi.top`，经 Traefik 301（保留 query，实测 state 校验可用）落到 `moon-well.haoshenqi.top/auth/oidc/callback` → 页面 body 的 `Result{accessToken, refreshToken}` 由 content script **自动捕获**入库 → 401 时 background 经 `/auth/refreshToken` **静默刷新一次**后重试，刷新失败清令牌引导重登。②**记忆决策反转**（用户要求）：移除抽屉「本会话不记忆」勾选与设置页默认项，插件不再携带 `skipMemoryExtract`（记忆始终开启）；moon-well 侧字段保留（null=false 向后兼容，§5.2 设计不变，供未来需要时复用）。③**默认后端切公网域名** `https://moon-well.haoshenqi.top`（Traefik 路由上线并实测：未登录 401、伪造 X-User-* 头无效——internalUri 前缀的信任头风险被「strip 中间件 + 生产 INTERNAL_TRUST 未开启」双重覆盖；设置页移除地址/Token 手动配置，v0.2 存量内网 apiBase 一次性迁移）。

@@ -12,11 +12,11 @@ $enabled.addEventListener('change', () => {
   chrome.storage.sync.set({ enabled: $enabled.checked });
 });
 
-chrome.storage.sync.get({ apiBase: '', token: '' }, ({ apiBase, token }) => {
-  if (apiBase && token) {
-    $status.textContent = '已配置，划词即可翻译';
+chrome.storage.sync.get({ token: '' }, ({ token }) => {
+  if (token) {
+    $status.textContent = '已登录，划词即可翻译';
   } else {
-    $status.textContent = '未配置服务地址或 Token，请先完成设置';
+    $status.textContent = '未登录，点「设置」登录后使用';
     $status.classList.add('warn');
   }
 });

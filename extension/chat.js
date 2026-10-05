@@ -15,12 +15,11 @@
     view: 'chat',                // chat | memory | profile
     conversationId: null,        // null = 新会话（服务端首问创建，final 回传）
     running: false, abort: null,
-    skipMemory: true,            // 隐私优先：默认不写入长期记忆（LLD §5.2）
     els: null,
   };
 
   /* ---------- 配置与 JSON API（面板请求走 background 中转，LLD A2） ---------- */
-  const getCfg = () => chrome.storage.sync.get({ apiBase: '', token: '', skipMemoryDefault: true });
+  const getCfg = () => chrome.storage.sync.get({ apiBase: '', token: '' });
 
   function api(path, body) {
     return new Promise((resolve) => {
@@ -67,7 +66,6 @@
     details.trace { margin-top: 4px; font-size: 11px; color: #6b7280; }
     details.trace pre { margin: 2px 0 0; white-space: pre-wrap; word-break: break-word; }
     .compose { border-top: 1px solid #e5e7eb; padding: 10px 12px; }
-    .skip { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #6b7280; margin-bottom: 8px; cursor: pointer; }
     .row { display: flex; gap: 8px; align-items: flex-end; }
     textarea { flex: 1; resize: none; border: 1px solid #d1d5db; border-radius: 10px; padding: 8px 10px; font: inherit; }
     .send { all: unset; cursor: pointer; background: #4f46e5; color: #fff; border-radius: 10px; padding: 8px 14px; }
@@ -113,7 +111,6 @@
         <main class="panel view-memory" hidden></main>
         <main class="panel view-profile" hidden></main>
         <div class="compose">
-          <label class="skip"><input type="checkbox" class="skip-box" checked> 本会话不记忆（隐私优先，可在设置改默认）</label>
           <div class="row">
             <textarea class="input" rows="2" placeholder="问点什么…（Enter 发送 / Shift+Enter 换行）"></textarea>
             <button class="send">发送</button>
@@ -129,7 +126,6 @@
       msgs: shadow.querySelector('.msgs'),
       memory: shadow.querySelector('.view-memory'),
       profile: shadow.querySelector('.view-profile'),
-      skipBox: shadow.querySelector('.skip-box'),
       input: shadow.querySelector('.input'),
       sendBtn: shadow.querySelector('.send'),
     };
@@ -156,7 +152,6 @@
     state.els.input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!state.running) send(state.els.input.value); }
     });
-    state.els.skipBox.addEventListener('change', () => { state.skipMemory = state.els.skipBox.checked; });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.open) close(); });
   }
 
@@ -166,11 +161,6 @@
     state.els.wrap.classList.add('on');
     if (!state.bootstrapped) {
       state.bootstrapped = true;
-      // 抽屉首次打开：读默认记忆偏好（设置页可反转，LLD §5.2）
-      chrome.storage.sync.get({ skipMemoryDefault: true }, (c) => {
-        state.skipMemory = c.skipMemoryDefault;
-        state.els.skipBox.checked = state.skipMemory;
-      });
       welcome();
       refreshConversations();
     }
@@ -206,7 +196,7 @@
   const scrollBottom = () => { state.els.msgs.scrollTop = state.els.msgs.scrollHeight; };
 
   function welcome() {
-    const m = el('div', 'msg hint', 'MagicLens 伴读：划词后点「问 AI」，或直接输入问题。当前网页的标题与正文会自动作为上下文（不写长期记忆，除非你取消勾选）。');
+    const m = el('div', 'msg hint', 'MagicLens 伴读：划词后点「问 AI」，或直接输入问题。当前网页的标题与正文会自动作为上下文；重要的信息可让我「记住」，随时在 🧠 面板查看。');
     state.els.msgs.appendChild(m);
   }
 
@@ -232,9 +222,9 @@
     shell.meta.textContent = '';
     shell.meta.appendChild(el('span', '', message));
     if (auth) {
-      shell.meta.appendChild(el('span', '', '，请前往 '));
-      const link = el('span', 'cfg-link', '扩展设置');
-      link.addEventListener('click', () => chrome.runtime.sendMessage({ type: 'ml:openOptions' }));
+      shell.meta.appendChild(el('span', '', '，请 '));
+      const link = el('span', 'cfg-link', '重新登录');
+      link.addEventListener('click', () => chrome.runtime.sendMessage({ type: 'ml:login' }));
       shell.meta.appendChild(link);
     }
   }
@@ -333,7 +323,7 @@
       bookId: null,                    // 网页场景判据（moon-well 落 0、用 web prompt）
       bookTitle: ctx.bookTitle || '',
       pageText: ctx.pageText || '',
-      skipMemoryExtract: state.skipMemory,
+      // 记忆始终开启（用户决策 2026-10-04，移除 skipMemoryExtract 开关）
     };
     if (state.conversationId) body.conversationId = state.conversationId;
 
