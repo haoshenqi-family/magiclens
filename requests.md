@@ -18,3 +18,5 @@
 10. magiclens 每次修改完成后增加版本号，按照0.0.0-Timesnap 增加。
 
 11. magiclens 我已经改为了public 版本升级后自动在 GitHub 发一个releases  X.Y.Z 的版本功能验证通过后发，-YYYYMMDDHHmm 是为了测试，不触发发布
+
+12. github 没有release
