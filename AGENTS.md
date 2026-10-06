@@ -21,7 +21,9 @@
 - **UI 一律挂 closed Shadow DOM**，禁止向页面注入全局样式或污染 `window`（仅保留 `__magicLensLoaded` 防重入门）。
 - **Token 只存 `chrome.storage.sync`**（浏览器本地）；任何真实 token、密钥、上游凭据禁止入库。
 - **后端默认走公网域名 `https://moon-well.haoshenqi.top`**（Server 2 Traefik → fnOS:8082，含 X-User-* 信任头剥离中间件，配置源 `app-manager/deploy/traefik-dynamic/moonwell.yml`）；用户经 Authentik 统一登录（与 magicbook 同一账号），令牌由 `/auth/oidc/callback` 页自动捕获、`/auth/refreshToken` 静默续期——**设置页不提供手动地址/Token 配置项**；记忆始终开启（不携带 skipMemoryExtract）。
-- 无构建链，`extension/` 目录即最终产物：改完在 `chrome://extensions` 重新加载即可验证；`manifest.json` 的 `version` 按语义化版本递增。
+- 无构建链，`extension/` 目录即最终产物：改完在 `chrome://extensions` 重新加载即可验证；**版本号两段式规则 `X.Y.Z` / `X.Y.Z-YYYYMMDDHHmm`：每次修改完成后必须递增**——
+    - **测试版（默认）**：修改完成即递增——`version` 按语义化版本 +1（Chrome manifest 的 `version` 只接受点分整数，时间戳不能写进该字段），`version_name` 写完整 `X.Y.Z-YYYYMMDDHHmm`（取修改完成时刻的时间戳），popup 展示 `version_name`；**带时间戳后缀的版本不触发发布**。
+    - **正式版**：功能验证通过后发布——把 `version_name` 的时间戳后缀去掉（只留纯 `X.Y.Z`）再推送，push 到 `develop` 后由 [.github/workflows/release.yml](./.github/workflows/release.yml) 自动打 `vX.Y.Z` tag、创建 GitHub Release 并附 `extension/` 打包 zip（Release 已存在则跳过）。
 - 选区文本上限 2000 字符（moon-well translate 接口约束）；生词标记仅英文单词（正则提取首个英文词）；`known`=标记已认识（移出学习队列）、`unknown`=加入生词本。
 - 图标由 `scripts/gen_icons.py` 生成（纯标准库）并入库，改图标改脚本后重新生成，不手工编辑 PNG。
 
@@ -63,7 +65,7 @@
 - **执行要求**：
 	- **单线程开发**：每次仅处理 1 个 User Story，完成并验证后再进入下一个。
 	- **注释规范**：先写注释阐明 `Why`（业务意图/约束条件），再写 `How`（实现逻辑）。
-	- **交付标准**：代码完成后，扩展须可在 `chrome://extensions` 重新加载并正常工作（控制台无新增报错），`manifest.json` 版本号已递增。
+	- **交付标准**：代码完成后，扩展须可在 `chrome://extensions` 重新加载并正常工作（控制台无新增报错），`manifest.json` 已按 §0.2 版本号规则递增为测试版（`version` 语义化 +1，`version_name` 更新为 `X.Y.Z-YYYYMMDDHHmm`，不触发发布）。
 	- **Code Review**：完成后主动切换模型/Agent 视角进行交叉审查，确认无误后再提交。
 
 ### 🔍 3. 验收 (AC 对齐)
@@ -73,6 +75,7 @@
     - 所有验证点必须全部验证，不可以跳过。条件不足（如无 moon-well 内网环境）则请求用户提供更多信息。
     - 重点关注**请求经 background 中转、Result 包装解析、Shadow DOM 隔离**这三条硬性约定是否被破坏。
     - 验收完成后，输出详细验证报告（含每条 AC 结果与截图/console 佐证），最后回复 `✅ 所有 AC 已覆盖验证`。
+    - **发布正式版**：验收通过后，把 `manifest.json` 的 `version_name` 时间戳后缀去掉（`X.Y.Z-YYYYMMDDHHmm` → 纯 `X.Y.Z`）并推送，push 到 `develop` 即由 `release.yml` 自动创建 GitHub Release（见 §0.2 两段式规则）。
 
 ### 🛠 4. bug修复
 - **执行要求**：

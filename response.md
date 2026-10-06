@@ -93,3 +93,42 @@
   - **文档**：`docs/feat/word-detail/design/lld.md`（US1/US2 + 验收清单 7 条 + 审查修复记录）、`prompts.md`（v2 权威源）、README 功能表与 API 表同步。
 - **待办**：①真机手工验收（LLD 验收清单，重点 ran/running 变体与缓存秒回）②moon-well 部署需 push 触发构建链（待用户确认）③扩展控制台无新增报错待真机确认。
 - **总结**：requests.md 占号 R8；response.md 本条；冲突记录：无。
+
+## R9 回应：magicbook 上划词是否会双触发
+
+**结论：不会同时触发，实际使用不冲突。**
+
+- magicbook 划词只存在于 epub 阅读器：`cps/static/js/reading/epub.js` 的 `bindSelectionTranslation`（L866-895、L1981）把 mouseup/touchend 绑在 epub.js 渲染用 **iframe document** 上，iframe 内事件不冒泡到主文档（代码注释亦写明）。
+- MagicLens content script 虽注入 `http(s)://*/*`（含 magicbook 域名，无排除逻辑），但 manifest 无 `all_frames`，只注入顶层 frame，监听主文档 mouseup——在 epub iframe 里划词不会触发 MagicLens。
+- magicbook 其它页面（书架/详情/TXT 等）没有自带划词，选中只弹 MagicLens 气泡；txt/djvu reader 未绑定 bindSelectionTranslation，同理只有 MagicLens。
+- 两端走同一 moon-well API、同一账号，生词标记数据收敛，无数据冲突。
+- 若仍希望 MagicLens 在 magicbook 域名彻底静默，可在 content.js 初始化处加域名 early-return，或用 Chrome 按站点权限控制；当前无必要。
+
+- **总结**：requests.md 占号 R9；response.md 本条；冲突记录：无。
+
+## 2026-10-06
+
+### R10（版本号规则：每次修改完成后按 0.0.0-Timesnap 递增）
+
+- **回应**：已确立「时间戳版本号」规则并落地：
+  - **规则定案 `X.Y.Z-YYYYMMDDHHmm`**：每次修改完成后必须递增版本号。因 Chrome manifest 的 `version` 字段只接受点分整数（写 `0.4.1-202610061607` 会被 Chrome 拒绝加载），落为双字段方案——`version` 按语义化版本递增（用户可读的版本基准），`version_name` 写完整 `X.Y.Z-YYYYMMDDHHmm`（修改完成时刻的时间戳，即用户所说的 0.0.0-Timesnap）。
+  - **本次应用**：manifest `0.4.0 → 0.4.1`，`version_name = 0.4.1-202610061607`；`popup.js` 改为优先展示 `version_name`（弹窗可见 `v0.4.1-202610061607`，时间戳与具体一次修改一一对应）；AGENTS.md §0.2 硬性约定与「编码实现·交付标准」已固化该规则，后续任何修改完成时都必须执行。
+  - **校验**：manifest JSON 解析通过；popup.js `node --check` 通过。改动未提交（工作区另有上一会话遗留的未提交内容），待用户验收后一并处理。
+- **总结**：
+  - requests.md：占号 R10。
+  - response.md：本条。
+  - 冲突记录：本次初占 R9 与上一会话既有 R9（magicbook 划词双触发问答）撞号（占号前台账核对遗漏），按编号纪律不修改既有记录，续编空号为 R10。
+
+## 2026-10-06（二）
+
+### R11（发布流程：X.Y.Z 验证通过后自动发 GitHub Release，-YYYYMMDDHHmm 测试版不发布）
+
+- **回应**：已按两段式版本规则补齐自动发布链路（仓库 public 后启用）：
+  - **新增 `.github/workflows/release.yml`**：push 到 `develop` 后读 `manifest.json` 的 `version_name`——纯 `X.Y.Z`（功能验证通过后清理了时间戳）→ 打 `vX.Y.Z` tag、创建 GitHub Release（`--generate-notes`）并附 `extension/` 打包 zip（`magiclens-extension-vX.Y.Z.zip`，排除 `.DS_Store`）；带 `-YYYYMMDDHHmm` 后缀（测试版）或 Release 已存在 → 跳过。workflow 权限仅 `contents: write`。
+  - **文档同步**：AGENTS.md §0.2 版本号规则升级为两段式（测试版=修改完成即递增带时间戳、不发布；正式版=验证通过后去时间戳再推送，自动发 Release），§3 验收流程补「发布正式版」步骤，§2 交付标准标注测试版不触发发布；`docs/design.md` 新增 §6 ADR；README 安装章节补 GitHub Releases 下载方式。
+  - **校验**：workflow YAML 解析通过；版本判定门用真实 manifest 实测——`0.4.1-202610061607`→跳过、`0.5.0`→发布、`0.5.0-202610071200`→跳过、异常 `0.5`→保守跳过。
+  - 当前工作区 `0.4.1-202610061607` 属测试版，推送后不会触发 Release；首次发布将发生在验收通过、清理时间戳（如 `0.4.1`）推送后。
+- **总结**：
+  - requests.md：占号 R11。
+  - response.md：本条。
+  - 冲突记录：无。

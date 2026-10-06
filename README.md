@@ -34,7 +34,9 @@ flowchart LR
 
 ## 安装（开发者模式）
 
-1. 克隆本仓库；
+> 正式版可从 [GitHub Releases](https://github.com/haoshenqi-family/magiclens/releases) 直接下载 `magiclens-extension-vX.Y.Z.zip`，解压得到 `extension/`（功能验证通过后的 X.Y.Z 版本自动发布；带 `-YYYYMMDDHHmm` 时间戳后缀的是测试版，不发 Release）。克隆仓库则始终是最新开发版。
+
+1. 克隆本仓库（或使用 Releases 下载解压的 `extension/`）；
 2. Chrome 打开 `chrome://extensions`，右上角开启「开发者模式」；
 3. 「加载已解压的扩展程序」，选择本仓库的 `extension/` 目录；
 4. 点击扩展图标 → 「设置」→ **「登录」**：打开 moon-well 的统一登录页（Authentik，与 magicbook 同一账号），成功后令牌自动保存并静默续期（access 7 天 / refresh 30 天自动刷新），**无需手动填任何 Token**。后端固定走公网域名 `https://moon-well.haoshenqi.top`（Server 2 Traefik → fnOS，含 X-User-* 信任头剥离），内外网均可用。还没有账号？设置页点 **「注册」** 走邀请制流程（与 magicbook 同一条 invitation-enrollment 链路），注册完回来登录即可。

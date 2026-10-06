@@ -1,0 +1,44 @@
+# MagicLens 自动发布：push 到 develop 后检查 manifest 版本号
+# - version_name 为纯 X.Y.Z（功能验证通过后清理时间戳）→ 打 vX.Y.Z tag、创建 GitHub Release 并附扩展 zip
+# - version_name 带 -YYYYMMDDHHmm 后缀 → 测试版（修改完成即递增），不触发发布
+name: release
+
+on:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 解析 manifest 版本
+        id: ver
+        run: |
+          vname=$(jq -r '.version_name // .version' extension/manifest.json)
+          echo "version_name=$vname" >> "$GITHUB_OUTPUT"
+          if [[ "$vname" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "版本 $vname 为测试版（带时间戳后缀），跳过发布"
+          fi
+
+      - name: 打包并发布 GitHub Release
+        if: steps.ver.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VER: ${{ steps.ver.outputs.version_name }}
+        run: |
+          if gh release view "v$VER" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v$VER 已存在，跳过"
+            exit 0
+          fi
+          zip -r "magiclens-extension-v$VER.zip" extension -x '*.DS_Store'
+          gh release create "v$VER" "magiclens-extension-v$VER.zip" \
+            --title "MagicLens 词镜 v$VER" \
+            --generate-notes

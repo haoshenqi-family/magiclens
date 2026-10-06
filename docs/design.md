@@ -46,3 +46,10 @@ moon-well 认证三通道：
 - **P1**：段落整页翻译（translate-batch）+ 生词波浪线标注（analyze）+ OIDC 登录与 JWT 静默刷新。
 - **P2**：moon-well TTS 朗读（/tts/speak 音频播放状态机 + speechSynthesis 降级）。
 - **储备**：chrome.sidePanel 兜底方案、Readability 深度正文抽取、右键菜单「问 AI」。
+
+## 6. 版本与发布（2026-10-06，依据 requests.md R11）
+
+仓库已转 **public**。版本号两段式，发布全自动：
+
+- **测试版 `X.Y.Z-YYYYMMDDHHmm`**：每次修改完成即递增（`version` 语义化 +1，时间戳写进 `version_name`），供 `chrome://extensions` 重载验证，**不触发发布**。
+- **正式版 `X.Y.Z`**：功能验证通过后清理 `version_name` 时间戳再推送，push 到 `develop` 触发 [.github/workflows/release.yml](./.github/workflows/release.yml)——纯 `X.Y.Z` 才发布：打 `vX.Y.Z` tag、创建 GitHub Release、附 `extension/` 打包 zip；测试后缀或 Release 已存在均跳过。

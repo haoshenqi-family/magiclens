@@ -3,7 +3,9 @@ const $enabled = document.getElementById('enabled');
 const $status = document.getElementById('status');
 const $ver = document.getElementById('ver');
 
-$ver.textContent = `v${chrome.runtime.getManifest().version}`;
+// 优先展示 version_name（X.Y.Z-YYYYMMDDHHmm，带修改时间戳），便于对应到具体一次修改
+const mlManifest = chrome.runtime.getManifest();
+$ver.textContent = `v${mlManifest.version_name || mlManifest.version}`;
 
 chrome.storage.sync.get({ enabled: true }, (c) => {
   $enabled.checked = c.enabled;
