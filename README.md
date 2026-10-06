@@ -1,19 +1,19 @@
 # MagicLens 词镜
 
-把 magicbook 的阅读能力带到整个 Web 的 Chrome 扩展：在**任意网页**上划词翻译、标记认识/生词、朗读，数据与词汇表和 magicbook / moon-well 完全互通——整个互联网都是你的英文书。
+把 magicbook 的阅读能力带到整个 Web 的 Chrome 扩展：在**任意网页**上划词翻译、查看单词详解、标记认识/生词、朗读，数据与词汇表和 magicbook / moon-well 完全互通——整个互联网都是你的英文书。
 
 > 命名寓意：透镜（lens）= 对准任意页面，透视出翻译、生词与朗读；与 magicbook 同姓 magic。
 
 ## 架构
 
-插件是纯前端，直接调用 [moon-well](https://github.com/haoshenqi-family/moon-well) 既有 API，**后端零改动**：
+插件是纯前端，调用 [moon-well](https://github.com/haoshenqi-family/moon-well) 的 API（v0.4 起后端有配套改动：单词详解接口 + magicbook-vocabulary 缓存索引）：
 
 ```mermaid
 flowchart LR
     U[你在任意网页划词] --> CS[content.js<br/>划词气泡 · Shadow DOM]
     CS -->|chrome.runtime.sendMessage| SW[background.js<br/>API 中转 · Bearer Token]
-    SW -->|HTTPS/HTTP| MW["moon-well（fnOS 192.168.31.9:8082）<br/>词汇 / 翻译 / TTS / 积分"]
-    MW --> ES[("ES 段落缓存<br/>命中不重复计费")]
+    SW -->|HTTPS| MW["moon-well（公网 moon-well.haoshenqi.top<br/>→ fnOS :8082）<br/>词汇 / 翻译 / 详解 / TTS / 积分"]
+    MW --> ES[("ES 段落/详解缓存<br/>命中不重复计费")]
 ```
 
 - 为什么请求经 background 中转：MV3 中 content script 的 fetch 遵循页面源 CORS 规则，service worker 持有 `host_permissions` 豁免，且不受 http 页面的混合内容限制。
@@ -24,6 +24,7 @@ flowchart LR
 | 能力 | 状态 | 实现 |
 | --- | --- | --- |
 | 划词翻译（单词/段落，≤2000 字符） | ✅ | `POST /vocabulary/reading/translate` |
+| 单词详解（v0.4.0） | ✅ | `GET /vocabulary/detail/{word}`：六板块（基本意思/词源/搭配·用法·习语/变体与衍生词/同反义词/俚语冷知识）；划词变体自动还原词目（ran→run）；moon-well 侧 ES 缓存（magicbook-vocabulary 索引），重复查询不重复计费 |
 | 标记认识 / 加入生词本 | ✅ | `GET /vocabulary/known/{word}` · `GET /vocabulary/unknown/{word}` |
 | 本地朗读 | ✅ | 浏览器 speechSynthesis（不走后端） |
 | 设置页 | ✅ | 登录化（v0.3.0）：Authentik OIDC 登录 + 回调自动捕获令牌 + 401 静默刷新；无手动配置项 |
@@ -50,6 +51,7 @@ flowchart LR
 | `/vocabulary/reading/translate-batch` | POST | `{paragraphs[≤20], bookName?, chapter?}` | 段落批量翻译 → `List<String>` |
 | `/vocabulary/reading/analyze` | POST | 阅读上下文（bookId 等可空） | 生词判定 → 需标注的词列表 |
 | `/vocabulary/known/{word}` · `/unknown/{word}` | GET | — | 标记认识 / 入生词本 |
+| `/vocabulary/detail/{word}` | GET | — | 单词详解（v0.4.0）：六板块结构化 JSON；变体入参自动还原词目，缓存按词目落档 |
 | `/vocabulary/reading/settings` | GET | — | 阅读偏好（也用作连接测试） |
 | `/tts/speak` | POST | `{text}`（1..2000，65s 超时） | 音频二进制（P2 接入） |
 

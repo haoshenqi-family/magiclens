@@ -109,6 +109,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         );
         break;
       }
+      case 'ml:detail':
+        // 单词详解：moon-well 缓存优先（magicbook-vocabulary 索引），miss 才调 LLM；
+        // 划词可能是变体（ran），服务端负责还原词目并返回六板块结构化 JSON
+        sendResponse(
+          await callApi(`/vocabulary/detail/${encodeURIComponent(msg.word || '')}`, { method: 'GET' })
+        );
+        break;
       case 'ml:settings':
         sendResponse(await callApi('/vocabulary/reading/settings', { method: 'GET' }));
         break;
