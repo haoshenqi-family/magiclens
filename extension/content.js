@@ -65,6 +65,8 @@
   /* ---------- UI（Shadow DOM） ---------- */
   const host = document.createElement('div');
   host.style.cssText = 'all:initial;';
+  // Why id：page-extract/highlight 的排除逻辑按 #magiclens-host 识别自身 UI（v0.4.2 前漏挂，补上）
+  host.id = 'magiclens-host';
   document.documentElement.appendChild(host);
   const shadow = host.attachShadow({ mode: 'closed' });
   shadow.innerHTML = `
@@ -90,6 +92,10 @@
         animation: ml-spin .8s linear infinite;
       }
       @keyframes ml-spin { to { transform: rotate(360deg); } }
+      /* Why：hidden 属性的 UA display:none 会被影子表单里任何显式 display（如 .spin 的
+         inline-block）覆盖——spinner 一旦显示，setResult 的 elSpin.hidden=true 永远藏不掉，
+         表现为「结果已渲染但转圈不停」。统一兜底所有用 hidden 收起的元素。 */
+      [hidden] { display: none !important; }
       .actions { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
       .actions button {
         all: unset; cursor: pointer; font: 12px/1 inherit; color: #4f46e5;
@@ -181,15 +187,57 @@
   let current = null; // { text, word }
   let detailSeq = 0;  // Why 序号：旧词的慢响应不得覆盖新词面板（缓存 miss 的词响应最慢）
 
-  function hide() {
-    card.classList.remove('show');
-    detail.classList.remove('show');
-    current = null;
+  /* ---------- 孤儿上下文自处（R13「译」永久转圈的根因） ----------
+   * Why：扩展重新加载/发版后，已打开标签页里的这份脚本副本上下文失效，
+   * chrome.runtime.* 同步抛 "Extension context invalidated"；调用点不接住，
+   * 气泡就永远停在「翻译中…」，而且请求根本没发出（后端零日志）。
+   * 失效即退役：摘掉事件监听并移除自己的 UI——一份再也发不出请求的副本继续
+   * 驻留在页面上只会制造「点了没反应」的死 UI，刷新页面后由新副本接管。 */
+  let dormant = false;
+
+  function retireOrphan() {
+    dormant = true;
+    document.removeEventListener('mouseup', onMouseUp, true);
+    document.removeEventListener('mousedown', onMouseDown, true);
+    document.removeEventListener('keydown', onKeyDown, true);
+    window.removeEventListener('scroll', onScroll, { capture: true });
+    host.remove();
+    console.warn('[MagicLens] 扩展已更新，本页旧脚本退役；刷新页面（F5）后生效');
   }
 
-  function show(anchor) {
+  /** 统一的中转调用：上下文失效即退役，其余错误归一成 {ok:false,error} 交给调用方展示。 */
+  function askBackground(msg, onResult) {
+    if (dormant) return;
+    // Why 同步抛与异步 lastError 走同一分类器：失效可能在发消息那一刻发生（throw），
+    // 也可能发生在请求在途时扩展被重载（回调带 lastError）；两条路都不得把英文原文糊进气泡。
+    const report = (message) => {
+      if (/invalidated|disposed/i.test(message)) return void retireOrphan();
+      onResult({ ok: false, error: message });
+    };
+    try {
+      if (!chrome.runtime || !chrome.runtime.id) throw new Error('Extension context invalidated');
+      chrome.runtime.sendMessage(msg, (resp) => {
+        const lastErr = chrome.runtime.lastError;
+        if (lastErr) return report(String((lastErr && lastErr.message) || lastErr));
+        onResult(resp || { ok: false, error: '无响应' });
+      });
+    } catch (e) {
+      report(String((e && e.message) || e));
+    }
+  }
+
+  function hide() {
+    // R19：详解面板与气泡生命周期解耦——收气泡不再收面板。
+    // 面板仅由 ✕/Esc/新「详」查询关闭：生成要 15~30s，误关一次用户就白等一趟
+    card.classList.remove('show');
+    current = null;
+    // R21：气泡来源（selection=划选/点词, hover=悬浮生词）；highlight.js 以此决定悬浮触发与收起
+    window.__magicLensBubbleSource = null;
+  }
+
+  function show(anchor, source = 'selection') {
     card.classList.add('show');
-    detail.classList.remove('show'); // 新选区重开气泡时收起旧详解
+    window.__magicLensBubbleSource = source;
     const r = card.getBoundingClientRect();
     const left = Math.min(Math.max(8, anchor.left), window.innerWidth - r.width - 8);
     let top = anchor.bottom + 8;
@@ -220,7 +268,7 @@
       const link = document.createElement('span');
       link.className = 'cfg-link';
       link.textContent = '重新登录';
-      link.addEventListener('click', () => chrome.runtime.sendMessage({ type: 'ml:login' }));
+      link.addEventListener('click', () => askBackground({ type: 'ml:login' }, () => {}));
       elMsg.appendChild(link);
     }
   }
@@ -229,7 +277,7 @@
   function selectionInfo() {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
-    // Why：用户在详解面板内划选/复制例句时不得触发新翻译流程（会误关面板）
+    // Why：用户在扩展 UI 内划选/复制文本（气泡或详解面板）时不得触发新翻译流程
     const insideHost = (node) =>
       node && node.getRootNode && node.getRootNode() === shadow;
     if (insideHost(sel.anchorNode) || insideHost(sel.focusNode)) return null;
@@ -247,10 +295,19 @@
     btnUnknown.classList.remove('done');
   }
 
+  // Why 去重：点高亮词会两路触发本函数——mouseup 的 60ms 定时器 + highlight.js 的
+  // click 处理器（程序化选中单词后立即调用）。同一选区 500ms 内只处理一次，
+  // 避免重开气泡并重复发翻译请求
+  let lastProc = { key: '', at: 0 };
+
   function processSelection() {
     if (!cfg.enabled) return;
     const info = selectionInfo();
     if (!info) return;
+    const key = `${info.text}|${Math.round(info.rect.left)},${Math.round(info.rect.top)}`;
+    const now = Date.now();
+    if (key === lastProc.key && now - lastProc.at < 500) return;
+    lastProc = { key, at: now };
     resetButtons();
     elSrc.textContent = info.text.length > 120 ? `${info.text.slice(0, 120)}…` : info.text;
     show({ left: info.rect.left, top: info.rect.top, bottom: info.rect.bottom });
@@ -272,10 +329,9 @@
   function translate() {
     if (!current) return;
     setLoading('翻译中…');
-    chrome.runtime.sendMessage({ type: 'ml:translate', text: current.text }, (resp) => {
+    askBackground({ type: 'ml:translate', text: current.text }, (resp) => {
       if (!current) return; // 气泡已关闭
-      if (chrome.runtime.lastError) return setError(chrome.runtime.lastError.message);
-      if (!resp || !resp.ok) return setError((resp && resp.error) || '翻译失败', resp && resp.status);
+      if (!resp.ok) return setError(resp.error || '翻译失败', resp.status);
       const data = resp.data || {};
       setResult(data.translation || '（空结果）', data.source);
     });
@@ -286,14 +342,19 @@
       setError('生词标记仅支持英文单词');
       return;
     }
+    // Why 闭包捕获：响应到达前气泡可能已关闭（current=null 会抛错）或已换词
+    //（会把新词传给高亮回写，页面点亮的是错的词），标记的词必须是按下按钮那一刻的词
+    const word = current.word;
     btn.textContent = '…';
-    chrome.runtime.sendMessage({ type: 'ml:mark', word: current.word, known }, (resp) => {
-      if (resp && resp.ok) {
+    askBackground({ type: 'ml:mark', word, known }, (resp) => {
+      if (resp.ok) {
         btn.textContent = known ? '已认识 ✓' : '已入生词本 ✓';
         btn.classList.add('done');
+        // 生词高亮（highlight.js）即时回写：标认识全页熄灭、标生词全页点亮（含常见变形）
+        if (window.__magicLensOnMarked) window.__magicLensOnMarked(word, known);
       } else {
         btn.textContent = known ? '认识' : '生词';
-        setError((resp && resp.error) || '标记失败', resp && resp.status);
+        setError(resp.error || '标记失败', resp.status);
       }
     });
   }
@@ -353,10 +414,22 @@
       const link = document.createElement('span');
       link.className = 'cfg-link';
       link.textContent = '重新登录';
-      link.addEventListener('click', () => chrome.runtime.sendMessage({ type: 'ml:login' }));
+      link.addEventListener('click', () => askBackground({ type: 'ml:login' }, () => {}));
       msg.appendChild(link);
     } else {
       msg.textContent = message;
+      // R19：非鉴权失败（多为生成超时）面板不关，给出点击重试——后端已缓存
+      // 部分结果或下次命中，重试代价远低于重新划词
+      const retry = document.createElement('span');
+      retry.className = 'cfg-link';
+      retry.textContent = ' 点击重试';
+      retry.addEventListener('click', () => {
+        if (detailWord) {
+          current = { text: detailWord, word: detailWord };
+          openDetail();
+        }
+      });
+      msg.appendChild(retry);
     }
   }
 
@@ -367,6 +440,7 @@
       return;
     }
     const seq = ++detailSeq;
+    detailWord = current.word;
     detail.classList.add('show');
     elDWord.textContent = current.word;
     elDTag.hidden = true;
@@ -374,13 +448,13 @@
     elDBody.innerHTML = '';
     const loading = document.createElement('div');
     loading.className = 'd-msg';
-    loading.textContent = '详解加载中…（首次查询生词需在线生成，稍慢）';
+    // R19：生成期间面板不会被误关，明确告知等待时长与自动显示
+    loading.textContent = 'AI 正常生成中…（首次查询约 15~30 秒，完成后自动显示，期间可继续浏览网页）';
     elDBody.appendChild(loading);
     positionDetail();
-    chrome.runtime.sendMessage({ type: 'ml:detail', word: current.word }, (resp) => {
+    askBackground({ type: 'ml:detail', word: current.word }, (resp) => {
       if (seq !== detailSeq || !detail.classList.contains('show')) return; // 已换词或面板已关闭
-      if (chrome.runtime.lastError) return dError(chrome.runtime.lastError.message);
-      if (!resp || !resp.ok) return dError((resp && resp.error) || '详解加载失败', resp && resp.status);
+      if (!resp.ok) return dError(resp.error || '详解加载失败', resp.status);
       renderDetail(resp.data || {});
     });
   }
@@ -473,11 +547,40 @@
   }
 
   /* ---------- 事件 ---------- */
+  // 生词高亮点词交互（highlight.js）复用划词流程：程序化选中单词后走同一气泡链路
+  window.__magicLensProcessSelection = processSelection;
+
+  // R21 悬浮生词即显气泡（highlight.js 悬停命中后调用）：不开真实选区——部分页面元素
+  // 点击会跳转，且程序化选中会覆盖用户已有选区；仅按悬浮词打开气泡，按钮全部照常工作
+  window.__magicLensShowWordBubble = (word, anchor) => {
+    if (!cfg.enabled || !word || !anchor) return;
+    resetButtons();
+    elSrc.textContent = word;
+    show(anchor, 'hover');
+    current = { text: word, word };
+    if (cfg.autoTranslate) {
+      translate();
+    } else {
+      setLoading('点击「译」开始翻译');
+      elSpin.hidden = true;
+    }
+  };
+  // 悬浮离开（highlight.js 宽限到期调用）：只收「悬浮打开」的气泡，不动划选的气泡
+  window.__magicLensHoverLeave = () => {
+    if (window.__magicLensBubbleSource === 'hover') hide();
+  };
+
   shadow.addEventListener('click', (e) => {
     const btn = e.target.closest('button');
     if (!btn) return;
     const act = btn.dataset.act;
-    if (act === 'close') hide();
+    if (act === 'close') {
+      // Why 取消选中：✕ 的 mouseup 已排下 60ms 后的 processSelection，残留选区
+      // 会在去重窗外让气泡立刻复活，表现为「点了关闭但弹框又弹回来」
+      const sel = window.getSelection();
+      if (sel) sel.removeAllRanges();
+      hide();
+    }
     else if (act === 'd-close') detail.classList.remove('show');
     else if (act === 'translate') translate();
     else if (act === 'detail') openDetail();
@@ -493,16 +596,30 @@
   });
 
   // mouseup 后延迟一帧等待选区稳定；dblclick 选词后也会触发 mouseup
-  document.addEventListener('mouseup', () => setTimeout(processSelection, 60), true);
-  document.addEventListener('mousedown', (e) => {
+  // Why 具名 handler：孤儿副本退役时要能摘掉自己的监听（见 retireOrphan），
+  // 匿名箭头函数无法 remove，摘不掉的监听会在页面上留一个「点了没反应」的幽灵气泡
+  const onMouseUp = () => setTimeout(processSelection, 60);
+  const onMouseDown = (e) => {
     if (!e.composedPath().includes(host)) hide();
-  }, true);
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') hide();
-  }, true);
-  window.addEventListener('scroll', (e) => {
-    // 详解面板自身可滚动：目标在扩展 UI 内的滚动不触发关闭
+  };
+  const onKeyDown = (e) => {
+    if (e.key !== 'Escape') return;
+    // R19 分层退出：详解面板是最表层，Esc 只关它；面板没开才收划词气泡
+    if (detail.classList.contains('show')) {
+      detail.classList.remove('show');
+      return;
+    }
+    hide();
+  };
+  const onScroll = (e) => {
+    // R19：滚动不再关闭详解面板（生成等待期用户很可能滚动页面），
+    // 面板固定留原地可继续阅读或 ✕ 关闭；气泡维持原有关闭行为
+    // R21：改为复用 hide()——语义一致且同步清气泡来源标记
     if (e.target && e.composedPath && e.composedPath().includes(host)) return;
     hide();
-  }, { passive: true, capture: true });
+  };
+  document.addEventListener('mouseup', onMouseUp, true);
+  document.addEventListener('mousedown', onMouseDown, true);
+  document.addEventListener('keydown', onKeyDown, true);
+  window.addEventListener('scroll', onScroll, { passive: true, capture: true });
 })();

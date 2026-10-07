@@ -1,22 +1,43 @@
 {
   "manifest_version": 3,
   "name": "MagicLens 词镜",
-  "description": "把 magicbook 的阅读能力带到整个 Web：划词翻译、单词详解、认识/生词标记、词汇表与朗读，直连 moon-well。",
-  "version": "0.4.1",
-  "version_name": "0.4.1",
+  "description": "把 magicbook 的阅读能力带到整个 Web：划词翻译、单词详解、生词高亮、认识/生词标记、词汇表与朗读，直连 moon-well。",
+  "version": "0.7.1",
+  "version_name": "0.7.1",
   "minimum_chrome_version": "110",
-  "permissions": ["storage"],
-  "host_permissions": ["<all_urls>"],
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["page-extract.js", "content.js", "chat.js"],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "page-extract.js",
+        "highlight.js",
+        "content.js",
+        "chat.js"
+      ],
       "run_at": "document_idle"
     }
   ],
+  "commands": {
+    "toggle-highlight": {
+      "suggested_key": {
+        "default": "Alt+U",
+        "mac": "Alt+U"
+      },
+      "description": "开/关生词高亮"
+    }
+  },
   "action": {
     "default_popup": "popup.html",
     "default_title": "MagicLens 词镜",

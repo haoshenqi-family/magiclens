@@ -9,7 +9,7 @@
     label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
     #status { margin-top: 8px; color: #059669; font-size: 12px; }
     #status.warn { color: #dc2626; }
-    .row { margin-top: 10px; display: flex; justify-content: flex-end; }
+    .row { margin-top: 10px; display: flex; gap: 6px; justify-content: flex-end; }
     button { all: unset; cursor: pointer; color: #4f46e5; background: #eef2ff; border-radius: 6px; padding: 5px 10px; font-size: 12px; }
     button:hover { background: #e0e7ff; }
   </style>
@@ -17,8 +17,9 @@
 <body>
   <h1>MagicLens 词镜 <small id="ver"></small></h1>
   <label><input type="checkbox" id="enabled"> 启用划词翻译</label>
+  <label><input type="checkbox" id="hl"> 生词高亮（Alt+U）</label>
   <div id="status"></div>
-  <div class="row"><button id="openOptions">设置</button></div>
+  <div class="row"><button id="rescan">重新扫描本页</button><button id="openOptions">设置</button></div>
   <script src="popup.js"></script>
 </body>
 </html>

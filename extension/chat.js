@@ -23,10 +23,19 @@
 
   function api(path, body) {
     return new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type: 'ml:api', path, body: body || {} }, (resp) => {
-        if (chrome.runtime.lastError) return resolve({ ok: false, error: chrome.runtime.lastError.message, status: 0 });
-        resolve(resp || { ok: false, error: 'no response', status: 0 });
-      });
+      // Why try/catch + 分类：扩展重载后本页残留的旧脚本发消息会同步抛 Invalidated，
+      // 不接住就永久转圈（R13）；在途重载则从回调带 lastError，两条路都不给英文原文。
+      const failed = (message) => resolve({ ok: false, error: message, status: 0 });
+      const classify = (message) => failed(/invalidated|disposed/i.test(message) ? '扩展已更新，请刷新本页面（F5）' : message);
+      try {
+        chrome.runtime.sendMessage({ type: 'ml:api', path, body: body || {} }, (resp) => {
+          const lastErr = chrome.runtime.lastError;
+          if (lastErr) return classify(String((lastErr && lastErr.message) || lastErr));
+          resolve(resp || { ok: false, error: 'no response', status: 0 });
+        });
+      } catch (e) {
+        classify(String((e && e.message) || e));
+      }
     });
   }
 
@@ -224,7 +233,13 @@
     if (auth) {
       shell.meta.appendChild(el('span', '', '，请 '));
       const link = el('span', 'cfg-link', '重新登录');
-      link.addEventListener('click', () => chrome.runtime.sendMessage({ type: 'ml:login' }));
+      link.addEventListener('click', () => {
+        try {
+          chrome.runtime.sendMessage({ type: 'ml:login' }, () => void chrome.runtime.lastError);
+        } catch (e) {
+          console.warn('[MagicLens] 扩展已更新，本页旧脚本退役；刷新页面（F5）后生效');
+        }
+      });
       shell.meta.appendChild(link);
     }
   }

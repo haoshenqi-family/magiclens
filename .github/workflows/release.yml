@@ -1,11 +1,12 @@
-# MagicLens 自动发布：push 到 develop 后检查 manifest 版本号
-# - version_name 为纯 X.Y.Z（功能验证通过后清理时间戳）→ 打 vX.Y.Z tag、创建 GitHub Release 并附扩展 zip
+# MagicLens 自动发布：push 到 release 分支后检查 manifest 版本号
+# - 日常开发在 develop（不触发本 workflow）；用户确认某版本可发布时，把 develop merge 到 release
+# - version_name 为纯 X.Y.Z（发布前清理时间戳）→ 打 vX.Y.Z tag、创建 GitHub Release 并附扩展 zip
 # - version_name 带 -YYYYMMDDHHmm 后缀 → 测试版（修改完成即递增），不触发发布
 name: release
 
 on:
   push:
-    branches: [develop]
+    branches: [release]
 
 permissions:
   contents: write

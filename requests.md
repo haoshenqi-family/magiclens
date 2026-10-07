@@ -20,3 +20,19 @@
 11. magiclens 我已经改为了public 版本升级后自动在 GitHub 发一个releases  X.Y.Z 的版本功能验证通过后发，-YYYYMMDDHHmm 是为了测试，不触发发布
 
 12. github 没有release
+
+13. magiclens 划词翻译单词 `exact` 时卡死，排查原因。
+
+14. 借鉴「明畅·个人词库」扩展的生词智能高亮机制（已完成逆向分析：CSS Custom Highlight API 渲染 / 分级词库+个人词库判定矩阵 / 视口懒渲染 / MutationObserver 增量 / 变形归并），在 magiclens 落地 P1 生词智能高亮：页面英文生词自动标注 + 点词交互，数据源 moon-well 既有 API，后端零改动。
+
+15. 划词翻译调用金山 api 的行为能否放在前端，由浏览器直接调用。这样可以节省时间（纯可行性评估，未确认实施）。
+16. bug 反馈：生词高亮把 installed 标记为「认识」后，重新扫描该词又出现了（DevTools 截图：GET /vocabulary/known/installed 返回 200）。排查原因。
+17. 设置页（options.html）对「详细信息设置、单词等级等」加说明：这些细项在 magicbook 中管理，提供跳转 magicbook 的链接说明。
+18. 修改发布规则：开发通常在 develop 分支；当用户认为某个版本可以发布时，由 AI 把 develop merge 到 release 分支；GitHub Action 改为 release 分支变动则发布 Release。
+
+9. 详解面板不因离开/误点关闭：请求未完成时保持面板并提示「AI 正常生成中」，完成后自动显示；仅 ✕/Esc 或新「详」查询关闭面板（与气泡生命周期解耦）。SSE 经评估暂缓（结构化 JSON 无法优雅增量渲染，详见 response）。
+
+19. （更正：上方重复的「9. 详解面板不因离开/误点关闭」系本会话所补，与既有 R9 撞号，按纪律续编 R19）详解面板不因离开/误点关闭：请求未完成时保持面板并提示「AI 正常生成中」，完成后自动显示；仅 ✕/Esc 或新「详」查询关闭面板（与气泡生命周期解耦）。SSE 经评估暂缓（结构化 JSON 无法优雅增量渲染，详见 response）。
+20. 有些单词不方便双击，如果已经识别为生词（生成了波浪线），悬浮即显示翻译——与「明畅·个人词库」（ecneibafmplgkfjomcbbgbajkleanoml）的悬浮词典卡一致。
+21. 悬浮生词希望直接显示完整划词气泡（译/详/认识/生词/AI 那个弹框，「类似选中」的效果），而不是小翻译卡——因为部分 HTML 元素点击会跳转，悬浮应零副作用（不真实选中、不点击）。
+22. 发布 release（按 R18 新流程：develop 清理时间戳 → merge 到 release 分支自动发布），并说明如何上架 Google Chrome 商店。
