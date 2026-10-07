@@ -282,3 +282,16 @@
   - response.md：本条。
   - 冲突记录：无。
   - 未决事项：随 v0.6.x+R14 高亮批次一并提交（R19/R20 已说明的提交顺序约束）；验收通过后统一发正式版。
+
+### R22（发布 release v0.7.1 + Chrome 商店上架材料）
+
+- **回应**：按 R18 流程完成发布——
+  - develop 提交发布批次（commit `12eacc6`，15 文件：R14 高亮 + R20/R21 悬浮 + R15-R19 并行批次 + 台账），manifest 清理时间戳为纯 `0.7.1`；push develop；
+  - merge develop → release 分支推送，`release.yml` 触发成功（run 37567109100，12s）；
+  - **Release 已上线**：tag `v0.7.1`，附件 `magiclens-extension-v0.7.1.zip`，https://github.com/haoshenqi-family/magiclens/releases/tag/v0.7.1 。
+  - **商店上架材料**（见 `docs/webstore/listing.md`，可直接复制粘贴）：`PRIVACY.md` 隐私政策入库（商店必填 URL：github.com/haoshenqi-family/magiclens/blob/develop/PRIVACY.md）；单一用途声明、`storage`/`<all_urls>` 权限理由、数据披露口径、截图与宣传图规格清单、unlisted 先行 + 演示视频建议。上架操作本身需用户 Google 账号（$5 一次性注册费）在 Developer Dashboard 手动完成，AI 无法代办。
+- **总结**：
+  - requests.md：占号 R22。
+  - response.md：本条。
+  - 冲突记录：无。
+  - 未决事项：商店账号注册与上传需用户手动操作；后续商店版本号需大于 0.7.1。
