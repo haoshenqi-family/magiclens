@@ -37,6 +37,8 @@ flowchart LR
 ## 安装（开发者模式）
 
 > 正式版可从 [GitHub Releases](https://github.com/haoshenqi-family/magiclens/releases) 直接下载 `magiclens-extension-vX.Y.Z.zip`，解压得到 `extension/`（用户确认可发布后 merge 到 `release` 分支的纯 `X.Y.Z` 版本自动发布；带 `-YYYYMMDDHHmm` 时间戳后缀的是测试版，不发 Release）。克隆仓库则始终是最新开发版。
+>
+> 扩展**不上架 Chrome Web Store**，仅通过 GitHub Releases 分发：更新时需重新下载 zip 并在 `chrome://extensions` 重载（无自动更新）。
 
 1. 克隆本仓库（或使用 Releases 下载解压的 `extension/`）；
 2. Chrome 打开 `chrome://extensions`，右上角开启「开发者模式」；

@@ -1,5 +1,7 @@
 # Chrome Web Store 上架材料（直接复制粘贴）
 
+> ⏸️ **搁置中（2026-10-07，R23）**：已决定暂不上架 Chrome Web Store，仅通过 GitHub Releases 分发。本材料与 [PRIVACY.md](../../PRIVACY.md) 保留，未来上架时可直接使用。
+
 > 对应扩展 v0.7.1。zip 用 Release 附件 `magiclens-extension-v0.7.1.zip`（manifest.json 在 zip 根层，符合商店要求）。
 
 ## 1. 商店信息（Store listing）

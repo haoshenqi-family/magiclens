@@ -36,3 +36,4 @@
 20. 有些单词不方便双击，如果已经识别为生词（生成了波浪线），悬浮即显示翻译——与「明畅·个人词库」（ecneibafmplgkfjomcbbgbajkleanoml）的悬浮词典卡一致。
 21. 悬浮生词希望直接显示完整划词气泡（译/详/认识/生词/AI 那个弹框，「类似选中」的效果），而不是小翻译卡——因为部分 HTML 元素点击会跳转，悬浮应零副作用（不真实选中、不点击）。
 22. 发布 release（按 R18 新流程：develop 清理时间戳 → merge 到 release 分支自动发布），并说明如何上架 Google Chrome 商店。
+23. 暂时不上架 Google 商店，仅通过 GitHub Release 分发。

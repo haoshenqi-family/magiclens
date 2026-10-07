@@ -53,6 +53,7 @@ moon-well 认证三通道：
 
 - **测试版 `X.Y.Z-YYYYMMDDHHmm`**：每次修改完成即递增（`version` 语义化 +1，时间戳写进 `version_name`），供 `chrome://extensions` 重载验证，**不触发发布**。
 - **正式版 `X.Y.Z`**：**用户确认**可发布后，清理 `version_name` 时间戳推送到 `develop`，再由 AI merge `develop` 到 `release` 分支——push 到 `release` 才触发 [.github/workflows/release.yml](./.github/workflows/release.yml)（R18 起，原 develop 触发已废除；`release` 分支随 R18 自 develop HEAD 建立）：打 `vX.Y.Z` tag、创建 GitHub Release、附 `extension/` 打包 zip；测试后缀或 Release 已存在均跳过。
+- **分发渠道（2026-10-07，R23 决策）**：**仅通过 GitHub Releases 分发，不上架 Chrome Web Store**——避免注册费、`<all_urls>` 广泛权限深度审核与后续每次更新的审核维护成本；用户经开发者模式加载 zip 自装。商店上架材料已备好备用：[docs/webstore/listing.md](./webstore/listing.md)（listing 文案/权限理由/截图规格）与 [PRIVACY.md](../PRIVACY.md)（隐私政策），未来决定上架时直接可用。注意 GitHub 分发的固有限制：扩展更新需手动重新下载 zip 并在 `chrome://extensions` 重载（无自动更新通道）。
 
 ## 7. 金山词霸直连快路径（2026-10-07，R15，v0.6.0）
 

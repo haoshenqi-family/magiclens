@@ -295,3 +295,16 @@
   - response.md：本条。
   - 冲突记录：无。
   - 未决事项：商店账号注册与上传需用户手动操作；后续商店版本号需大于 0.7.1。
+
+### R23（分发渠道决策：仅 GitHub Releases，搁置 Chrome Web Store）
+
+- **回应**：已记录决策并同步文档——
+  - `docs/design.md` §6 新增「分发渠道（R23）」：仅 GitHub Releases 分发（避免 $5 注册费、`<all_urls>` 深度审核与每次更新的审核维护），并写明固有限制（更新需手动下载 zip 重载，无自动更新通道）；
+  - `docs/webstore/listing.md` 顶部标注搁置状态，材料（listing 文案/权限理由/截图规格）与 `PRIVACY.md` 原样保留，未来上架直接可用；
+  - README 安装节补充分发说明。
+  - 现有发布流程（R18 两段式：develop → release 分支 → 自动 Release + zip）不变，就是当前唯一且完整的分发通道。
+- **总结**：
+  - requests.md：占号 R23。
+  - response.md：本条。
+  - 冲突记录：无。
+  - 未决事项：无。
