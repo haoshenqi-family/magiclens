@@ -2,7 +2,8 @@
 
 > ⏸️ **搁置中（2026-10-07，R23）**：已决定暂不上架 Chrome Web Store，仅通过 GitHub Releases 分发。本材料与 [PRIVACY.md](../../PRIVACY.md) 保留，未来上架时可直接使用。
 
-> 对应扩展 v0.7.1。zip 用 Release 附件 `magiclens-extension-v0.7.1.zip`（manifest.json 在 zip 根层，符合商店要求）。
+> 对应扩展 v0.7.1。zip 用 Release 附件 `magiclens-extension-v0.7.1.zip`。
+> ⚠️ 上架前注意（2026-10-07 R26 核对）：现行 [.github/workflows/release.yml](../../.github/workflows/release.yml) 的打包命令 `zip -r … extension` 产出 zip 根层是 `extension/` 目录而非 manifest.json 本身，与 Chrome Web Store「manifest 在 zip 根层」的要求不符；上架时需改为在 `extension/` 目录内打包（`cd extension && zip -r ../xxx.zip .`）或手动重打，并同步刷新本行版本锚点。
 
 ## 1. 商店信息（Store listing）
 

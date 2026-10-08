@@ -48,7 +48,16 @@
   }
 })();
 
-(() => {
+/* ---------- 主引擎启动门控（R25 域名管理） ----------
+ * Why 经 storage 回调启动而非顶层立即执行：chrome.storage 无同步 API，禁用名单
+ * 未就绪前不能放行注入；命中名单的站点保持零 UI 零监听。名单只决定新加载页面，
+ * 变更后刷新本页生效（已开页面不拆装，见 LLD §US1）。 */
+chrome.storage.sync.get({ disabledDomains: [] }, ({ disabledDomains }) => {
+  if (window.__magicLensIsDisabledHost(location.hostname, disabledDomains)) return;
+  startMainEngine();
+});
+
+function startMainEngine() {
   if (window.__magicLensLoaded) return;
   window.__magicLensLoaded = true;
 
@@ -551,12 +560,14 @@
   window.__magicLensProcessSelection = processSelection;
 
   // R21 悬浮生词即显气泡（highlight.js 悬停命中后调用）：不开真实选区——部分页面元素
-  // 点击会跳转，且程序化选中会覆盖用户已有选区；仅按悬浮词打开气泡，按钮全部照常工作
-  window.__magicLensShowWordBubble = (word, anchor) => {
+  // 点击会跳转，且程序化选中会覆盖用户已有选区；仅按悬浮词打开气泡，按钮全部照常工作。
+  // R24 第三参 source：iframe 内点高亮词传 'selection'（持久气泡，不随鼠标离开收起）；
+  // 悬浮默认 'hover'（鼠标离开宽限后自动收起）
+  window.__magicLensShowWordBubble = (word, anchor, source = 'hover') => {
     if (!cfg.enabled || !word || !anchor) return;
     resetButtons();
     elSrc.textContent = word;
-    show(anchor, 'hover');
+    show(anchor, source);
     current = { text: word, word };
     if (cfg.autoTranslate) {
       translate();
@@ -565,6 +576,8 @@
       elSpin.hidden = true;
     }
   };
+  // R24：iframe 内非生词区点击时收起持久气泡（顶层 mousedown 处理器够不到 iframe）
+  window.__magicLensHideBubble = () => { if (window.__magicLensBubbleSource) hide(); };
   // 悬浮离开（highlight.js 宽限到期调用）：只收「悬浮打开」的气泡，不动划选的气泡
   window.__magicLensHoverLeave = () => {
     if (window.__magicLensBubbleSource === 'hover') hide();
@@ -622,4 +635,4 @@
   document.addEventListener('mousedown', onMouseDown, true);
   document.addEventListener('keydown', onKeyDown, true);
   window.addEventListener('scroll', onScroll, { passive: true, capture: true });
-})();
+}

@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <style>
     body { width: 240px; margin: 0; padding: 12px; font: 13px/1.6 -apple-system, 'PingFang SC', 'Segoe UI', sans-serif; color: #1f2937; }
+    /* Why：author 样式（label 的 display:flex 等）会压过 UA 的 [hidden]{display:none}，
+       hidden 属性整体失效——与 content.js 阴影样式同款陷阱，统一兜底 */
+    [hidden] { display: none !important; }
     h1 { font-size: 14px; margin: 0 0 8px; }
     h1 small { color: #9ca3af; font-weight: normal; }
     label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
@@ -18,8 +21,10 @@
   <h1>MagicLens 词镜 <small id="ver"></small></h1>
   <label><input type="checkbox" id="enabled"> 启用划词翻译</label>
   <label><input type="checkbox" id="hl"> 生词高亮（Alt+U）</label>
+  <label id="siteRow" hidden><input type="checkbox" id="siteEnabled"> 本站启用 · <span id="siteHost"></span></label>
   <div id="status"></div>
   <div class="row"><button id="rescan">重新扫描本页</button><button id="openOptions">设置</button></div>
+  <script src="common.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

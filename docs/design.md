@@ -32,6 +32,8 @@ moon-well 认证三通道：
 | `mk-` 静态 API-key | 存 `user.token`，`AuthHandlerInterceptor` 走数据库校验，无自助签发端点 | ✅ P0 采用（手动配置） |
 | 内网信任头 `X-User-*` | `INTERNAL_TRUST_ENABLED=true` 才生效，语义是"agent 只出不进" | ❌ 插件不能依赖 |
 
+> **更新（2026-10-07 R26 文档整理）**：上表为 R118/R119 评估时快照。现状：v0.3.0 起已采用 Authentik OIDC 登录（`/auth/oidc/login` → 回调页自动捕获）+ `/auth/refreshToken` 静默刷新，`mk-` 静态 key 手动配置通道已随登录化弃用；JWT 有效期为 access 30 天 / refresh 90 天（moon-well R101 起，`app.auth.*ExpireDay` 可配置）。
+
 ## 4. 风险与前置
 
 1. **moon-well 无公网 HTTPS 入口**（fnOS 8082 仅内网）→ 需 Server 2 Traefik 加路由（如 `api.haoshenqi.top`）或仅内网/Tailscale 使用。
@@ -43,7 +45,7 @@ moon-well 认证三通道：
 
 - **P0（已交付）**：划词翻译 + 认识/生词标记 + 本地朗读 + 设置页（US1/US2）。
 - **P0.5（已交付）**：AI 伴读聊天抽屉（R119 评估并入当前批次，与划词共享全部基建）+ moon-well 侧两改动（web prompt 分支 + skipMemoryExtract），设计见 `docs/feat/chrome-extension/design/lld.md`。
-- **P1（部分交付）**：生词智能高亮已交付（v0.5.0，2026-10-06，借鉴「明畅·个人词库」机制：CSS Custom Highlight API 渲染 + analyze 判定矩阵 + 视口懒渲染 + MutationObserver 增量，设计见 `docs/feat/vocab-highlight/design/lld.md`）；剩段落整页翻译（translate-batch）与 OIDC/JWT 相关收尾。
+- **P1（部分交付）**：生词智能高亮已交付（v0.5.0，2026-10-06，借鉴「明畅·个人词库」机制：CSS Custom Highlight API 渲染 + analyze 判定矩阵 + 视口懒渲染 + MutationObserver 增量，设计见 `docs/feat/vocab-highlight/design/lld.md`）；v0.7.2（2026-10-07，R24）补多文档（iframe）支持——magicbook 阅读器正文在 epub.js 同源 iframe 里且阅读页标题为中文书名，引擎按文档多实例化 + 文档绑定早于首扫 + 逐文档正文采样门控（lld.md §6）；剩段落整页翻译（translate-batch）与 OIDC/JWT 相关收尾。
 - **P2**：moon-well TTS 朗读（/tts/speak 音频播放状态机 + speechSynthesis 降级）。
 - **储备**：chrome.sidePanel 兜底方案、Readability 深度正文抽取、右键菜单「问 AI」。
 
@@ -73,3 +75,11 @@ moon-well 认证三通道：
 - **动机（R16 bug）**：服务端按精确 token 判定、客户端高亮按词族双向匹配——标记 installed 认识只写了精确词形，同页未标记的 install（CET4=3 > 用户档位）仍按词档兜底返回生词，重扫时经 `lemmaCandidates` 双向匹配把 installed 重新点亮。标记当下的消失只是前端全集清扫的临时效果。
 - **后端语义**：自身显式标记 > 词族显式标记（认识优先）> 词族最小档位兜底；单词本/分级表查询按词族全集展开，跨页标记生效；派生词（installation）与不规则变形（ran/run）不在规则还原范围，维持独立判定（与扩展端同缺口）。
 - **两端镜像约束**：moon-well `WordInflection.lemmaCandidates` 与本仓库 `highlight.js lemmaCandidates` 规则逐条一致，改任一侧必须同步另一侧并向量测试互为镜像（moon-well `WordInflectionTest`）。
+
+## 9. 域名管理：按域名禁用插件（2026-10-07，R25，v0.8.0）
+
+**决策**：`chrome.storage.sync` 新增 `disabledDomains: string[]`，条目为归一化 hostname，匹配语义「该域 + 全部子域」（无精确/仅子域两种模式——域名禁用的直觉语义就是整站别管，多一种模式多一份理解成本）；门控放 content script 注入层（content.js 主引擎与 highlight.js boot 各自判定，`common.js` 提供共享的归一化/匹配助手），禁用站零 UI、零 DOM 监听、零请求（highlight.js 保留判定所需的 chrome.runtime/storage 内部监听，页面 DOM 监听为零）。UI：options 名单管理 + popup 本站一键禁用/恢复。设计细节见 `docs/feat/domain-management/design/lld.md`。
+
+- **生效语义（统一）**：名单只决定新加载页面，变更后刷新生效。Why 不做运行中即时拆装：content.js 的 UI 与监听是顶层一次性装配，可逆化需把装配重写为 init/retire 对称结构，风险与收益不成比例（低频配置动作）。
+- **highlight.js 的坑**：它有 storage.onChanged / Alt+U 等现成「重开路径」，只挡 boot 的话禁用站会被后续全局开关变化复活引擎；因此启动时把判定结果固化进 `siteDisabled` 并入 `shouldEngineRun()`，所有路径统一封死。
+- **边界**：OIDC 登录回调捕获不受域名禁用影响（禁 moon-well 域不该废掉自己的登录回调）；chat.js 零改动（唯一入口是划词气泡「问 AI」，content 禁用即天然禁用）；不新增 permission；不做白名单模式与子路径粒度。

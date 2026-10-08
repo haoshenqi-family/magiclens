@@ -46,8 +46,8 @@ flowchart LR
 | --- | --- | --- | --- |
 | US1 | 鉴权基建（服务地址/Token 配置、Bearer、401 引导） | P0 | ✅ 已交付（划词共用） |
 | US2 | 划词翻译 + 认识/生词标记 + 本地朗读 | P0 | ✅ 已交付 |
-| US4 | **moon-well 侧**：web 场景 prompt 分支 + skipMemoryExtract | P0 前置 | 📋 本文 §5 设计，待 moon-well 实施 |
-| US3 | 伴读聊天抽屉（SSE/上下文/会话/记忆/学情） | P0 核心 | 🔨 本文 §4 设计，待实施 |
+| US4 | **moon-well 侧**：web 场景 prompt 分支 + skipMemoryExtract | P0 前置 | ✅ moon-well 已上线（R97，2026-10-04；web 场景记忆常开，不携带 skipMemoryExtract） |
+| US3 | 伴读聊天抽屉（SSE/上下文/会话/记忆/学情） | P0 核心 | ✅ 已交付（v0.2.0，commit 039cdbf） |
 | US5 | 段落整页翻译 + 生词标注（translate-batch + analyze） | P1 | 规划 |
 | US6 | moon-well TTS 朗读（/tts/speak 状态机 + 本地降级） | P2 | 规划 |
 
@@ -170,8 +170,8 @@ flowchart LR
 
 | 端点 | 用途 | 阶段 |
 | --- | --- | --- |
-| `mk-` 静态 key（`Authorization: Bearer mk-…`，`AuthHandlerInterceptor` 走库校验） | P0 现行 | ✅ |
-| `POST /auth/oidc/exchange`（Authentik id_token 换 JWT）+ `POST /auth/refreshToken` 续期（access 7d / refresh 30d） | 插件登录页 + 静默刷新 | P1（US1 增强，与 US5 同批） |
+| `mk-` 静态 key（`Authorization: Bearer mk-…`，`AuthHandlerInterceptor` 走库校验） | P0 现行 | ✅（已随 v0.3.0 登录化弃用） |
+| `GET /auth/oidc/login`（Authentik 授权码流程，Traefik 301 至回调页自动捕获 token）+ `POST /auth/refreshToken` 续期（R101 起 access 30d / refresh 90d） | 插件登录 + 静默刷新 | ✅ v0.3.0 已交付 |
 
 ## 7. 数据与配置
 

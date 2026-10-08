@@ -64,7 +64,8 @@ moon-well `/vocabulary/reading/analyze`——其服务端语义恰是明畅矩�
     current 直置、autoTranslate 自动翻译）与 `__magicLensHoverLeave`（只收 hover 来源）；
     show()/hide() 带 source 标记，onScroll 复用 hide() 同步来源。
 - **排除面**：SCRIPT/STYLE/NOSCRIPT/CODE/PRE/KBD/SAMP/TEXTAREA/INPUT/SELECT 及 contenteditable
-  祖先、`#magiclens-host`/`#magiclens-chat-host` 自身 UI；仅顶层 frame（不进 iframe）。
+  祖先、`#magiclens-host`/`#magiclens-chat-host` 自身 UI；顶层 frame 与同源两层内 iframe 均参与
+  （v1 仅顶层，R24 起按文档多实例化，见 §6；跨源/更深层 iframe 不进）。
 
 ## 4. 门控与开关
 
@@ -76,8 +77,61 @@ moon-well `/vocabulary/reading/analyze`——其服务端语义恰是明畅矩�
 
 ## 5. 边界与不做（v1）
 
-- 不进 iframe / 页面 Shadow DOM；不规则变形（went）不高亮；`::highlight` 样式暂不开放自定义；
+- 页面 Shadow DOM 不进；iframe 自 R24 起支持同源两层内多文档（深层/跨源仍不进，遗留：iframe 内长句划选不可用）；不规则变形（went）不高亮；`::highlight` 样式暂不开放自定义；
   pushState 路由切换到新 pathname 时自动重扫（popstate，按去重键判定），同页 hash 变化不重扫。
 - analyze 请求体上限 150,000 字符（服务端 DTO 无硬限制，防御性截断）。
 - 已知竞态防护：登录态/开关在 analyze 在途期间变化时，响应回调复查启用条件后丢弃（teardown 清场后不复活）；
   扩展重载后旧副本经 askBackground 失效路径轻量退役（摘样式与 Highlight 注册，对齐 content.js R13）。
+
+---
+
+## 6. R24 增补：多文档（iframe）支持与门控采样
+
+> 线上 bug：`/read/102/epub`（新概念英语85第三册）阅读页生词高亮无效。诊断（证据链）：
+> ①epub 包 TOC/spine/锚点完好（60 课全可达），排除书的完整性；②扩展已部署且对其它页面
+> 正常扫描（tailscale 登录页 analyze 200 返回生词）；③moon-well 日志中
+> `bookName=magicbook.haoyuhang.top` 的 analyze 从未出现。
+> 根因两个叠加：**书内正文渲染在 epub.js 的同源 iframe 里**（旧引擎只扫顶层文档）；
+> **阅读页 title 含中文书名、html 无 lang、meta description 为空**，旧英文门控判否，
+> 自动扫描不触发。
+
+### 6.1 引擎多实例化
+
+- `docStates: Map<Document, state>`：顶层 + 同源 iframe（两层内）各一份
+  `Highlight` 注册表（`new win.Highlight()` / `win.CSS.highlights`）、
+  constructable stylesheet（`new win.CSSStyleSheet()` → 该文档 adoptedStyleSheets）、
+  IntersectionObserver（用各文档自己的 window 创建，视口语义正确）、
+  交互监听（mousemove/click/mousedown/keydown/scroll/mouseleave，闭包携带 st）与
+  MutationObserver（观察该文档，事件汇入同一 masterMutHandler）。
+- Range 一律 `text.ownerDocument.createRange()`；悬浮/点词的矩形经
+  `tokRect()` 叠加 `iframeEl.getBoundingClientRect()` 换算到顶层视口供气泡定位。
+- iframe `load` 事件触发 syncDocs 重绑（TOC 式阅读器换 contentDocument 不增删元素）。
+
+### 6.2 首扫触发链（审查 P0-1 修复）
+
+- **文档绑定早于首扫**：boot（storage 回填后）即 `syncDocs()` 预绑定全部文档，
+  epub.js 向 iframe 写正文时 per-doc 观察者直接触发 `scheduleSync → maybeScan`——
+  不再依赖顶层文档的 mutation（iframe 内写入顶层不可见）。
+- `maybeScan` 状态机：`scannedKeys`（成功过，SPA 回来不重扫）/`failedKeys`
+  （gate 判否或请求失败，自动不再尝试、增量降级 familiar，popup 重扫 force 可解）/
+  `retriedKeys`（MIN_SCAN_TEXT 过短一次性 2s 重试）。首扫未成功的 key 不发 familiar
+  （避免「同一本书两套口径」），被拒 key 例外。
+
+### 6.3 门控（审查 P2-2 修复）
+
+`gatePassed = 顶层信号（title/meta/lang）∨ 整体正文采样 ∨ 任一文档正文采样`
+——长中文壳占满整体采样头时，书内英文仍可过闸。
+
+### 6.4 iframe 内交互语义
+
+- 悬浮：与顶层一致（复用 content.js 气泡，source='hover'）。
+- 点词：零副作用唤起持久气泡（`__magicLensShowWordBubble(word, rect, 'selection')`），
+  不做真实选中（iframe 内选中态对顶层气泡无意义，且避免书上留选区高亮）；
+  点空白处经 `__magicLensHideBubble` 收起（content.js 的顶层 mousedown 关闭逻辑够不到 iframe）。
+- Esc/滚动：per-doc 监听器对 'selection' 来源气泡补齐 content.js 顶层同款语义（审查 P1-2）。
+
+### 6.5 已知边界（R25 候选）
+
+- iframe 内长句**划选**翻译不可用（selection 属 iframe 文档，顶层 mouseup/getSelection 够不到；
+  单词点击与悬浮已覆盖，阅读场景影响小）。
+- 跨源/沙箱 iframe 跳过；嵌套两层以上跳过。
