@@ -1,34 +1,6 @@
 # response.md — 对话回应记录（仅保留最近 10 个 request 的回应）
 
-> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移）
-
-### R21（悬浮改为直接弹出完整划词气泡：不真实选中，规避点击跳转）
-
-- **回应**：按用户反馈把 R20 的「小翻译卡」升级为「悬浮即显完整划词气泡」（v0.7.1-202610071045 测试版）——悬停生词 ~200ms 直接弹出带 译/详/朗读/认识/生词/AI 全部按钮的既有气泡，效果「类似选中」但**不开真实选区**：部分 HTML 元素（链接/标题）点击会跳转，悬浮零副作用；也不覆盖用户已有选区、无原生选区高亮。
-  - **职责划分**：highlight.js 只做命中测试（caretRangeFromPoint + nodeRaws 查表 + 区间复验）与节奏控制；气泡生命周期归 content.js。新增钩子 `__magicLensShowWordBubble(word, anchor)`（按词开气泡：resetButtons → show(anchor,'hover') → current 直置 → autoTranslate 自动翻译）与 `__magicLensHoverLeave`（只收 hover 来源气泡，划选气泡不动）。
-  - **来源互通**：content.js show()/hide() 带 `__magicLensBubbleSource`（selection/hover/null），onScroll 复用 hide() 同步来源（顺带修掉 R20 审查提过的 onScroll 内联复制漂移隐患）。
-  - **状态机（自查补刀两处）**：同词微动不打扰已排定时器；换词立即切换气泡；离开 150ms 宽限内回归不闪、超时只收 hover 气泡；移进气泡保持。**①Esc/滚动视为主动关闭**——记下所在词（hoverDismissed），鼠标不离词不重开，否则 Esc 关不掉原地复活；**②✕ 关闭的残留态**——mousedown 落在气泡上不触发 cancelHover，hoverShownFor 残留会导致移回词上不重开，sameHit 分支改为校验来源非 hover 即重排。
-  - **清理**：R20 的自绘悬浮卡（#magiclens-hover-host/ensureHoverUi/hoverCache 等）整体移除（含 page-extract.js 与 content.js selectionInfo 的对应排除项还原）；ml:translate 直连链路复用不变（金山直连百毫秒级）。
-- **校验**：七个 JS 全过 `node --check`；manifest 0.7.1-202610071045（测试版，不触发发布）。
-- **待用户验收**：①悬浮生词 ~200ms 弹完整气泡且自动出译文；②气泡上 译/详/认识/生词/AI/✕ 全部可用；③Esc 关闭后鼠标不动不复活，移开再悬停可重开；④链接里的生词悬浮出气泡、页面不跳转；⑤划选文本的气泡不被悬浮干扰。
-- **总结**：
-  - requests.md：占号 R21。
-  - response.md：本条。
-  - 冲突记录：无。
-  - 未决事项：随 v0.6.x+R14 高亮批次一并提交（R19/R20 已说明的提交顺序约束）；验收通过后统一发正式版。
-
-### R22（发布 release v0.7.1 + Chrome 商店上架材料）
-
-- **回应**：按 R18 流程完成发布——
-  - develop 提交发布批次（commit `12eacc6`，15 文件：R14 高亮 + R20/R21 悬浮 + R15-R19 并行批次 + 台账），manifest 清理时间戳为纯 `0.7.1`；push develop；
-  - merge develop → release 分支推送，`release.yml` 触发成功（run 37567109100，12s）；
-  - **Release 已上线**：tag `v0.7.1`，附件 `magiclens-extension-v0.7.1.zip`，https://github.com/haoshenqi-family/magiclens/releases/tag/v0.7.1 。
-  - **商店上架材料**（见 `docs/webstore/listing.md`，可直接复制粘贴）：`PRIVACY.md` 隐私政策入库（商店必填 URL：github.com/haoshenqi-family/magiclens/blob/develop/PRIVACY.md）；单一用途声明、`storage`/`<all_urls>` 权限理由、数据披露口径、截图与宣传图规格清单、unlisted 先行 + 演示视频建议。上架操作本身需用户 Google 账号（$5 一次性注册费）在 Developer Dashboard 手动完成，AI 无法代办。
-- **总结**：
-  - requests.md：占号 R22。
-  - response.md：本条。
-  - 冲突记录：无。
-  - 未决事项：商店账号注册与上传需用户手动操作；后续商店版本号需大于 0.7.1。
+> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移）
 
 ### R23（分发渠道决策：仅 GitHub Releases，搁置 Chrome Web Store）
 
@@ -139,3 +111,27 @@
 - **跨仓同步**：moon-well R119 / magicbook R131 / app-manager R36 把「全量单元测试」拆成开发态部分 + 发布态全量两级；本仓以手工清单对应同一口径。与既有 §0.2 两段式版本规则天然吻合（带时间戳后缀的测试版不触发发布）。
 - **归档**：本条使窗口超 10（原 R20–R29 共 10 条），按「写入即检查、超 10 立即搬移」当场把 R20 条目原样搬移至 `response-archive/response-R20.md`（逐字节 diff 校验一致）并登记索引，窗口回到 10 个 request。
 - **总结**：requests.md 本条 R30；response.md 追加本条并完成上述搬移；冲突记录：无（30 未被并行占用）。只改文档，未动扩展代码与 manifest 版本。
+
+### R31（发布 magiclens）
+
+- **回应**：按 R18 流程完成 v0.8.0 正式发布——
+  - 发布批次 commit `522092d`（23 文件：R24 iframe 多文档 + R25 域名管理 + R26-R30 文档体系批次 + 台账与归档补账），`version_name` 清理时间戳为纯 `0.8.0`；push develop → merge release 分支推送；
+  - `release.yml` 触发成功（run 37735576781，12s），**Release v0.8.0 已上线**：https://github.com/haoshenqi-family/magiclens/releases/tag/v0.8.0 ，附件 `magiclens-extension-v0.8.0.zip`；
+  - zip 下载实测：manifest `0.8.0 / 0.8.0`（无时间戳），13 个文件齐全（含新增 common.js）。
+- **总结**：requests.md 占号 R31；response.md 本条；冲突记录：无。
+
+### R32（报错详情不应暴露给用户）
+
+- **回应**：按「干净文案给用户 + 详情进日志」双层修复（magiclens v0.8.1-202610081457 测试版；moon-well 侧为其台账 R124，commit fba5ca4 **已部署上线**）。
+  - **moon-well（权威层）**：单词详解（截图病灶，`WordDetailService` 反转 R106「cause 保留进消息」旧口径）、translate/translate-batch（此前**无任何兜底**，网关异常原文透传）、伴读 SSE（`AgentChatService` 透传 `e.getMsg()`；`AgentLoop` 兜底分支原先连日志都不记）全部统一；写作题目/批改、复述、口语、ASR 四条 learning 链路同口径修复。业务拒绝（积分不足）保持原文案；**LLM 客户端层消息（`Zhipu/Magpie call failed`）保留不改**——失败分类器按其文本分类、任务表持久化、排障都依赖。`WordDetailServiceTest` 断言反转为「禁止携带 cause 文本」。
+  - **验证**：工作区被并行会话（LLM 任务管理功能）持续占用、mvn 跑不稳，改走 git worktree 干净验证——HEAD+我的补丁（即 fnOS 将构建的组合）三个单测类 83/83 全绿；`AgentChatServiceIntegrationTest` 10 Error 为 H2 DDL 既有环境问题（与本次无关）。部署后公网入口 502→401 确认新容器上线。
+  - **提交纪律**：`learning/` 整目录系并行会话在途新功能（untracked），其中四条链路的修复**留在文件里随对方功能批次提交**，本次只精确提交 tracked 且无外来 hunk 的 6 文件（`ReadingVocabularyService` 用 `git apply --cached` 挑净我的 hunk，排除对方混入的 eventPublisher/LearningMarkEvent 在途改动——直接整文件 add 会因引用未提交的新包打爆 fnOS 构建）。
+  - **magiclens（防御层）**：`common.js` 新增 `__magicLensUserFacingError(msg, fallback)`——疑似技术细节（URL/内部 IP/英文异常/网关标识）归一为通用文案并 console.warn 原文，干净业务文案（未登录/积分不足/选区过长）原样放行，401/403 重新登录流程不受影响；content.js（译/标记/详解）与 chat.js（SSE error/请求失败）接入。node 冒烟 7 场景通过（含截图原始报文）。
+  - ADR 记于 `docs/design.md` §10。
+- **待用户验收**：重载扩展（v0.8.1）后，随便找一个断网/超时场景（或等网关再超时一次）：详解面板/翻译气泡应显示「AI 生成超时或繁忙，请稍后重试」等干净文案 + 「点击重试」，不再出现内部地址与英文异常；伴读抽屉基础设施故障同理。完整效果依赖 moon-well 新版（已上线）。
+- **总结**：requests.md 占号 R32；response.md 本条；冲突记录：无。response.md 归档窗口按新纪律执行（R21-R22 搬入 response-archive/）。
+
+### R33（整理 requests.md：已完成条目按区间归档）
+
+- **回应**：R01–R27（28 条）与 R29–R31（3 条）共 31 条确认完成，原样搬移至 `requests-archive/`（只搬原文、不改写、不改编号）；保留 R28（方案 A 已上线；方案 B 派生词族口径未做 + fnOS DHCP 丢路由持久化修复遗留）与 R32（v0.8.1 测试版在途，真机验收与正式发布未完成），各附归档整理注。编号纪律不变：归档不释放编号，新任务按全史最大编号 +1（32 → 本条 33）。AGENTS.md「requests.md 永不归档」条款同步废止为区间归档制，目录表补 `requests-archive/` 行。验证：原 33 条 = 归档 31 + 保留 2 + 新占号 1，计数守恒。
+- **总结**：requests.md 占号 R33；response.md 本条；冲突记录：无。

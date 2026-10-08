@@ -110,7 +110,7 @@
 | `docs/webstore/` | Chrome 商店上架材料（R23 起搁置保留备用；上架前先读其内置勘误） |
 | `docs/design.md` | L2 ADR：分期规划、风险评估、契约依据 |
 | `README.md` | L1：只讲功能与安装，不涉及实现 |
-| `requests.md` / `response.md` / `response-archive/` | 对话记录（纪律见下节） |
+| `requests.md` / `response.md` / `response-archive/` / `requests-archive/` | 对话记录（纪律见下节） |
 
 **三级联动纪律**：功能交付前三问——用户可见能力变了吗 → 改 README 功能表并按 §0.2 递增版本；架构/契约/发布策略变了吗 → 在 `docs/design.md` 追加决策记录；LLD/AC 状态还停在「待实施 / 待 moon-well」吗 → 回填实际交付状态（先例：R26 发现 US3/US4 状态滞留两版未回填）。
 **数值同源**：token 时效、超时、上限等数值一律以 moon-well 现行契约为准，禁止沿用旧快照（先例：R26 发现 7d/30d 旧口径曾在三处文档滞留）。
@@ -141,7 +141,7 @@
   - 对 requests.md 与 response.md 两个文件的总结。
 - **编号纪律**：编号只追加、不回改、不重排；并行会话若仍出现重复编号，不修改既有记录，续编下一个空号，并在 response.md 冲突记录中说明。
 - **冲突记录**：若 request 之间存在冲突，必须在 response.md 中记录。
-- **归档**：`response.md` 只保留最近 10 个 request 的回应。**任何写入使条目数超过 10，立即把最早超出窗口的回应原样搬移**到 `response-archive/response-R<起>-R<止>.md`（如 `response-R11-R20.md`；孤立单条可命名 `response-R16.md`），并在 `response.md` 顶部归档索引登记；只搬移原文，不总结、不改写。`requests.md` 永不归档。（2026-10-08 修订：原「逢 10 的整数倍触发」在 R110/R120 等触发点多次被跳过致窗口失控，改为写入即检查。）
+- **归档**：`response.md` 只保留最近 10 个 request 的回应。**任何写入使条目数超过 10，立即把最早超出窗口的回应原样搬移**到 `response-archive/response-R<起>-R<止>.md`（如 `response-R11-R20.md`；孤立单条可命名 `response-R16.md`），并在 `response.md` 顶部归档索引登记；只搬移原文，不总结、不改写。（2026-10-08 修订：原「逢 10 的整数倍触发」在 R110/R120 等触发点多次被跳过致窗口失控，改为写入即检查。）**requests 归档（2026-10-08 新增，R33）**：`requests.md` 中已确认完成且过时的条目按编号区间原样搬移到 `requests-archive/requests-R<起>-R<止>.md`（孤立单条 `requests-R<N>.md`），只搬移原文、不总结、不改写、不改编号；未完成的与有经验教训价值的条目保留；`requests.md` 顶部维护归档索引。归档不释放编号——新任务仍取全史最大编号 +1。（原「requests.md 永不归档」条款同日废止。）
 - **查历史**：需要更早的回应细节时，按 request 编号到 `response-archive/` 对应文件检索，不要把全量历史读进上下文。
 - **原则**：尽量简单。
 
