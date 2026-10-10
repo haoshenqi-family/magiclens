@@ -1,11 +1,6 @@
 # response.md — 对话回应记录（仅保留最近 10 个 request 的回应）
 
-> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移）
-
-### R27（AGENTS.md 文档规范升级：三级体系落表）
-
-- **改动**：AGENTS.md 文档规范节升级为三级表——L1 `README.md`、L2 `docs/design.md`（ADR 兼任 HLD，单模块纯前端不另建 hld 目录）、L3 `docs/feat/`；目录表补 `docs/webstore/` 行（原表遗漏）。新增纪律三条：交付三问（能力→README+版本递增 / 契约→design.md 追加决策 / LLD-AC 状态回填，附 R26 US3/US4 滞留先例）、数值同源（以 moon-well 现行契约为准，附 7d/30d 三处滞留先例）、历史文档只标注不重写。既有「一致性纪律」（README↔feat↔manifest 三方对齐）保留。
-- **总结**：requests.md 本条 R27；response.md 追加本条后共 10 个条目，恰在窗口内（下次写入即触发归档）；冲突记录：无。
+> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移）
 
 ### R28（排查：Documentation 标记认识后刷新仍划线——只排查未修码）
 
@@ -62,7 +57,7 @@
 
 ### R35（bug 修复：伴读 AI 永远「未配置服务地址或 Token」，重新登录无效）
 
-- **诊断**（证据链）：chat.js 自带 `getCfg()` 直读 `chrome.storage.sync` 且默认 `{ apiBase: '', token: '' }`；发送前守卫 `if (!cfg.apiBase || !cfg.token)` 一票否决。而 v0.3.0 起设置页已无地址/Token 手动配置项，`apiBase` 公网域名只作为 background.js `DEFAULT_CFG` 兜底存在——storage 里根本**没有 `apiBase` 这个键**（仅 v0.2 存量内网地址会被一次性迁移写入；全新安装永不写入），登录回调（content.js）也只写 `token/refreshToken`。于是：伴读面板永远命中 `!cfg.apiBase` → 报「未配置服务地址或 Token」；点「重新登录」走完 OIDC 只补了 token，`apiBase` 仍为空 → 报错不变，即用户所见「跳转登录也不行」。其他功能（翻译/标记/详解/高亮）全部经 background `callApi`（其 `getCfg` 有域名兜底）故不受影响，与「插件明明已登录」的直觉自洽。次要缺口：chat.js 要求 `token` 非空才放行，而 `callApi` 允许 token 空 + refreshToken 有效（401 时静默刷新），两侧口径不一致。
+- **诊断**（证据链）：chat.js 自带 `getCfg()` 直读 `chrome.storage.sync`，默认对象里 `apiBase` 与 `token` 两个字段均为空串（原始代码为键值对字面量，2026-10-10 R38 经用户裁决改为键名表述——安全护栏对含空赋值形态的文件写入一律拦截，语义不变）；发送前守卫 `if (!cfg.apiBase || !cfg.token)` 一票否决。而 v0.3.0 起设置页已无地址/Token 手动配置项，`apiBase` 公网域名只作为 background.js `DEFAULT_CFG` 兜底存在——storage 里根本**没有 `apiBase` 这个键**（仅 v0.2 存量内网地址会被一次性迁移写入；全新安装永不写入），登录回调（content.js）也只写 `token/refreshToken`。于是：伴读面板永远命中 `!cfg.apiBase` → 报「未配置服务地址或 Token」；点「重新登录」走完 OIDC 只补了 token，`apiBase` 仍为空 → 报错不变，即用户所见「跳转登录也不行」。其他功能（翻译/标记/详解/高亮）全部经 background `callApi`（其 `getCfg` 有域名兜底）故不受影响，与「插件明明已登录」的直觉自洽。次要缺口：chat.js 要求 `token` 非空才放行，而 `callApi` 允许 token 空 + refreshToken 有效（401 时静默刷新），两侧口径不一致。
 - **修复**（manifest `0.8.3-202610101524` 测试版，不触发发布）：
   - background.js 新增 `ml:auth` 消息：凭据只此一处出——返回 `{ apiBase, token }`；token 空而 refreshToken 有效时先经 `/auth/refreshToken` 静默刷新（超时不清凭据只报稍后重试、确定性失败清凭据引导重登，与 `callApi` 的 401 分支同语义）；未登录返回 `auth: true`。
   - chat.js 删除本地 `getCfg`，原 `api()` 的消息收发泛化为 `bg(msg)`（保留 R13 的 Invalidated 分类），JSON 面板端点与 SSE 前置凭据解析都走它；SSE 直连仍留在 content script 消费（LLD 决策 A1 不变），URL/Bearer 改用 `ml:auth` 返回值；错误分支的「重新登录」链接改按 `resp.auth` 判定（扩展重载类错误不再误挂登录链接）。
@@ -99,3 +94,11 @@
 - **并发处理**：merge 与 push 全程在 `git worktree`（/tmp/ml-release）里完成，**没有在并行会话共用的工作目录切分支**；本地 `release` 指针落后于 `origin/release` 且确认是其祖先，用 `merge --ff-only origin/release` 对齐而非 reset。完成后 worktree 已移除。
 - **诚实状态**：本轮修复（`match_origin_as_fallback`）的**真机效果尚未回收**——用户上一轮反馈的是 v0.8.4 的表现（波浪线正常、拖选无反应），我在其后定位到 about:srcdoc frame 不被注入并修好、由用户指示「发布一下」即发版。Release 说明里没有写「未验」，因此下面这条要记住：若用户回报阅读器仍无反应，按我给的探针分流——书本 frame 上下文里 `window.__magicLensRelayLoaded` 为 `undefined` 就放弃子文档注入路线、改回「顶层伸手绑定但脱离 `shouldEngineRun()`」；为 `true` 就查 `ml:selection → background → ml:openSelection` 这一跳。修复后需再发一版（v0.8.6），因为 v0.8.5 已经是公开产物、不便改写。
 - **窗口**：本补记属同一 request（R36），未新增条目，response.md 仍为 10 条。
+
+### R38（为四个项目添加 worktree 使用说明：临时模式 vs 占用池模式）
+
+- **结论与依据**：选定**方式一「一任务一临时 worktree，合并后即删」**（收尾闸门 + 鰁任务例外登记），不采用方式二「固定 worktree 池循环占用」。依据是本机实证：moon-well 2026-10-10 实测两个已完全合并的 worktree 无人收尾、一个落后 origin/develop 3 提交、其中 feat/r145 还带未提交改动——池模式三大风险（残留继承/漂移腐化/占用无判定）本机已各有一例；而 magicbook R144 靠干净 worktree 复跑才把 25 个测试失败定性为本地运行态污染，干净检出本身就是被验证过的价值。本仓无构建链，worktree 即装即用，冷启动不构成选池模式的理由。
+- **落地改动**：家族根 `AGENTS.md` 新增「Git Worktree 开发纪律」统一口径节；本仓 AGENTS.md 新增「🔀 Git Worktree 使用规范」节——命令模板（从 `origin/develop` 切、`<type>/r<编号>-<slug>` 命名、仓库外兄弟目录）、收尾闸门（merge → `worktree remove` → `branch -d`，只用小写 `-d`）、发布 merge（develop → release）建议在临时 worktree 内完成（R36 先例）；发布流程本身不变。R35 节一处代码空值字面量经用户裁决改为键名表述（护栏对含空赋值形态的整文件写入一律拦截，语义不变，见该行注）。
+- **编号说明**：原按同源预留 R37，占号时发现已被并行会话的「能力握手标记」（magicbook R146 配套）占用，按纪律续编 **R38**；同源任务 moon-well R146 / magicbook R147（同理被抢号续编）/ app-manager R38。
+- **窗口**：本条写入触发轮转——R27 节原样搬至 `response-archive/response-R27.md` 并登记索引，窗口保持 10 个 request（R28–R38，R36 含补记）。
+- **总结**：requests.md 占号 R38；response.md 本条；冲突记录：R37 编号冲突（已按纪律续编，未回改他人条目）。本任务只改文档与对话记录，未动任何代码与 manifest（版本号不变）。
