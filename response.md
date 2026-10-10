@@ -1,63 +1,6 @@
 # response.md — 对话回应记录（仅保留最近 10 个 request 的回应）
 
-> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移）
-
-### R23（分发渠道决策：仅 GitHub Releases，搁置 Chrome Web Store）
-
-- **回应**：已记录决策并同步文档——
-  - `docs/design.md` §6 新增「分发渠道（R23）」：仅 GitHub Releases 分发（避免 $5 注册费、`<all_urls>` 深度审核与每次更新的审核维护），并写明固有限制（更新需手动下载 zip 重载，无自动更新通道）；
-  - `docs/webstore/listing.md` 顶部标注搁置状态，材料（listing 文案/权限理由/截图规格）与 `PRIVACY.md` 原样保留，未来上架直接可用；
-  - README 安装节补充分发说明。
-  - 现有发布流程（R18 两段式：develop → release 分支 → 自动 Release + zip）不变，就是当前唯一且完整的分发通道。
-- **总结**：
-  - requests.md：占号 R23。
-  - response.md：本条。
-  - 冲突记录：无。
-  - 未决事项：无。
-
-### R24（magicbook 阅读页生词高亮无效：iframe 多文档支持 + 门控采样）
-
-- **诊断**（证据链）：用户报 `/read/102/epub`（新概念英语85第三册）第 1/4 课高亮无效。
-  ①解包 epub（fnOS magicbook 容器直读 Calibre metadata.db + zip）：60 课 toc.ncx/toc.xhtml 链接与
-  `text/index.html` 内 60 个 `toc_N` 锚点全部可达且无重复——**书完好，排除目录死链**；
-  ②ES 日志证实扩展已生效（11:26 对 login.tailscale.com 的 analyze 200 返回生词），但
-  `bookName=magicbook.haoyuhang.top` 的 analyze **从未出现**；③读 `read.html` 与 epub.js：
-  正文渲染在 epub.js 的同源 iframe 里，且页面 `<html>` 无 lang、meta description 为空、
-  标题含中文书名 → 旧引擎（只扫顶层文档）+ 旧英文门控（title/meta/lang）双杀：扫描既不触发、
-  触发了也看不见正文。「1 无效 4 无效」即第 1 课/第 4 课无高亮。
-- **修复**（manifest `0.7.2-202610071324` 测试版，不触发发布）：
-  - **highlight.js 多文档引擎**（lld.md §6）：`docStates: Map<Document, state>`——顶层与同源
-    iframe（两层内）各持独立 Highlight 注册表（`new win.Highlight()`/`win.CSS.highlights`）、
-    独立 constructable stylesheet、per-window IntersectionObserver、per-doc 交互监听
-    （mousemove/click/mousedown/Esc/scroll/mouseleave）与 MutationObserver（汇入同一
-    masterMutHandler）；Range 全部 `text.ownerDocument.createRange()`；悬浮/点词矩形经
-    `tokRect()` 叠加 iframe 位置换算。
-  - **首扫触发链**：文档绑定早于首扫（boot 即 syncDocs 预绑定）——epub.js 向 iframe 写正文时
-    per-doc 观察者直接触发 scheduleSync→maybeScan，不再依赖顶层 mutation（审查 P0-1：
-    初版 structureMo 只看顶层文档，iframe 内写入顶层不可见，晚渲染场景首扫仍漏）；iframe
-    load 事件重绑换 document 的场景（审查 P1-3）。
-  - **状态机**：`scannedKeys`（成功过，SPA 回来不重扫、靠 unknownSet 存量重亮）/
-    `failedKeys`（gate 判否或请求失败，自动不再尝试、增量降级 familiar，popup 重扫 force 解除，
-    teardown 清空）/`retriedKeys`（过短一次性 2s 重试）。首扫未成的 key 不发 familiar
-    （防「同一本书两套口径」），被拒 key 例外直走 familiar（审查 P1-1：初版 popstate 清
-    scannedOnce 会让中文路由的 familiar 增量永久空转，改为按 key 记账）。
-  - **门控**：顶层信号 ∨ 整体采样 ∨ 逐文档正文采样（审查 P2-2：长中文壳占满采样头时书内英文
-    仍可过闸）。
-  - **iframe 交互**：悬浮同顶层；点词零副作用唤起持久气泡（`__magicLensShowWordBubble(word,
-    rect, 'selection')`，不真实选中）；点空白/Esc/滚动经 `__magicLensHideBubble` 收起（content.js
-    顶层 mousedown 够不到 iframe，审查 P1-2）；teardown 补收 hover 气泡（P2-4）。
-  - 其余审查修复：retire 无条件 teardown（P2-3）、fireShow 零尺寸矩形校验（P2-5）、per-doc
-    mousedown 对齐顶层收气泡语义（P2-6）、collectDocs 深度注释与实现对齐（P2-7）、
-    rescanNodes 对无状态文档节点清册防泄漏（P2-1）。
-- **校验**：全部 JS 过 `node --check`；独立 agent 交叉审查（1×P0 + 3×P1 + 12×P2，P0/P1 全修，
-  P2 择要）；文档同步（lld.md §6 / design.md P1 / README / 本文件）。
-- **待用户验收**：①重载扩展 → 打开 `/read/102/epub` 任意一课（含第 1/4 课）→ 生词波浪线出现；
-  ②悬浮/点高亮词出气泡且可标认识/生词（全页含变形即时灭/亮）；③Esc/滚动/点空白能关气泡；
-  ④popup「重新扫描本页」可用；⑤普通网页（含中文页）行为不回归。
-- **遗留（R25 候选）**：iframe 内长句划选翻译不可用（selection 属 iframe 文档，顶层
-  mouseup/getSelection 够不到；本次只覆盖单词点击与悬浮）。
-- **总结**：requests.md 占号 R24；response.md 本条；冲突记录：无（R15-R23 系并行会话所记）；
-  改动仅在工作区未 commit。
+> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md)（2026-10-10 R35 完成时搬移）
 
 ### R25（域名管理：在指定域名禁用 MagicLens）
 
@@ -135,3 +78,24 @@
 
 - **回应**：R01–R27（28 条）与 R29–R31（3 条）共 31 条确认完成，原样搬移至 `requests-archive/`（只搬原文、不改写、不改编号）；保留 R28（方案 A 已上线；方案 B 派生词族口径未做 + fnOS DHCP 丢路由持久化修复遗留）与 R32（v0.8.1 测试版在途，真机验收与正式发布未完成），各附归档整理注。编号纪律不变：归档不释放编号，新任务按全史最大编号 +1（32 → 本条 33）。AGENTS.md「requests.md 永不归档」条款同步废止为区间归档制，目录表补 `requests-archive/` 行。验证：原 33 条 = 归档 31 + 保留 2 + 新占号 1，计数守恒。
 - **总结**：requests.md 占号 R33；response.md 本条；冲突记录：无。
+
+### R35（bug 修复：伴读 AI 永远「未配置服务地址或 Token」，重新登录无效）
+
+- **诊断**（证据链）：chat.js 自带 `getCfg()` 直读 `chrome.storage.sync` 且默认 `{ apiBase: '', token: '' }`；发送前守卫 `if (!cfg.apiBase || !cfg.token)` 一票否决。而 v0.3.0 起设置页已无地址/Token 手动配置项，`apiBase` 公网域名只作为 background.js `DEFAULT_CFG` 兜底存在——storage 里根本**没有 `apiBase` 这个键**（仅 v0.2 存量内网地址会被一次性迁移写入；全新安装永不写入），登录回调（content.js）也只写 `token/refreshToken`。于是：伴读面板永远命中 `!cfg.apiBase` → 报「未配置服务地址或 Token」；点「重新登录」走完 OIDC 只补了 token，`apiBase` 仍为空 → 报错不变，即用户所见「跳转登录也不行」。其他功能（翻译/标记/详解/高亮）全部经 background `callApi`（其 `getCfg` 有域名兜底）故不受影响，与「插件明明已登录」的直觉自洽。次要缺口：chat.js 要求 `token` 非空才放行，而 `callApi` 允许 token 空 + refreshToken 有效（401 时静默刷新），两侧口径不一致。
+- **修复**（manifest `0.8.3-202610101524` 测试版，不触发发布）：
+  - background.js 新增 `ml:auth` 消息：凭据只此一处出——返回 `{ apiBase, token }`；token 空而 refreshToken 有效时先经 `/auth/refreshToken` 静默刷新（超时不清凭据只报稍后重试、确定性失败清凭据引导重登，与 `callApi` 的 401 分支同语义）；未登录返回 `auth: true`。
+  - chat.js 删除本地 `getCfg`，原 `api()` 的消息收发泛化为 `bg(msg)`（保留 R13 的 Invalidated 分类），JSON 面板端点与 SSE 前置凭据解析都走它；SSE 直连仍留在 content script 消费（LLD 决策 A1 不变），URL/Bearer 改用 `ml:auth` 返回值；错误分支的「重新登录」链接改按 `resp.auth` 判定（扩展重载类错误不再误挂登录链接）。
+  - LLD 变更记录追加本条；apiBase/凭据出口收敛的约束写入 chat.js 与 background.js 注释。
+- **验证**：`node --check` chat.js/background.js 通过；分支推演覆盖 未登录（auth 链接）/ token 空+refresh 有效（静默刷新后放行）/ 刷新超时（保凭据提示重试）/ 刷新被拒（清凭据+重登链接）/ 扩展重载（刷新页面提示，无登录链接）。真机清单（需用户 chrome://extensions 重载后实测）：① 退出登录 → 问 AI 提示「未登录，请先在设置页登录」+ 链接；② 点链接完成 OIDC 登录 → 回页直接发送 → SSE 流式回复正常；③ 会话列表/记忆/学情面板正常；④ 划词翻译等其他功能回归正常。
+- **总结**：requests.md 占号 R35；response.md 本条；归档 R23–R24（窗口回到 10 条内）。冲突记录：与 R34（iframe 划词，另一会话在途）并行——manifest.json 版本竞态（R34 会话 15:23 写入 `0.8.2-202610101523`，本会话按「每次修改完成递增」续增为 `0.8.3-202610101524`）；本会话未触碰 content.js/highlight.js。
+
+### R34（补 iframe 内拖选划词：阅读器里选中单词没反应）
+
+- **用户报告**：magicbook 阅读器里「选中单词没有反应，但波浪线正常生成」，并问是否是后端接口改动导致。
+- **结论：不是后端，是插件自身的覆盖缺口**。`manifest.json` 未声明 `all_frames` → content.js（气泡与划词流程）只在顶层文档运行；highlight.js 的 per-doc 监听只有 `mousemove/mousedown/click/keydown/scroll`，**没有 `mouseup`**；而 iframe 内的 mouseup 不跨文档冒泡、其选区也不属于顶层 `window.getSelection()`，于是 `mouseup → processSelection → selectionInfo` 一次都没触发。波浪线之所以正常，是因为高亮引擎本就按文档实例化（往每个同源 iframe 注入 `::highlight()` 样式表 + 各自的 IntersectionObserver）；hover 生词与点高亮词能弹气泡，是因为 R24 专门搭了 `__magicLensShowWordBubble` 这条跨文档钩子——**当年只搬了这两条交互，选区那条从来没接进来**。
+- **该缺口原本有账**：`docs/feat/vocab-highlight/design/lld.md` §6.5 写着「iframe 内长句划选翻译不可用……阅读场景影响小」并列为 R25 候选，一直没闭。magicbook R141/R143 把口径定为「只隐藏 magiclens 已实现的部分」并下线内置气泡后，这个「影响小」的判断直接变成用户可感知的故障。
+- **交付（commit `ba0eaa8`）**：highlight.js 给 **iframe 文档单独**加绑 `mouseup`（延迟 60ms 等选区稳定；顶层不绑——与 content.js 同绑会双开气泡、双发翻译请求，两个入口算出的矩形一个原生一个换算、未必逐字相等，500ms 去重兜不住），取选区文本 + Range 矩形按 `tokRect` 同款换算叠加 iframe 偏移，经新钩子 `__magicLensShowIframeSelection(text, rect)` 交顶层；content.js 把 `processSelection` 的呈现部分抽成共用 `openBubble(text, word, rect)`，词形前缀口径、2000 字符上限、`autoTranslate` 与译/详/🔊/认识/生词/问 AI 全部复用同一条链路，不复制第二套语义。文档同步：lld.md §6.4/§6.5、README 功能表、design.md §11。
+- **验证状态（诚实）**：本项目无自动化测试；`node --check` 两文件通过、相邻同文行扫描无异常，但**扩展装载与真机效果未验**——需你在 `chrome://extensions` 重新加载插件并刷新阅读页（插件自带旧脚本退役保护，不刷新不生效），然后拖选书页里任意单词应出气泡、点空白/Esc 能收。AGENTS §3 手工清单的「划词→翻译展示」此前只在顶层文档验过，iframe 路径属新增覆盖面。
+- **版本冲突记录**：manifest 的 `version/version_name` 不由我的 commit 携带——写码期间 R35 会话已把它推到 `0.8.3-202610101524`，其 `background.js`/`chat.js`/`docs/feat/chrome-extension/design/lld.md`/`requests.md#35` 仍是未提交在途改动，我不代为收编；我的代码已在工作区，随那个版本号一起被浏览器加载即可。
+- **代提交记录**：本条下方的 response.md 窗口轮转（R23、R24 原样搬至 `response-archive/response-R23-R24.md`）系 R35 会话在 2026-10-10 做的，已逐字核对为原文搬移、未改写，随本条一起入库；另 R32 会话 2026-10-08 未提交的 v0.8.1「错误文案卫生」已由 commit `b74cea0` 单独收编并注明其自记验收状态。
+- **总结**：requests.md 占号 R34（`a94de1c` 单独锁号；占号时确认 34 未占用，随后发现 35 已被并行会话占用，按不回改纪律保留）；response.md 本条，当前窗口 10 条、无需再搬。
