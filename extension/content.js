@@ -588,19 +588,26 @@ function startMainEngine() {
   // R24：iframe 内非生词区点击时收起持久气泡（顶层 mousedown 处理器够不到 iframe）
   window.__magicLensHideBubble = () => { if (window.__magicLensBubbleSource) hide(); };
 
-  // R34：iframe 文档内的拖选选区接进划词链路。Why 需要这个入口：content script 只在
-  // 顶层文档运行（manifest 未声明 all_frames），而 iframe 内的 mouseup 既不冒泡到顶层
-  // 文档、其选区也不属于顶层 window.getSelection()——magicbook epub.js 的书页正文正是
-  // 这种同源 iframe，R24 只把高亮与「hover/点生词弹气泡」搬了进去，拖选一直是缺口。
-  // 文本与「已换算到顶层视口」的矩形由 highlight.js 的 per-doc 监听送来，复用同一套
-  // 气泡与按钮链路（译/详/🔊/认识/生词/问 AI 全部照常）。
-  window.__magicLensShowIframeSelection = (text, rect) => {
+  /** iframe 文档内的拖选选区（R36，由 selection-relay.js 经 background 回投）：
+   *  content script 的注入项没有 all_frames，本文件只在顶层文档运行，而 iframe 内的
+   *  mouseup 既不跨文档冒泡、其选区也不属于顶层 window.getSelection()——magicbook
+   *  epub.js 的书页正文正是这种同源 iframe。文本与「已换算到顶层视口」的矩形由子文档
+   *  采集后送进来，气泡、按钮、上限与 autoTranslate 全部复用顶层那一条 openBubble 链路。 */
+  function openIframeSelection(text, rect) {
     if (!cfg.enabled || !text || !rect) return;
     if (!claimSelection(`${text}|${Math.round(rect.left)},${Math.round(rect.top)}`)) return;
     // 词形口径与顶层 selectionInfo 保持一致（前缀匹配，命中才允许标记生词）
     const m = text.match(/^[A-Za-z][A-Za-z'\-]{0,40}/);
     openBubble(text, m ? m[0] : null, rect);
-  };
+  }
+
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    if (!msg || msg.type !== 'ml:openSelection') return false; // 不认识的类型交还给其它监听
+    if (window !== window.top) return false; // 气泡唯一属主是顶层文档
+    openIframeSelection(msg.text, msg.rect);
+    sendResponse({ ok: true });
+    return false; // 同步应答，不需要保持消息通道
+  });
   // 悬浮离开（highlight.js 宽限到期调用）：只收「悬浮打开」的气泡，不动划选的气泡
   window.__magicLensHoverLeave = () => {
     if (window.__magicLensBubbleSource === 'hover') hide();

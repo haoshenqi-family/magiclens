@@ -24,7 +24,7 @@ flowchart LR
 
 | 能力 | 状态 | 实现 |
 | --- | --- | --- |
-| 划词翻译（单词/段落，≤2000 字符） | ✅ | 单词先直连金山词霸词典（v0.6.0，免登录、百毫秒级，tooltip 来源 `iciba`），miss/异常回退 `POST /vocabulary/reading/translate`（ES 缓存 + AI 翻译）；**v0.8.2 起在 `iframe` 正文里同样可拖选**（含 magicbook 阅读器的 epub.js 同源 iframe——此前 iframe 内只有悬浮生词与点高亮词两条路，拖选没接进来） |
+| 划词翻译（单词/段落，≤2000 字符） | ✅ | 单词先直连金山词霸词典（v0.6.0，免登录、百毫秒级，tooltip 来源 `iciba`），miss/异常回退 `POST /vocabulary/reading/translate`（ES 缓存 + AI 翻译）；**v0.8.4 起在 `iframe` 正文里同样可拖选**（含 magicbook 阅读器的 epub.js 同源 iframe——此前 iframe 内只有悬浮生词与点高亮词两条路，拖选没接进来） |
 | 单词详解（v0.4.0） | ✅ | `GET /vocabulary/detail/{word}`：六板块（基本意思/词源/搭配·用法·习语/变体与衍生词/同反义词/俚语冷知识）；划词变体自动还原词目（ran→run）；moon-well 侧 ES 缓存（magicbook-vocabulary 索引），重复查询不重复计费 |
 | 标记认识 / 加入生词本 | ✅ | `GET /vocabulary/known/{word}` · `GET /vocabulary/unknown/{word}`；标完本页所有同词形（含常见变形）即时点亮/熄灭 |
 | 生词智能高亮（v0.5.0；v0.7.2 起 支持 magicbook 阅读器 iframe 正文） | ✅ | 英文页自动扫描 `POST /vocabulary/reading/analyze`（手动标记优先 + 分级词档兜底，与 magicbook 阅读器同一判定矩阵），生词波浪线标注（CSS Custom Highlight API，零 DOM 改动）；**悬浮生词直接弹出完整划词气泡**（v0.7.1，悬停 ~200ms，含翻译/详解/标记/AI 全部按钮，不实际选中、点击跳转元素不受影响）；点高亮词同样唤起气泡；SPA 动态内容增量判定（`POST /vocabulary/familiar`）；网页生词顺带进入与 magicbook 互通的阅读事件流。开关：popup 或 `Alt+U`；「重新扫描本页」在 popup |
