@@ -91,3 +91,11 @@
 - **验证状态（诚实）**：`node --check` 四个 JS 全过、manifest 解析通过（两条注入项：5 文件顶层 / 1 文件 all_frames）。**扩展装载与真机效果未验**——需在 `chrome://extensions` 重新加载（新增注入项必须重载，旧页面还要刷新），然后：① 阅读器正文拖选任意单词出气泡，译/详/🔊/认识/生词/问 AI 可用；② **用 `Alt+U` 关掉生词高亮后，划词仍要可用**（本次修的正是这条）；③ 普通网页划词无变化（无双气泡、无重复翻译请求）；④ iframe 内点空白/Esc/滚动能收起气泡。
 - **并发记录**：R35（聊天 token 修复）已自行提交 `4090202`，manifest 版本从它的 `0.8.3-202610101524` 递增到 `0.8.4-202610101538`，未改写他人内容；工作区本轮只有 4 改 + 1 新增。
 - **总结**：requests.md 占号 R36（`d296f61` 单独锁号）；response.md 本条使窗口达 11 条，最旧条目按区间纪律原样搬至 `response-archive/` 并在索引登记。
+
+### R36 补记（2026-10-10：v0.8.5 正式版已发布，真机验收仍未回）
+
+- **发布动作**：develop 的 `version_name` 去时间戳（`0.8.5-202610101609` → `0.8.5`，commit `40ce473`）并推送 develop；随后 merge develop → release 并 push（合并 commit `4091160`），`release.yml` run `38040355307` 11s success，GitHub Release **v0.8.5** 已生成并附 `magiclens-extension-v0.8.5.zip`（`gh release view` 核对：draft=false、asset 在位）。
+- **合并冲突记录**：`extension/manifest.json` 版本字段冲突（release 侧是发布提交写的 `0.8.3/0.8.3`，develop 侧是 `0.8.5/0.8.5`）——按发布意图取 develop 值解决，其余字段无冲突；解决后复核合并树：注入项两条 `(5 文件, all_frames=false)` 与 `(1 文件, all_frames=true, match_origin_as_fallback=true)`、`selection-relay.js` 在位、`background.js` 有 `ml:selection`、`content.js` 有 `ml:openSelection`、`highlight.js` 无残留 `mouseup` 绑定，六个 JS 全部 `node --check` 通过。
+- **并发处理**：merge 与 push 全程在 `git worktree`（/tmp/ml-release）里完成，**没有在并行会话共用的工作目录切分支**；本地 `release` 指针落后于 `origin/release` 且确认是其祖先，用 `merge --ff-only origin/release` 对齐而非 reset。完成后 worktree 已移除。
+- **诚实状态**：本轮修复（`match_origin_as_fallback`）的**真机效果尚未回收**——用户上一轮反馈的是 v0.8.4 的表现（波浪线正常、拖选无反应），我在其后定位到 about:srcdoc frame 不被注入并修好、由用户指示「发布一下」即发版。Release 说明里没有写「未验」，因此下面这条要记住：若用户回报阅读器仍无反应，按我给的探针分流——书本 frame 上下文里 `window.__magicLensRelayLoaded` 为 `undefined` 就放弃子文档注入路线、改回「顶层伸手绑定但脱离 `shouldEngineRun()`」；为 `true` 就查 `ml:selection → background → ml:openSelection` 这一跳。修复后需再发一版（v0.8.6），因为 v0.8.5 已经是公开产物、不便改写。
+- **窗口**：本补记属同一 request（R36），未新增条目，response.md 仍为 10 条。
