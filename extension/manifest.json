@@ -3,7 +3,7 @@
   "name": "MagicLens 词镜",
   "description": "把 magicbook 的阅读能力带到整个 Web：划词翻译、单词详解、生词高亮、认识/生词标记、词汇表与朗读，直连 moon-well。",
   "version": "0.8.3",
-  "version_name": "0.8.3-202610101524",
+  "version_name": "0.8.3",
   "minimum_chrome_version": "110",
   "permissions": [
     "storage"
