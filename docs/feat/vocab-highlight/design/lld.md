@@ -129,11 +129,13 @@ moon-well `/vocabulary/reading/analyze`——其服务端语义恰是明畅矩�
   不做真实选中（iframe 内选中态对顶层气泡无意义，且避免书上留选区高亮）；
   点空白处经 `__magicLensHideBubble` 收起（content.js 的顶层 mousedown 关闭逻辑够不到 iframe）。
 - Esc/滚动：per-doc 监听器对 'selection' 来源气泡补齐 content.js 顶层同款语义（审查 P1-2）。
-> **更新（2026-10-10，R36，v0.8.4）**：下面这条 R34 落点已被取代——iframe 的 `mouseup` 当时绑在
+> **更新（2026-10-10，R36，v0.8.5）**：下面这条 R34 落点已被取代——iframe 的 `mouseup` 当时绑在
 > 本引擎的 per-doc 装配里，而装配受 `shouldEngineRun()`（高亮开关 + token）门控，导致「关掉生词
 > 高亮 / 未登录」时阅读器里的划词一起失效。现改由 all_frames 注入的 `selection-relay.js` 在各子文档
 > 采集选区、经 background 回投顶层 `openIframeSelection`，划词生命周期与本引擎彻底脱钩。机制全文见
 > `docs/design.md` §12；本节保留 R34 原貌以便对照。
+> 注：中继注入子文档还需要 manifest 的 `match_origin_as_fallback: true`——epub.js 的正文 frame 是
+> `about:srcdoc` / `about:blank` 源，只写 `all_frames` 进不去（详见 `docs/design.md` §12）。
 
 - **拖选划词（R34 补上，v0.8.2）**：per-doc 监听加绑 `mouseup`（**只给 iframe 文档绑**——
   顶层已由 content.js 处理，两处同绑会双开气泡、双发翻译请求，且两个入口算出的矩形一个原生

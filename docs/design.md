@@ -152,5 +152,13 @@ iframe 只做采集与坐标换算。这个「帧内采集 → background 路由
 → `window.__magicLensHideBubble()` 收的是顶层那一个气泡（`highlight.js:182`），所以中继打开的气泡
 在 iframe 内点空白/Esc/滚动照样能关，无需新增路径。
 
+**注入条件（2026-10-10 真机验证补上，v0.8.5）**：只写 `all_frames: true` 在 magicbook 阅读器里**仍然不生效**——
+`epub.min.js` 的 iframe 渲染走 `srcdoc` 或 `contentWindow.document.write`（`grep srcdoc cps/static/js/libs/epub.min.js`
+可见 `srcdoc":"write"` 的方法选择），那属于 `about:srcdoc` / `about:blank` 源，Chrome 默认**不会**把 content script
+注入这类 frame，必须显式声明 `"match_origin_as_fallback": true`（Chrome 102+，本扩展 `minimum_chrome_version` 110 覆盖），
+注入时继承创建者文档（即 magicbook 页面）的 URL 做匹配。这也解释了为什么同一页里「波浪线正常、拖选无反应」：
+高亮是顶层 `highlight.js` 经 `contentDocument` 伸手绑的、不依赖子文档注入，而中继脚本压根没进那个 frame。
+诊断入口：DevTools 控制台把上下文从 `top` 切到书本 frame，读 `window.__magicLensRelayLoaded`——`undefined` 即未注入。
+
 **边界**：跨源 iframe 拿不到 `frameElement`，`toTopViewport` 返回 null 即不上报（与既有「跨源跳过」一致）；
 嵌套多层靠逐层累加支持，仍受注入项自身范围限制。扩展刚更新而页面未刷新时上报无接收者，静默丢弃。
