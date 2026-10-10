@@ -381,7 +381,23 @@
     unregisterText(text);
   }
 
+  /** 能力握手标记（R37）：高亮引擎真的在跑时才写在**顶层文档**上。
+   * Why 顶层而不是各 frame：本引擎是顶层经 contentDocument 跨文档标注的，页面级才是
+   * 正确粒度；magicbook 阅读器读到它就关掉自己那份 span 波浪线，读不到（关了 Alt+U、
+   * 未登录、站点禁用）则继续画——避免出现「两边都不管」的空白。teardown 必须清，
+   * 否则关开关后宿主会永久让位。 */
+  function markTakenOver() {
+    if (document.documentElement) {
+      document.documentElement.dataset.magiclensHighlight = chrome.runtime.getManifest().version;
+    }
+  }
+
+  function unmarkTakenOver() {
+    if (document.documentElement) delete document.documentElement.dataset.magiclensHighlight;
+  }
+
   function teardown() {
+    unmarkTakenOver();
     for (const doc of [...docStates.keys()]) teardownDoc(doc);
     if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
     if (deltaTimer) { clearTimeout(deltaTimer); deltaTimer = null; }
@@ -822,6 +838,7 @@
     } else if (document.body) {
       // 重开/登录完成：文档观察者重新就位（epub iframe 晚渲染场景依赖它触发首扫）
       if (!docStates.size) syncDocs();
+      markTakenOver(); // 关停时清过，重开必须补回（否则宿主的内置波浪线永久不再回归）
       maybeScan(false);
     }
   });
@@ -832,6 +849,7 @@
     // Why 绑定文档早于首扫：epub.js 在 document_idle 之后才向 iframe 写正文，
     // 只有 per-doc 观察者先就位，正文写入才能触发首扫（R24 根因）
     syncDocs();
+    markTakenOver(); // 引擎已就位——此时才声明「这条能力归我」，宿主据此关掉内置
     maybeScan(false);
   }
   // Why boot 在 storage 回调内：cfg 异步回填前 token 为空，同步调 boot 永远扫不了（R14 P0 修复）

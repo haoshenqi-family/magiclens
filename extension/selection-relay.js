@@ -53,6 +53,14 @@
     });
   }
 
+  // 能力握手标记（R37）：写在**本文档**上，供宿主页面（magicbook 阅读器）逐项判断
+  // 「本帧的拖选划词确实已被接管」，从而关掉自己那份内置气泡。Why 写在帧级而不是只写
+  // 顶层：装了扩展 ≠ 这条能力在此处通（about:srcdoc 注入不进去就是现例子）；宿主读不到
+  // 这个标记就继续自己干，不留能力空白。
+  if (document.documentElement) {
+    document.documentElement.dataset.magiclensSelection = chrome.runtime.getManifest().version;
+  }
+
   // 与顶层同节奏：mouseup 后延迟一帧等选区稳定；双击选词也会触发 mouseup
   const onMouseUp = () => setTimeout(report, 60);
   document.addEventListener('mouseup', onMouseUp, true);
