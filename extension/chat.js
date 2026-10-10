@@ -18,17 +18,19 @@
     els: null,
   };
 
-  /* ---------- 配置与 JSON API（面板请求走 background 中转，LLD A2） ---------- */
-  const getCfg = () => chrome.storage.sync.get({ apiBase: '', token: '' });
-
-  function api(path, body) {
+  /* ---------- 配置与 JSON API（面板请求走 background 中转，LLD A2） ----------
+   * Why 凭据向 background 索取而非本地读 storage（R35）：apiBase 公网域名只存在
+   * 于 background 的 DEFAULT 兜底（设置页自 v0.3 起无地址配置项，storage 里没有
+   * 这个键），token 的静默刷新也只在 background——本地读空串曾让面板永远停在
+   * 「未配置服务地址或 Token」且重新登录无效。 */
+  function bg(msg) {
     return new Promise((resolve) => {
       // Why try/catch + 分类：扩展重载后本页残留的旧脚本发消息会同步抛 Invalidated，
       // 不接住就永久转圈（R13）；在途重载则从回调带 lastError，两条路都不给英文原文。
-      const failed = (message) => resolve({ ok: false, error: message, status: 0 });
-      const classify = (message) => failed(/invalidated|disposed/i.test(message) ? '扩展已更新，请刷新本页面（F5）' : message);
+      const failed = (error) => resolve({ ok: false, error, status: 0 });
+      const classify = (m) => failed(/invalidated|disposed/i.test(m) ? '扩展已更新，请刷新本页面（F5）' : m);
       try {
-        chrome.runtime.sendMessage({ type: 'ml:api', path, body: body || {} }, (resp) => {
+        chrome.runtime.sendMessage(msg, (resp) => {
           const lastErr = chrome.runtime.lastError;
           if (lastErr) return classify(String((lastErr && lastErr.message) || lastErr));
           resolve(resp || { ok: false, error: 'no response', status: 0 });
@@ -38,6 +40,7 @@
       }
     });
   }
+  const api = (path, body) => bg({ type: 'ml:api', path, body: body || {} });
 
   /* ---------- DOM 构建（closed Shadow DOM，懒创建） ---------- */
   const CSS = `
@@ -317,9 +320,9 @@
     if (!text) return;
     if (text.length > MAX_MESSAGE) text = text.slice(0, MAX_MESSAGE);
 
-    const cfg = await getCfg();
-    if (!cfg.apiBase || !cfg.token) {
-      appendError(appendAssistantShell(), '未配置服务地址或 Token', true);
+    const auth = await bg({ type: 'ml:auth' });
+    if (!auth.ok) {
+      appendError(appendAssistantShell(), auth.error || '未登录，请重新登录', Boolean(auth.auth));
       return;
     }
 
@@ -344,9 +347,9 @@
 
     let gotFinal = false;
     try {
-      const resp = await fetch(cfg.apiBase.replace(/\/+$/, '') + SSE_PATH, {
+      const resp = await fetch(auth.apiBase.replace(/\/+$/, '') + SSE_PATH, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.token}`, Accept: 'text/event-stream' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}`, Accept: 'text/event-stream' },
         body: JSON.stringify(body),
         signal: state.abort.signal,
       });

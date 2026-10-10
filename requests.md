@@ -23,3 +23,5 @@
 ## 2026-10-10
 
 34. 补 iframe 内的拖选划词：magicbook 阅读器正文在同源 iframe 里，R24 的多文档引擎只把生词高亮与「hover/点高亮词弹气泡」接进 iframe，选区链路（content.js 的 mouseup→processSelection）仍只在顶层文档，导致阅读器里选中单词无反应。magicbook 侧已按「只隐藏 magiclens 已实现的部分」下线内置气泡（其 R141/R143），这条缺口必须补上。
+
+35. bug 排查：magiclens 的 AI 功能（伴读聊天）一直提示「未配置 token 或者未登录」，跳转登录也不行；但其他功能（划词/生词标记等）正常。该功能应与插件其他功能共用同一登录与 token。

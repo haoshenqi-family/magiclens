@@ -384,6 +384,34 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse(await callApi(msg.path, { body: msg.body || {} }));
         break;
       }
+      case 'ml:auth': {
+        // 聊天 SSE 直连前的凭据解析（R35）：apiBase/token 只此一处出——设置页自 v0.3
+        // 起不写 apiBase，公网域名仅存在于本文件 DEFAULT 兜底，chat.js 曾本地读
+        // storage 默认空串导致面板永远「未配置服务地址或 Token」且重新登录无效。
+        // token 空而 refreshToken 有效时先静默刷新（与 callApi 的 401 刷新同语义），
+        // SSE 不带空 Bearer 起跑；刷新失败的超时/清凭据分支也与 callApi 对齐。
+        const { apiBase, token, refreshToken } = await getCfg();
+        let authToken = token;
+        if (!authToken && refreshToken) {
+          try {
+            authToken = await refreshTokens(refreshToken);
+          } catch (e) {
+            if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
+              sendResponse({ ok: false, error: `登录续期超时（${Math.round(TIMEOUT_MS / 1000)}s），请稍后重试`, status: 0 });
+              break;
+            }
+            await chrome.storage.sync.set({ token: '', refreshToken: '' });
+            sendResponse({ ok: false, error: '登录已失效，请重新登录', status: 401, auth: true });
+            break;
+          }
+        }
+        if (!authToken) {
+          sendResponse({ ok: false, error: '未登录，请先在设置页登录', status: 0, auth: true });
+          break;
+        }
+        sendResponse({ ok: true, apiBase, token: authToken });
+        break;
+      }
       case 'ml:login':
         // 打开 moon-well 的 Authentik 登录页（与 magicbook 同一登录入口）；
         // 成功后 callback 页由 content.js 自动捕获令牌
