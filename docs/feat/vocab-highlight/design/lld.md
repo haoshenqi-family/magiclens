@@ -129,9 +129,19 @@ moon-well `/vocabulary/reading/analyze`——其服务端语义恰是明畅矩�
   不做真实选中（iframe 内选中态对顶层气泡无意义，且避免书上留选区高亮）；
   点空白处经 `__magicLensHideBubble` 收起（content.js 的顶层 mousedown 关闭逻辑够不到 iframe）。
 - Esc/滚动：per-doc 监听器对 'selection' 来源气泡补齐 content.js 顶层同款语义（审查 P1-2）。
+- **拖选划词（R34 补上，v0.8.2）**：per-doc 监听加绑 `mouseup`（**只给 iframe 文档绑**——
+  顶层已由 content.js 处理，两处同绑会双开气泡、双发翻译请求，且两个入口算出的矩形一个原生
+  一个换算、未必逐字相等，靠 500ms 去重兜不住），延迟 60ms 等选区稳定后取该文档
+  `getSelection()` 的文本与 Range 矩形，按 `tokRect` 同款换算叠加 iframe 自身偏移，经新钩子
+  `__magicLensShowIframeSelection(text, rect)` 交给顶层气泡；词形前缀匹配口径与顶层
+  `selectionInfo` 保持一致，2000 字符上限、`autoTranslate`、以及译/详/🔊/认识/生词/问 AI
+  全部复用同一条 `openBubble` 链路（content.js 把原 `processSelection` 的呈现部分抽成了
+  该函数）。空选区/取消选区不弹——收起语义已由本文档的 mousedown 负责。
 
 ### 6.5 已知边界（R25 候选）
 
-- iframe 内长句**划选**翻译不可用（selection 属 iframe 文档，顶层 mouseup/getSelection 够不到；
-  单词点击与悬浮已覆盖，阅读场景影响小）。
+- ~~iframe 内长句**划选**翻译不可用（selection 属 iframe 文档，顶层 mouseup/getSelection 够不到；
+  单词点击与悬浮已覆盖，阅读场景影响小）~~ → **已由 R34 关闭**（v0.8.2，见 §6.4 末条）。
+  起因是 magicbook R141/R143 把阅读器内置气泡下线、口径定为「只隐藏 magiclens 已实现的部分」，
+  这条被标注「影响小」的缺口于是变成阅读器里「选中单词没反应」的实际故障。
 - 跨源/沙箱 iframe 跳过；嵌套两层以上跳过。

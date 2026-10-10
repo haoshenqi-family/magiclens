@@ -91,3 +91,27 @@ moon-well 认证三通道：
 **决策（双层）**：
 - **moon-well（权威层，R124 已上线，commit fba5ca4）**：所有 GlobalException/SSE onError 透传路径统一「干净中文文案给客户端 + 异常细节进服务端日志」；与 GlobalExceptionHandler 兜底分支既有哲学对齐。业务拒绝（积分不足等 BusinessException）保持原文案。LLM 客户端层消息（`Zhipu call failed: ...`）**保留不改**——`LlmTaskFailureClassifier` 按其文本分类、任务表持久化、R98 排障都依赖。
 - **magiclens（防御层，v0.8.1）**：`common.js __magicLensUserFacingError(msg, fallback)`——疑似技术细节（URL/内部 IP/英文异常/网关标识）归一为通用文案并 `console.warn` 原文；干净业务文案原样放行（401/403 重新登录流程不受影响）。content.js（译/标记/详解）与 chat.js（SSE error/请求失败）接入。
+
+## 11. iframe 内拖选划词补链（2026-10-10，R34，v0.8.2）
+
+**背景**：magicbook R141/R143 把阅读器内置划词气泡下线，口径是「只隐藏 magiclens 已经实现的部分」。
+但 R24 的多文档引擎只把**生词高亮**与**hover 生词 / 点高亮词弹气泡**两条交互搬进了同源 iframe，
+「拖选→翻译」这条链路一直留在顶层文档——该缺口当年就写在 `docs/feat/vocab-highlight/design/lld.md`
+§6.5「已知边界（R25 候选）」里，并被判为「阅读场景影响小」。内置气泡下线后，这个"影响小"的缺口
+变成用户可感知的故障：阅读器里选中单词毫无反应，而波浪线照常出现。
+
+**根因（为什么高亮有效、选区无效）**：
+- `manifest.json` 未声明 `all_frames` → content.js（气泡与划词流程）**只在顶层文档运行**；
+- 高亮之所以能在 iframe 内工作，是 highlight.js 自己按文档实例化：往该文档注入 `::highlight()`
+  样式表（`adoptedStyleSheets`，`::highlight()` 只认所在文档的样式表）、用该文档的
+  IntersectionObserver 懒渲染，并把交互监听绑在**该文档**上；
+- 但那些 per-doc 监听只有 `mousemove / mousedown / click / keydown / scroll`，**没有 `mouseup`**；
+  iframe 内的 mouseup 既不跨文档冒泡到顶层，选区也不属于顶层 `window.getSelection()`，
+  于是顶层的 `mouseup → processSelection → selectionInfo` 一次都不触发。
+
+**决策**：在 highlight.js 的 per-doc 装配里**只给 iframe 文档**加绑 `mouseup`（顶层已有 content.js
+处理，两处同绑会双开气泡、双发翻译请求；两个入口算出的矩形一个原生、一个换算，未必逐字相等，
+不能指望 500ms 去重兜住），延迟 60ms 取该文档选区文本与 Range 矩形，按 `tokRect` 同款换算叠加
+iframe 偏移，经新钩子 `__magicLensShowIframeSelection(text, rect)` 交给顶层气泡；content.js 把
+`processSelection` 的呈现部分抽成共用的 `openBubble(text, word, rect)`，词形前缀匹配口径、
+2000 字符上限、`autoTranslate` 与全部按钮因此与顶层天然一致，不复制第二套语义。

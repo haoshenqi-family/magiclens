@@ -309,30 +309,39 @@ function startMainEngine() {
   // 避免重开气泡并重复发翻译请求
   let lastProc = { key: '', at: 0 };
 
-  function processSelection() {
-    if (!cfg.enabled) return;
-    const info = selectionInfo();
-    if (!info) return;
-    const key = `${info.text}|${Math.round(info.rect.left)},${Math.round(info.rect.top)}`;
+  function claimSelection(key) {
     const now = Date.now();
-    if (key === lastProc.key && now - lastProc.at < 500) return;
+    if (key === lastProc.key && now - lastProc.at < 500) return false;
     lastProc = { key, at: now };
-    resetButtons();
-    elSrc.textContent = info.text.length > 120 ? `${info.text.slice(0, 120)}…` : info.text;
-    show({ left: info.rect.left, top: info.rect.top, bottom: info.rect.bottom });
+    return true;
+  }
 
-    if (info.text.length > MAX_LEN) {
+  /** 打开划词气泡并按配置发起翻译：顶层选区与 iframe 选区共用（R34） */
+  function openBubble(text, word, rect) {
+    resetButtons();
+    elSrc.textContent = text.length > 120 ? `${text.slice(0, 120)}…` : text;
+    show({ left: rect.left, top: rect.top, bottom: rect.bottom });
+
+    if (text.length > MAX_LEN) {
       current = null;
       setError(`选区过长（超过 ${MAX_LEN} 字符），请缩小选区`);
       return;
     }
-    current = { text: info.text, word: info.word };
+    current = { text, word };
     if (cfg.autoTranslate) {
       translate();
     } else {
       setLoading('点击「译」开始翻译');
       elSpin.hidden = true;
     }
+  }
+
+  function processSelection() {
+    if (!cfg.enabled) return;
+    const info = selectionInfo();
+    if (!info) return;
+    if (!claimSelection(`${info.text}|${Math.round(info.rect.left)},${Math.round(info.rect.top)}`)) return;
+    openBubble(info.text, info.word, info.rect);
   }
 
   function translate() {
@@ -578,6 +587,20 @@ function startMainEngine() {
   };
   // R24：iframe 内非生词区点击时收起持久气泡（顶层 mousedown 处理器够不到 iframe）
   window.__magicLensHideBubble = () => { if (window.__magicLensBubbleSource) hide(); };
+
+  // R34：iframe 文档内的拖选选区接进划词链路。Why 需要这个入口：content script 只在
+  // 顶层文档运行（manifest 未声明 all_frames），而 iframe 内的 mouseup 既不冒泡到顶层
+  // 文档、其选区也不属于顶层 window.getSelection()——magicbook epub.js 的书页正文正是
+  // 这种同源 iframe，R24 只把高亮与「hover/点生词弹气泡」搬了进去，拖选一直是缺口。
+  // 文本与「已换算到顶层视口」的矩形由 highlight.js 的 per-doc 监听送来，复用同一套
+  // 气泡与按钮链路（译/详/🔊/认识/生词/问 AI 全部照常）。
+  window.__magicLensShowIframeSelection = (text, rect) => {
+    if (!cfg.enabled || !text || !rect) return;
+    if (!claimSelection(`${text}|${Math.round(rect.left)},${Math.round(rect.top)}`)) return;
+    // 词形口径与顶层 selectionInfo 保持一致（前缀匹配，命中才允许标记生词）
+    const m = text.match(/^[A-Za-z][A-Za-z'\-]{0,40}/);
+    openBubble(text, m ? m[0] : null, rect);
+  };
   // 悬浮离开（highlight.js 宽限到期调用）：只收「悬浮打开」的气泡，不动划选的气泡
   window.__magicLensHoverLeave = () => {
     if (window.__magicLensBubbleSource === 'hover') hide();
