@@ -366,8 +366,9 @@
           refreshConversations();
         },
         onError: (d) => {
+          // R32：后端 R124 起发干净文案，此处净化兜网络层/旧版残留的技术细节
           const prefix = d.code === 'LLM_REJECTED' ? '积分不足：' : '';
-          appendError(shell, prefix + (d.message || 'AI 服务异常'), false);
+          appendError(shell, prefix + window.__magicLensUserFacingError(d.message, 'AI 服务异常'), false);
         },
       });
       if (!gotFinal) {
@@ -380,7 +381,7 @@
       } else if (e.auth) {
         appendError(shell, e.message, true);
       } else {
-        appendError(shell, e.message, false);
+        appendError(shell, window.__magicLensUserFacingError(e.message, '请求失败，请稍后重试'), false);
       }
     } finally {
       state.running = false;

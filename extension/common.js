@@ -32,4 +32,19 @@
       return Boolean(n) && (h === n || h.endsWith(`.${n}`));
     });
   };
+
+  /** 上游错误详情不进 UI（R32 用户反馈：报错详情用户看不懂也不想了解）：
+   * 疑似技术细节（URL/内部 IP/英文异常/网关标识）归一为通用文案，原文进
+   * console 供排查；干净的业务文案（未登录/积分不足/选区过长等）原样放行。
+   * Why 防御层而非全量替换：moon-well R124 起服务端已返回干净文案，此层兜住
+   * 网络层报错与任何漏改路径；fallback 由调用方按场景给出（翻译/标记/详解）。 */
+  window.__magicLensUserFacingError = (msg, fallback) => {
+    const raw = String(msg || '');
+    if (!raw) return fallback || '';
+    if (/https?:\/\/|(\d{1,3}\.){3}\d{1,3}|Exception|I\/O error|timed out|call failed|Failed to fetch/i.test(raw)) {
+      console.warn('[MagicLens] 上游错误详情：', raw);
+      return fallback || '服务暂时不可用，请稍后重试';
+    }
+    return raw;
+  };
 })();

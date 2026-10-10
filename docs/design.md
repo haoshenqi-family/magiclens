@@ -83,3 +83,11 @@ moon-well 认证三通道：
 - **生效语义（统一）**：名单只决定新加载页面，变更后刷新生效。Why 不做运行中即时拆装：content.js 的 UI 与监听是顶层一次性装配，可逆化需把装配重写为 init/retire 对称结构，风险与收益不成比例（低频配置动作）。
 - **highlight.js 的坑**：它有 storage.onChanged / Alt+U 等现成「重开路径」，只挡 boot 的话禁用站会被后续全局开关变化复活引擎；因此启动时把判定结果固化进 `siteDisabled` 并入 `shouldEngineRun()`，所有路径统一封死。
 - **边界**：OIDC 登录回调捕获不受域名禁用影响（禁 moon-well 域不该废掉自己的登录回调）；chat.js 零改动（唯一入口是划词气泡「问 AI」，content 禁用即天然禁用）；不新增 permission；不做白名单模式与子路径粒度。
+
+## 10. 错误文案卫生：技术细节不进 UI（2026-10-08，R32，v0.8.1）
+
+**背景**：用户反馈（附截图）——moon-well 旧版把 LLM 网关异常拼进业务错误消息（`单词详解生成失败（LLM 超时或异常）: Magpie call failed: I/O error on POST request for "http://192.168.31.9:3425/..."`），内部拓扑与英文异常直达面板；「用户看不懂也不想了解」。
+
+**决策（双层）**：
+- **moon-well（权威层，R124 已上线，commit fba5ca4）**：所有 GlobalException/SSE onError 透传路径统一「干净中文文案给客户端 + 异常细节进服务端日志」；与 GlobalExceptionHandler 兜底分支既有哲学对齐。业务拒绝（积分不足等 BusinessException）保持原文案。LLM 客户端层消息（`Zhipu call failed: ...`）**保留不改**——`LlmTaskFailureClassifier` 按其文本分类、任务表持久化、R98 排障都依赖。
+- **magiclens（防御层，v0.8.1）**：`common.js __magicLensUserFacingError(msg, fallback)`——疑似技术细节（URL/内部 IP/英文异常/网关标识）归一为通用文案并 `console.warn` 原文；干净业务文案原样放行（401/403 重新登录流程不受影响）。content.js（译/标记/详解）与 chat.js（SSE error/请求失败）接入。

@@ -340,7 +340,7 @@ function startMainEngine() {
     setLoading('翻译中…');
     askBackground({ type: 'ml:translate', text: current.text }, (resp) => {
       if (!current) return; // 气泡已关闭
-      if (!resp.ok) return setError(resp.error || '翻译失败', resp.status);
+      if (!resp.ok) return setError(window.__magicLensUserFacingError(resp.error, '翻译失败，请稍后重试'), resp.status);
       const data = resp.data || {};
       setResult(data.translation || '（空结果）', data.source);
     });
@@ -363,7 +363,7 @@ function startMainEngine() {
         if (window.__magicLensOnMarked) window.__magicLensOnMarked(word, known);
       } else {
         btn.textContent = known ? '认识' : '生词';
-        setError(resp.error || '标记失败', resp.status);
+        setError(window.__magicLensUserFacingError(resp.error, '标记失败，请稍后重试'), resp.status);
       }
     });
   }
@@ -463,7 +463,7 @@ function startMainEngine() {
     positionDetail();
     askBackground({ type: 'ml:detail', word: current.word }, (resp) => {
       if (seq !== detailSeq || !detail.classList.contains('show')) return; // 已换词或面板已关闭
-      if (!resp.ok) return dError(resp.error || '详解加载失败', resp.status);
+      if (!resp.ok) return dError(window.__magicLensUserFacingError(resp.error, 'AI 生成超时或繁忙，请稍后重试'), resp.status);
       renderDetail(resp.data || {});
     });
   }
