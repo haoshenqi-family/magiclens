@@ -69,6 +69,7 @@
   - LLD 变更记录追加本条；apiBase/凭据出口收敛的约束写入 chat.js 与 background.js 注释。
 - **验证**：`node --check` chat.js/background.js 通过；分支推演覆盖 未登录（auth 链接）/ token 空+refresh 有效（静默刷新后放行）/ 刷新超时（保凭据提示重试）/ 刷新被拒（清凭据+重登链接）/ 扩展重载（刷新页面提示，无登录链接）。真机清单（需用户 chrome://extensions 重载后实测）：① 退出登录 → 问 AI 提示「未登录，请先在设置页登录」+ 链接；② 点链接完成 OIDC 登录 → 回页直接发送 → SSE 流式回复正常；③ 会话列表/记忆/学情面板正常；④ 划词翻译等其他功能回归正常。
 - **总结**：requests.md 占号 R35；response.md 本条；归档 R23–R24（窗口回到 10 条内）。冲突记录：与 R34（iframe 划词，另一会话在途）并行——manifest.json 版本竞态（R34 会话 15:23 写入 `0.8.2-202610101523`，本会话按「每次修改完成递增」续增为 `0.8.3-202610101524`）；本会话未触碰 content.js/highlight.js。
+- **更新（2026-10-10 发布）**：用户真机验收通过后已发正式版 **v0.8.3**（run 38035576570，Release 含 magiclens-extension-v0.8.3.zip，zip 内 manifest version/version_name 均为纯 0.8.3）。发布锚定 9e57c04（R34+R35），**不含其后未验收的 R36 选区中继重构**（c64b541 待其自行验收走 v0.8.4）；去时间戳提交 a0ccbc8 仅落 release 分支（develop 已被 R36 前移、避免非快返推送），下次发版 merge 时 manifest 以新版为准。
 
 ### R34（补 iframe 内拖选划词：阅读器里选中单词没反应）
 
