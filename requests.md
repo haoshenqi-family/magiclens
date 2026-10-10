@@ -27,3 +27,5 @@
 35. bug 排查：magiclens 的 AI 功能（伴读聊天）一直提示「未配置 token 或者未登录」，跳转登录也不行；但其他功能（划词/生词标记等）正常。该功能应与插件其他功能共用同一登录与 token。
 
 36. iframe 选区能力解耦重构：R34 把 iframe 的 mouseup 绑在高亮引擎的 per-doc 装配里，而该装配受 shouldEngineRun()（高亮开关 + token）门控——关掉生词高亮或没登录时，阅读器里划词会一起失效。用户要求不为「顶层 content.js / iframe 中继」这种分工做妥协，因为未来 magicbook 的阅读能力可能整体移植进 magiclens，选区采集应做成与高亮无关、可复用的骨架。方案：新增 all_frames 注入的 selection-relay.js，任意子文档采集自己的选区并经 background 回投顶层画气泡。
+
+37. 能力握手标记：由 magiclens 在页面上留「本条能力正在被接管」的显式标记，供 magicbook 逐项探测决定是否让位内置实现（分能力：本帧选区中继 / 顶层高亮引擎）。Why：magicbook 单侧无法检测扩展（不能枚举、未打包 ID 随路径变化），而「装了扩展」不等于「这条能力在此处通」——v0.8.5 之前 iframe 拖选就是装了也不通。
