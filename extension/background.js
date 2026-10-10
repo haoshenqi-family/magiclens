@@ -412,6 +412,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok: true, apiBase, token: authToken });
         break;
       }
+      case 'ml:selection': {
+        // R36：子文档（iframe）里的选区上报——selection-relay.js 只在非顶层文档运行，
+        // 气泡与按钮链路的唯一属主是顶层 content.js，故投回同一 tab 让它呈现。
+        // content script 用不了 chrome.tabs，这一跳中转是必须的；不指定 frameId 即投给
+        // 该 tab 的全部文档，中继脚本不认识这个消息类型会自行忽略，无需新增 "tabs" 权限
+        // （既有 host_permissions 已覆盖，与 ml:hl-toggle 同一用法）。
+        if (!sender.tab || sender.tab.id == null) {
+          sendResponse({ ok: false });
+          break;
+        }
+        chrome.tabs.sendMessage(sender.tab.id,
+          { type: 'ml:openSelection', text: msg.text, rect: msg.rect },
+          () => { void chrome.runtime.lastError; }); // 顶层未装载（站点禁用/扩展刚更新）时无人接收
+        sendResponse({ ok: true });
+        break;
+      }
       case 'ml:login':
         // 打开 moon-well 的 Authentik 登录页（与 magicbook 同一登录入口）；
         // 成功后 callback 页由 content.js 自动捕获令牌

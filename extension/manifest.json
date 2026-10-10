@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "MagicLens 词镜",
   "description": "把 magicbook 的阅读能力带到整个 Web：划词翻译、单词详解、生词高亮、认识/生词标记、词汇表与朗读，直连 moon-well。",
-  "version": "0.8.3",
-  "version_name": "0.8.3",
+  "version": "0.8.5",
+  "version_name": "0.8.5",
   "minimum_chrome_version": "110",
   "permissions": [
     "storage"
@@ -28,6 +28,18 @@
         "chat.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "selection-relay.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true,
+      "match_origin_as_fallback": true
     }
   ],
   "commands": {

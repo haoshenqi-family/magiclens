@@ -25,3 +25,5 @@
 34. 补 iframe 内的拖选划词：magicbook 阅读器正文在同源 iframe 里，R24 的多文档引擎只把生词高亮与「hover/点高亮词弹气泡」接进 iframe，选区链路（content.js 的 mouseup→processSelection）仍只在顶层文档，导致阅读器里选中单词无反应。magicbook 侧已按「只隐藏 magiclens 已实现的部分」下线内置气泡（其 R141/R143），这条缺口必须补上。
 
 35. bug 排查：magiclens 的 AI 功能（伴读聊天）一直提示「未配置 token 或者未登录」，跳转登录也不行；但其他功能（划词/生词标记等）正常。该功能应与插件其他功能共用同一登录与 token。
+
+36. iframe 选区能力解耦重构：R34 把 iframe 的 mouseup 绑在高亮引擎的 per-doc 装配里，而该装配受 shouldEngineRun()（高亮开关 + token）门控——关掉生词高亮或没登录时，阅读器里划词会一起失效。用户要求不为「顶层 content.js / iframe 中继」这种分工做妥协，因为未来 magicbook 的阅读能力可能整体移植进 magiclens，选区采集应做成与高亮无关、可复用的骨架。方案：新增 all_frames 注入的 selection-relay.js，任意子文档采集自己的选区并经 background 回投顶层画气泡。

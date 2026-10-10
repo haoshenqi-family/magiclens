@@ -109,9 +109,56 @@ moon-well 认证三通道：
   iframe 内的 mouseup 既不跨文档冒泡到顶层，选区也不属于顶层 `window.getSelection()`，
   于是顶层的 `mouseup → processSelection → selectionInfo` 一次都不触发。
 
+> **更新（2026-10-10，R36）——本节机制已被 §12 取代**：下面这条「只给 iframe 文档加绑 mouseup」
+> 的落点有耦合缺陷（iframe 的选区监听长在生词高亮引擎的装配里），改走 all_frames 选区中继。
+> 本节对根因的分析（为什么高亮有效、选区无效）仍然成立，保留原貌。
+
 **决策**：在 highlight.js 的 per-doc 装配里**只给 iframe 文档**加绑 `mouseup`（顶层已有 content.js
 处理，两处同绑会双开气泡、双发翻译请求；两个入口算出的矩形一个原生、一个换算，未必逐字相等，
 不能指望 500ms 去重兜住），延迟 60ms 取该文档选区文本与 Range 矩形，按 `tokRect` 同款换算叠加
 iframe 偏移，经新钩子 `__magicLensShowIframeSelection(text, rect)` 交给顶层气泡；content.js 把
 `processSelection` 的呈现部分抽成共用的 `openBubble(text, word, rect)`，词形前缀匹配口径、
 2000 字符上限、`autoTranslate` 与全部按钮因此与顶层天然一致，不复制第二套语义。
+
+## 12. iframe 选区与高亮解耦：all_frames 选区中继（2026-10-10，R36，v0.8.4）
+
+**背景**：R34 把 iframe 的 `mouseup` 绑在 `highlight.js` 的 per-doc 装配里（`setupDoc` 的 `on(st.doc, ...)`）。
+该装配的存活条件写在 `shouldEngineRun()`（`highlight.js:35`）：`!siteDisabled && cfg.enabled && cfg.hlEnabled && token`。
+于是「关掉生词高亮（popup 开关 / `Alt+U`）」或「未登录」时 `teardownDoc` 会摘掉全部 per-doc 监听，
+**阅读器里的划词跟着一起失效**——划词是主能力，生词高亮只是它旁边的一个开关，两者生命周期被绑错了。
+
+**用户决策口径**：不要为「顶层归 content.js、iframe 归 highlight.js」这种分工做妥协，因为未来 magicbook 的
+阅读能力可能整体移植进 magiclens；选区采集要做成**与高亮无关、可复用的骨架**。
+
+**方案**：
+- 新增 `extension/selection-relay.js`，manifest 里作为**第二条 content_scripts 注入项**、`all_frames: true`、
+  只挂这一个文件。它在**非顶层文档**监听 `mouseup`/`touchend`（延迟 60/80ms 等选区稳定，与顶层同节奏），
+  取本文档选区文本与 Range 矩形，逐层累加 `frameElement` 的矩形把坐标换算到顶层视口，经
+  `chrome.runtime.sendMessage({type:'ml:selection'})` 上报。顶层直接 return（那里的选区由 content.js 处理，
+  两处同绑会双气泡、双发翻译请求）。
+- `background.js` 新增 `ml:selection` 分支：`chrome.tabs.sendMessage(sender.tab.id, {type:'ml:openSelection', ...})`
+  投回同一 tab。content script 用不了 `chrome.tabs`，这一跳中转是必须的；不指定 `frameId` 即投给该 tab 的
+  全部文档，中继不认识该类型会自行忽略——**因此不需要新增 `"tabs"` 权限**（与既有 `ml:hl-toggle` 同一用法，
+  host_permissions 已覆盖），R25「不新增 permission」的约束保持。
+- `content.js` 把 R34 的 `window.__magicLensShowIframeSelection` 收归内部函数 `openIframeSelection`，由新增的
+  `chrome.runtime.onMessage` 监听调用；气泡、按钮、2000 字符上限、`autoTranslate` 继续走同一 `openBubble`。
+- `highlight.js` 撤掉 R34 的 `mouseup` 绑定与 `pushIframeSelection`。
+
+**为什么气泡仍只在顶层**：跨文档采集统一后，呈现有唯一属主（Shadow DOM 一份、详解面板一份、伴读抽屉一份），
+iframe 只做采集与坐标换算。这个「帧内采集 → background 路由 → 顶层呈现」骨架正是后续移植的通路：
+朗读、标记、详解、整页翻译每加一项，都只是往同一对中继加消息类型，不必再往高亮引擎里塞生命周期。
+
+**收起语义不变**：`highlight.js` 的 per-doc `mousedown`/`keydown`/`scroll` 经 `hideSelectionBubble()`
+→ `window.__magicLensHideBubble()` 收的是顶层那一个气泡（`highlight.js:182`），所以中继打开的气泡
+在 iframe 内点空白/Esc/滚动照样能关，无需新增路径。
+
+**注入条件（2026-10-10 真机验证补上，v0.8.5）**：只写 `all_frames: true` 在 magicbook 阅读器里**仍然不生效**——
+`epub.min.js` 的 iframe 渲染走 `srcdoc` 或 `contentWindow.document.write`（`grep srcdoc cps/static/js/libs/epub.min.js`
+可见 `srcdoc":"write"` 的方法选择），那属于 `about:srcdoc` / `about:blank` 源，Chrome 默认**不会**把 content script
+注入这类 frame，必须显式声明 `"match_origin_as_fallback": true`（Chrome 102+，本扩展 `minimum_chrome_version` 110 覆盖），
+注入时继承创建者文档（即 magicbook 页面）的 URL 做匹配。这也解释了为什么同一页里「波浪线正常、拖选无反应」：
+高亮是顶层 `highlight.js` 经 `contentDocument` 伸手绑的、不依赖子文档注入，而中继脚本压根没进那个 frame。
+诊断入口：DevTools 控制台把上下文从 `top` 切到书本 frame，读 `window.__magicLensRelayLoaded`——`undefined` 即未注入。
+
+**边界**：跨源 iframe 拿不到 `frameElement`，`toTopViewport` 返回 null 即不上报（与既有「跨源跳过」一致）；
+嵌套多层靠逐层累加支持，仍受注入项自身范围限制。扩展刚更新而页面未刷新时上报无接收者，静默丢弃。

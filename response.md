@@ -1,13 +1,6 @@
 # response.md — 对话回应记录（仅保留最近 10 个 request 的回应）
 
-> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移）
-
-### R26（跨项目 L1-L3 文档评审与产品评估，只改文档）
-
-- **范围**：配合家族根 `docs/product-review-2026-10-07.md`，核查本仓库 README ↔ docs/feat ↔ manifest 三方对齐并修正漂移。**未触碰 extension/ 任何文件**（工作区里 v0.7.2/v0.8.0 在途改动与 response-archive/ 均系 R24/R25 并行会话产物，保持原样）。
-- **修正清单（5 处）**：design.md §3 鉴权表加更新注（R118/R119 快照：现行 v0.3.0 起 OIDC 登录化、mk- key 弃用、token 30/90 天——R101）；chrome-extension lld US3/US4 状态回填（US3 v0.2.0 已交付、US4 moon-well R97 已上线）+ §6.3 鉴权表 7d/30d→30/90d 并标注 mk- 已弃用；vocab-highlight lld §3/§5「仅顶层 frame 不进 iframe」与 §6 R24 多文档自相矛盾→统一为「同源两层内 iframe 参与，跨源/更深层不进」；README 待办 P1 收窄（生词标注已随 v0.5.0 交付，剩段落整页翻译）；webstore/listing.md 加上架前勘误（现行 release.yml `zip -r … extension` 产出 zip 根层是 extension/ 目录，与商店「manifest 在根层」要求不符，上架需改打包方式并刷新版本锚点）。
-- **遗留（代码类不动）**：`extension/background.js:5` 注释仍写 access 7d/refresh 30d，属代码注释按任务边界未改，建议下次改扩展时顺手更新。
-- **总结**：requests.md 本条 R26；response.md 追加后仍在 10 条窗口（R25 已做过 R1-R15 归档）；冲突记录：无。
+> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移）
 
 ### R27（AGENTS.md 文档规范升级：三级体系落表）
 
@@ -76,6 +69,7 @@
   - LLD 变更记录追加本条；apiBase/凭据出口收敛的约束写入 chat.js 与 background.js 注释。
 - **验证**：`node --check` chat.js/background.js 通过；分支推演覆盖 未登录（auth 链接）/ token 空+refresh 有效（静默刷新后放行）/ 刷新超时（保凭据提示重试）/ 刷新被拒（清凭据+重登链接）/ 扩展重载（刷新页面提示，无登录链接）。真机清单（需用户 chrome://extensions 重载后实测）：① 退出登录 → 问 AI 提示「未登录，请先在设置页登录」+ 链接；② 点链接完成 OIDC 登录 → 回页直接发送 → SSE 流式回复正常；③ 会话列表/记忆/学情面板正常；④ 划词翻译等其他功能回归正常。
 - **总结**：requests.md 占号 R35；response.md 本条；归档 R23–R24（窗口回到 10 条内）。冲突记录：与 R34（iframe 划词，另一会话在途）并行——manifest.json 版本竞态（R34 会话 15:23 写入 `0.8.2-202610101523`，本会话按「每次修改完成递增」续增为 `0.8.3-202610101524`）；本会话未触碰 content.js/highlight.js。
+- **更新（2026-10-10 发布）**：用户真机验收通过后已发正式版 **v0.8.3**（run 38035576570，Release 含 magiclens-extension-v0.8.3.zip，zip 内 manifest version/version_name 均为纯 0.8.3）。发布锚定 9e57c04（R34+R35），**不含其后未验收的 R36 选区中继重构**（c64b541 待其自行验收走 v0.8.4）；去时间戳提交 a0ccbc8 仅落 release 分支（develop 已被 R36 前移、避免非快返推送），下次发版 merge 时 manifest 以新版为准。
 
 ### R34（补 iframe 内拖选划词：阅读器里选中单词没反应）
 
@@ -87,3 +81,13 @@
 - **版本冲突记录**：manifest 的 `version/version_name` 不由我的 commit 携带——写码期间 R35 会话已把它推到 `0.8.3-202610101524`，其 `background.js`/`chat.js`/`docs/feat/chrome-extension/design/lld.md`/`requests.md#35` 仍是未提交在途改动，我不代为收编；我的代码已在工作区，随那个版本号一起被浏览器加载即可。
 - **代提交记录**：本条下方的 response.md 窗口轮转（R23、R24 原样搬至 `response-archive/response-R23-R24.md`）系 R35 会话在 2026-10-10 做的，已逐字核对为原文搬移、未改写，随本条一起入库；另 R32 会话 2026-10-08 未提交的 v0.8.1「错误文案卫生」已由 commit `b74cea0` 单独收编并注明其自记验收状态。
 - **总结**：requests.md 占号 R34（`a94de1c` 单独锁号；占号时确认 34 未占用，随后发现 35 已被并行会话占用，按不回改纪律保留）；response.md 本条，当前窗口 10 条、无需再搬。
+
+### R36（iframe 选区与生词高亮解耦：all_frames 选区中继）
+
+- **触发**：用户要求「不考虑顶层/iframe 那层分工，未来 magicbook 阅读能力可能移植进 magiclens」。据此复核 R34，查出真缺陷——`highlight.js:35` 的 `shouldEngineRun()` 要求 `!siteDisabled && cfg.enabled && cfg.hlEnabled && token` 才执行 per-doc 装配（`syncDocs` 只在它为真时跑），而我把 iframe 的 `mouseup` 绑在那套装配里：**关掉生词高亮（popup / `Alt+U`）或未登录时，`teardownDoc` 摘掉监听，阅读器里的划词跟着一起没**。划词是主能力、生词高亮只是旁边一个开关，生命周期绑错了。
+- **交付（v0.8.4）**：新增 `extension/selection-relay.js`，manifest 里作为第二条 content_scripts 注入项、`all_frames: true`、只挂它自己——非顶层文档监听 `mouseup`/`touchend`（60/80ms 与顶层同节奏），取本文档选区文本 + Range 矩形，逐层累加 `frameElement` 矩形换算到顶层视口，经 `ml:selection` 上报；顶层直接 return（避免与 content.js 双绑导致双气泡、双发翻译请求）。`background.js` 的 `ml:selection` 用 `chrome.tabs.sendMessage(sender.tab.id, …)` 投回同一 tab——content script 用不了 `chrome.tabs`，这一跳必须；不指定 `frameId` 即投全部文档，中继不认识该类型自行忽略，**因此不必新增 `"tabs"` 权限**，R25 的「不新增 permission」约束保持。`content.js` 把 R34 的跨文档钩子收归内部 `openIframeSelection`，由新增的 `runtime.onMessage` 监听调用，仍复用同一 `openBubble`。`highlight.js` 撤掉 R34 的 `mouseup` 绑定与 `pushIframeSelection`。
+- **骨架意义（对齐移植意图）**：「帧内采集 → background 路由 → 顶层呈现」此后与高亮无关；朗读、标记、详解、整页翻译每往 magiclens 移一项，只是给这对中继加一个消息类型，不必再把能力塞进 `shouldEngineRun()` 的生命周期里。收起语义复用既有路径（`highlight.js:182` 的 `hideSelectionBubble` → `window.__magicLensHideBubble` 收的就是顶层那一个气泡），无需新增分支。
+- **文档**：`docs/design.md` 新增 §12（根因 + 为什么不新增权限 + 边界），§11 加「已被 §12 取代」更新注记、原分析保留；`docs/feat/vocab-highlight/design/lld.md` §6.4 同样加注；README 功能表版本号改指 v0.8.4。
+- **验证状态（诚实）**：`node --check` 四个 JS 全过、manifest 解析通过（两条注入项：5 文件顶层 / 1 文件 all_frames）。**扩展装载与真机效果未验**——需在 `chrome://extensions` 重新加载（新增注入项必须重载，旧页面还要刷新），然后：① 阅读器正文拖选任意单词出气泡，译/详/🔊/认识/生词/问 AI 可用；② **用 `Alt+U` 关掉生词高亮后，划词仍要可用**（本次修的正是这条）；③ 普通网页划词无变化（无双气泡、无重复翻译请求）；④ iframe 内点空白/Esc/滚动能收起气泡。
+- **并发记录**：R35（聊天 token 修复）已自行提交 `4090202`，manifest 版本从它的 `0.8.3-202610101524` 递增到 `0.8.4-202610101538`，未改写他人内容；工作区本轮只有 4 改 + 1 新增。
+- **总结**：requests.md 占号 R36（`d296f61` 单独锁号）；response.md 本条使窗口达 11 条，最旧条目按区间纪律原样搬至 `response-archive/` 并在索引登记。

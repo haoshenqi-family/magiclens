@@ -215,13 +215,6 @@
       hideSelectionBubble();
     }, true);
     on(st.doc, 'click', (e) => onWordClick(e, st), true);
-    // R34：iframe 内的拖选选区送进划词链路。Why 只给 iframe 绑：顶层文档的选区已由
-    // content.js 自己的 mouseup 处理，两处同绑会双开气泡、双发翻译请求——两个入口算出的
-    // 矩形一个取原生顶层坐标、一个取 iframe 偏移换算值，未必逐字相等，靠 500ms 去重兜不住。
-    // Why 延迟 60ms：与顶层同节奏，等选区稳定；双击选词也会触发 mouseup。
-    if (st.iframeEl) {
-      on(st.doc, 'mouseup', () => setTimeout(() => pushIframeSelection(st), 60), true);
-    }
     on(st.doc, 'keydown', (e) => {
       if (e.key !== 'Escape') return;
       dismissHover();
@@ -295,25 +288,6 @@
         width: rect.width, height: rect.height };
     }
     return { left: rect.left, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
-  }
-
-  /** iframe 内选区 → 顶层划词气泡（R34）：文本取该文档选区，矩形叠加 iframe 自身偏移
-   *  换算到顶层视口（与 tokRect 同一套换算，气泡才不会被画在书页外的错误位置）。
-   *  Why 不弹「取消选区」：点正文会先触发本文档的 mousedown → 已有 hideSelectionBubble
-   *  收气泡，这里若再对空选区做动作只会互相干扰。 */
-  function pushIframeSelection(st) {
-    const hook = window.__magicLensShowIframeSelection;
-    if (!hook || !st.iframeEl) return;
-    let sel;
-    try { sel = st.win.getSelection(); } catch { return; } // 翻章会换掉 contentDocument
-    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
-    const text = String(sel.toString()).replace(/\s+/g, ' ').trim();
-    if (!text) return;
-    let rect;
-    try { rect = sel.getRangeAt(0).getBoundingClientRect(); } catch { return; }
-    if (!rect.width && !rect.height) return; // 选区不可见（如被折叠元素包住）
-    const f = st.iframeEl.getBoundingClientRect();
-    hook(text, { left: rect.left + f.left, top: rect.top + f.top, bottom: rect.bottom + f.top });
   }
 
   function materializeNode(text) {
