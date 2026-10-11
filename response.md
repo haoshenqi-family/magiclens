@@ -99,3 +99,13 @@
 - **验证状态（诚实）**：`node --check` 四个 JS 全过；**未做真机验证**——扩展装不进这台自动化浏览器，且 magicbook 阅读器正文在自动化浏览器里渲染不出来（`file.epub` 200 但 iframe 不产生，控制台无 JS 报错，换书同样）。需要你在自己 Chrome 里重载 0.8.7 后验三件事：① 连点「译」不再叠请求（DevTools Network 里 `ml:translate` 对应的那次 moon-well/金山调用应当只有一条在途）；② 控制台不再出现 `:0` 那类无名错误；③ 重载扩展后旧标签页刷新前不应再有报错。
 - **版本**：manifest `0.8.6 → 0.8.7-202610110826`（测试版，不触发发布）。0.8.6 已推 origin/develop 但**未发 GitHub Release**，所以线上扩展 zip 仍是 v0.8.5——它不写接管标记，magicbook 的探测版已上线，两者会同时出现（双气泡、双波浪线），**请尽快重载到 0.8.7**。
 - **总结**：requests.md 占号 R39（`e0eda8e` 单独锁号）；本条写入使窗口达 11 个 request，最旧的 R28 原样搬至 `response-archive/response-R28.md` 并在索引登记；冲突记录：无（39 未被占用，顶端他人 commit 未动）。
+
+## 2026-10-11（R40：金山直连查词补报四股台账）
+
+### R40（background.js 直连命中上报 /learning/strands/lookup；随 moon-well R152 端点）
+
+- **交付**（worktree `../magiclens-lookup-report`，分支 `feat/r40-lookup-report`，基于 origin/develop a73fd95；worktree 驻留待用户确认）：`ml:translate` 的 iciba 直连命中分支加 `reportLookup(text)`——fire-and-forget POST `/learning/strands/lookup {word}`（复用 callApi 的 Bearer 与 401 静默续期），会话内 Set 去重（SW 挂起重置由服务端同词同日 doc id 幂等兜底），失败静默不打断翻译快路径。miss 回退路径本经 moon-well（logWord→LOOKUP_DAY）无需处理。
+- **语义**：纯遥测——moon-well R152 端点只发 LOOKUP_DAY 事件（canonical 归一），不建生词本行、不建词典文档；直连命中因此计入词汇股而零建档副作用。
+- **版本**：0.8.7 → **0.8.8-202610111039**（测试版：带时间戳不触发发布，`chrome://extensions` 重载即用；正式发布仍走用户确认 + release 分支两段式）。
+- **README（L1）**：API 契约速查表补 `/learning/strands/lookup` 一行。
+- **总结**：requests.md 占号 R40；本条为回应；冲突记录：无。

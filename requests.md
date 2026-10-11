@@ -33,3 +33,5 @@
 38. 为四个项目添加 worktree 使用说明（同源 moon-well R146）：接到开发任务时开一个 worktree 完成开发，完成后 merge 回 develop 再删除 worktree；或改为固定 worktree 池占用模式（每任务找未使用的 worktree，先 merge develop，完成后合回不删）。比较两种方式优劣并落地选定模式的规范。
 
 39. 用户反馈两个真机问题：① 控制台 `Error://(:0)`；② 阅读器里划词选中单词后，「译」点几下就卡死。修：翻译在途守卫（连点不叠请求）、孤儿副本退役时摘掉 onMessage 监听、中继脚本对上下文失效做保护。
+
+40. 金山直连查词补报四股台账（P3，随 moon-well R152 端点）：单词划词直连金山命中时 fire-and-forget 上报 /learning/strands/lookup（服务端同词同日幂等），补齐词汇股 LOOKUP_DAY 口径；miss 回退路径本就走 moon-well 无需处理。版本测试版递增 0.8.8。
