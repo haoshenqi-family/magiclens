@@ -52,21 +52,25 @@
 
 ## 🔀 Git Worktree 使用规范（2026-10-10 R38 增补；家族统一口径见 ../AGENTS.md「Git Worktree 开发纪律」）
 
-> **模式：一任务一临时 worktree，合并后即删**。正面先例：R36 发布 merge 全程在临时 worktree（/tmp/ml-release）完成，没有在并行会话共用的工作目录切分支。
+> **模式：一任务一临时 worktree，合并后保留待验收，验收通过后删除**。正面先例：R36 发布 merge 全程在临时 worktree（/tmp/ml-release）完成，没有在并行会话共用的工作目录切分支。
 
 - **何时必须用**：编码类任务（改 `extension/`、`manifest.json` 等）开工时创建专属 worktree 开发，**不得在可能被并行会话共用的主检出上直接改分支**；纯问答、排查、文档微改可在主检出直接进行。本仓无构建链，worktree 即装即用，成本几乎为零。
 - **创建**（位置必须在仓库目录外的兄弟目录，命名 `magiclens-<任务slug>`；先 `git fetch origin`，从 `origin/develop` 最新点切出）：
   ```bash
   git worktree add ../magiclens-<slug> -b <type>/r<编号>-<slug> origin/develop
   ```
-- **收尾闸门（合并回 develop 后立即执行，顺序固定）**：
+- **收尾闸门（merge 后不立即删除，等验收）**：
   ```bash
   git merge <type>/r<编号>-<slug>        # 在主检出 develop 上执行
+  ```
+  merge 完成后 worktree **原样保留**，等用户验收；验收通过后执行删除：
+  ```bash
   git worktree remove ../magiclens-<slug>
   git branch -d <type>/r<编号>-<slug>    # 只用 -d：未合并会被 git 拒绝，此时停下排查
   ```
   **禁止 `branch -D`**（会吞掉未合并提交，属破坏性操作，必须先经用户确认）；worktree 内有未提交残留导致 remove 被拒时，先向用户出示 diff 再处置，不得静默丢弃。
-- **长任务例外**：跨多会话的任务可驻留 worktree，但必须在当轮 response.md 登记分支名、日期与原因；任务关闭时按闸门收尾。
+- **验收期驻留（正常状态）**：merge 后未验收的 worktree 属正常驻留，须在当轮 response.md 登记分支名与合并 commit，验收通过后立即删除；用户明确否决的改动，处置方式（revert merge / 保留分支）由用户定夺。本仓验收方式：`chrome://extensions` 从该 worktree 目录「加载已解压的扩展程序」实测；验收发现新问题时在原 worktree 内继续修（manifest 版本按 §0.2 再次递增），修完重新 merge 后再等验收。
+- **长任务例外**：跨多会话、未到 merge 点的任务同样驻留 worktree，须登记分支名、日期与原因；任务关闭时按闸门收尾。
 - **收尾失败留台账**：任务中止、冲突未解等无法完成闸门时，必须在 response.md 记录 worktree 位置、分支名与原因，禁止静默滞留。
 - **发布流程不变**：正式发布仍按 §0.2 两段式规则，merge `develop` → `release` 并 push；发布类 merge 操作本身也建议在临时 worktree 内完成（R36 先例），避免在共用目录切分支。
 

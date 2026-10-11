@@ -1,28 +1,6 @@
 # response.md — 对话回应记录（仅保留最近 10 个 request 的回应）
 
-> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移）
-
-### R29（执行文档统一方案：拓扑指针化 + 归档规则修订）
-
-- **冲突记录**：本条原占 28，与并行会话 R28「Documentation 标记认识后仍划线」撞号（该单已由 moon-well R116 修复闭环），按编号纪律续编空号 29。
-- **P1-B**：AGENTS.md「内网设备」表指针化——拓扑事实以 ops 仓库与 app-manager truth/server.md 为唯一权威源，本表收敛为一行速查（保留 fnOS=moon-well :8082、ubuntu naive :12811 两个本项目相关坐标）。
-- **P2-D**：归档规则修订为「写入即检查、超 10 立即搬移」；本条回应使窗口超 10，按新规则当场把 R19 条目原样搬移至 response-archive/response-R19.md 并登记索引（新规则首次执行）。
-- **总结**：requests.md 本条 R29（原占 28 撞号续编）；冲突记录见上。
-
-### R30（单测逻辑改两级：开发态部分验证，正式发布才走全量清单）
-
-- **AGENTS.md §2 编码实现·交付标准**：新增「两级验证闸门」子条——本项目无自动化测试框架，闸门落在 §3 手工验收清单上：**开发态（默认）**只实测本次改动涉及的 AC 条目；**正式发布态**（用户显式提出「发布 / 上线」，即 §0.2 去掉时间戳后缀并 merge `release` 那一步）必须把 §3 清单逐条走全并全过。
-- **跨仓同步**：moon-well R119 / magicbook R131 / app-manager R36 把「全量单元测试」拆成开发态部分 + 发布态全量两级；本仓以手工清单对应同一口径。与既有 §0.2 两段式版本规则天然吻合（带时间戳后缀的测试版不触发发布）。
-- **归档**：本条使窗口超 10（原 R20–R29 共 10 条），按「写入即检查、超 10 立即搬移」当场把 R20 条目原样搬移至 `response-archive/response-R20.md`（逐字节 diff 校验一致）并登记索引，窗口回到 10 个 request。
-- **总结**：requests.md 本条 R30；response.md 追加本条并完成上述搬移；冲突记录：无（30 未被并行占用）。只改文档，未动扩展代码与 manifest 版本。
-
-### R31（发布 magiclens）
-
-- **回应**：按 R18 流程完成 v0.8.0 正式发布——
-  - 发布批次 commit `522092d`（23 文件：R24 iframe 多文档 + R25 域名管理 + R26-R30 文档体系批次 + 台账与归档补账），`version_name` 清理时间戳为纯 `0.8.0`；push develop → merge release 分支推送；
-  - `release.yml` 触发成功（run 37735576781，12s），**Release v0.8.0 已上线**：https://github.com/haoshenqi-family/magiclens/releases/tag/v0.8.0 ，附件 `magiclens-extension-v0.8.0.zip`；
-  - zip 下载实测：manifest `0.8.0 / 0.8.0`（无时间戳），13 个文件齐全（含新增 common.js）。
-- **总结**：requests.md 占号 R31；response.md 本条；冲突记录：无。
+> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移） · [response-R29.md](response-archive/response-R29.md)（2026-10-11 R40 写入触发轮转搬移） · [response-R30-R31.md](response-archive/response-R30-R31.md)（2026-10-11 R41 集成时窗口超限搬移）
 
 ### R32（报错详情不应暴露给用户）
 
@@ -109,3 +87,10 @@
 - **版本**：0.8.7 → **0.8.8-202610111039**（测试版：带时间戳不触发发布，`chrome://extensions` 重载即用；正式发布仍走用户确认 + release 分支两段式）。
 - **README（L1）**：API 契约速查表补 `/learning/strands/lookup` 一行。
 - **总结**：requests.md 占号 R40；本条为回应；冲突记录：无。
+
+### R41（worktree 规范微调：merge 后保留待验收，验收通过后删除）
+
+- **用户指令**：不要 merge 即删除 worktree，改为 merge 后保留等用户验收，验收通过后再删除。规范主体（临时 worktree、非占用池、无构建链即装即用、发布 merge 在 worktree 内做）不变，只改收尾时序。
+- **落地改动**：家族根「Git Worktree 开发纪律」收尾闸门改两段式；本仓 AGENTS.md 收尾闸门同步微调，新增「验收期驻留（正常状态）」条——本仓验收方式：`chrome://extensions` 从该 worktree 目录「加载已解压的扩展程序」实测；验收发现新问题时在原 worktree 内继续修（manifest 版本按 §0.2 再次递增），修完重新 merge 后再等验收。
+- **窗口**：与远端 R40 集成后窗口含 R30–R41 共 12 个 request，把最旧的 R30、R31 两节原样搬至 `response-archive/response-R30-R31.md` 并登记索引，窗口恢复 10 个（R32–R41）；此前本条初版已搬 R29（当时窗口 11）。
+- **总结**：requests.md 占号 R41（与并行会话金山直连查词补报撞号 40 后按纪律续编）；response.md 本条；冲突记录：R40 撞号如上。本任务只改文档与对话记录，未动任何代码与 manifest（版本号不变）。
