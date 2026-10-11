@@ -61,6 +61,7 @@ flowchart LR
 | `/vocabulary/detail/{word}` | GET | — | 单词详解（v0.4.0）：六板块结构化 JSON；变体入参自动还原词目，缓存按词目落档 |
 | `/vocabulary/reading/settings` | GET | — | 阅读偏好（也用作连接测试） |
 | `/tts/speak` | POST | `{text}`（1..2000，65s 超时） | 音频二进制（P2 接入） |
+| `/learning/strands/lookup` | POST | `{word}`（≤64） | 金山直连查词补报四股台账（v0.8.8）：fire-and-forget，服务端同词同日幂等 |
 
 ## 关联文档
 
