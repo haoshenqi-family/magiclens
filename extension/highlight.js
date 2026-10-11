@@ -387,9 +387,11 @@
    * 未登录、站点禁用）则继续画——避免出现「两边都不管」的空白。teardown 必须清，
    * 否则关开关后宿主会永久让位。 */
   function markTakenOver() {
-    if (document.documentElement) {
-      document.documentElement.dataset.magiclensHighlight = chrome.runtime.getManifest().version;
-    }
+    // 上下文失效（扩展刚重载、本页还是旧副本）时 getManifest 会抛，这里吞掉即可：
+    // 后果只是这一次没声明接管，宿主保留自己那份内置实现，不会留空白也不会报错。
+    let version;
+    try { version = chrome.runtime.getManifest().version; } catch { return; }
+    if (document.documentElement) document.documentElement.dataset.magiclensHighlight = version;
   }
 
   function unmarkTakenOver() {

@@ -37,6 +37,12 @@
     return { left, top, bottom };
   }
 
+  // 扩展重载后仍留在页上的旧副本：chrome.runtime 对象还在，但上下文已失效，任何调用
+  // 都会抛 "Extension context invalidated"——孤立世界里没有源文件与行号，真机上就表现成
+  // 「Error://(:0)」这种无名报错。这里一次性取版本号，取不到就整体退出、不注册任何监听。
+  let extVersion;
+  try { extVersion = chrome.runtime.getManifest().version; } catch { return; }
+
   function report() {
     let sel;
     try { sel = window.getSelection(); } catch { return; } // 文档可能已随翻章销毁
@@ -48,21 +54,33 @@
     if (!rect.width && !rect.height) return; // 选区不可见（折叠元素内等）
     const mapped = toTopViewport(rect);
     if (!mapped) return;
-    chrome.runtime.sendMessage({ type: 'ml:selection', text, rect: mapped }, () => {
-      void chrome.runtime.lastError; // 扩展刚更新、顶层尚未装载时无人接收，静默即可
-    });
+    try {
+      chrome.runtime.sendMessage({ type: 'ml:selection', text, rect: mapped }, () => {
+        void chrome.runtime.lastError; // 顶层尚未装载（站点禁用/刚重载）时无人接收，静默即可
+      });
+    } catch {
+      retire(); // 发消息这一刻上下文已失效：摘掉自己，不要再抛第二次
+    }
   }
 
   // 能力握手标记（R37）：写在**本文档**上，供宿主页面（magicbook 阅读器）逐项判断
   // 「本帧的拖选划词确实已被接管」，从而关掉自己那份内置气泡。Why 写在帧级而不是只写
   // 顶层：装了扩展 ≠ 这条能力在此处通（about:srcdoc 注入不进去就是现例子）；宿主读不到
   // 这个标记就继续自己干，不留能力空白。
-  if (document.documentElement) {
-    document.documentElement.dataset.magiclensSelection = chrome.runtime.getManifest().version;
-  }
+  document.documentElement.dataset.magiclensSelection = extVersion;
 
   // 与顶层同节奏：mouseup 后延迟一帧等选区稳定；双击选词也会触发 mouseup
   const onMouseUp = () => setTimeout(report, 60);
+  const onTouchEnd = () => setTimeout(report, 80);
+
+  // Why 具名 + 可摘除：上下文失效时要能自我退役（匿名监听摘不掉，会在页上留一个
+  // 每次点击都抛错的幽灵副本）
+  function retire() {
+    document.removeEventListener('mouseup', onMouseUp, true);
+    document.removeEventListener('touchend', onTouchEnd, true);
+    delete document.documentElement.dataset.magiclensSelection; // 同时收回接管声明，宿主好把内置找回来
+  }
+
   document.addEventListener('mouseup', onMouseUp, true);
-  document.addEventListener('touchend', () => setTimeout(report, 80), true);
+  document.addEventListener('touchend', onTouchEnd, true);
 })();

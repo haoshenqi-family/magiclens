@@ -210,6 +210,7 @@ function startMainEngine() {
     document.removeEventListener('mousedown', onMouseDown, true);
     document.removeEventListener('keydown', onKeyDown, true);
     window.removeEventListener('scroll', onScroll, { capture: true });
+    chrome.runtime.onMessage.removeListener(onRuntimeMessage); // R39：iframe 选区的接收端也要一起退役
     host.remove();
     console.warn('[MagicLens] 扩展已更新，本页旧脚本退役；刷新页面（F5）后生效');
   }
@@ -240,6 +241,7 @@ function startMainEngine() {
     // 面板仅由 ✕/Esc/新「详」查询关闭：生成要 15~30s，误关一次用户就白等一趟
     card.classList.remove('show');
     current = null;
+    translateInflight = null; // 收气泡即解锁：下一次选同一个词要能重新翻译
     // R21：气泡来源（selection=划选/点词, hover=悬浮生词）；highlight.js 以此决定悬浮触发与收起
     window.__magicLensBubbleSource = null;
   }
@@ -318,6 +320,7 @@ function startMainEngine() {
 
   /** 打开划词气泡并按配置发起翻译：顶层选区与 iframe 选区共用（R34） */
   function openBubble(text, word, rect) {
+    translateInflight = null; // 新一轮气泡 = 新的一次翻译机会（换词/重开都要能再发）
     resetButtons();
     elSrc.textContent = text.length > 120 ? `${text.slice(0, 120)}…` : text;
     show({ left: rect.left, top: rect.top, bottom: rect.bottom });
@@ -344,10 +347,21 @@ function startMainEngine() {
     openBubble(info.text, info.word, info.rect);
   }
 
+  // 在途守卫（R39）：同一段文本在上一条请求返回前，点「译」不再叠一条。
+  // Why：一条翻译可能要十几秒（单词走金山+词形还原、短语/句子走 moon-well LLM），
+  // 连点会把慢响应一个个压进气泡、并把 moon-well 免费档并发占满——真机表现就是
+  // 「选中一个词，译点几下就卡死」。锁在 hide() 与每次打开气泡时复位，所以即使某条
+  // 请求因扩展重载而永久不回，也不会把这个词此后永远锁死。
+  let translateInflight = null;
+
   function translate() {
     if (!current) return;
+    const text = current.text;
+    if (translateInflight === text) return;
+    translateInflight = text;
     setLoading('翻译中…');
-    askBackground({ type: 'ml:translate', text: current.text }, (resp) => {
+    askBackground({ type: 'ml:translate', text }, (resp) => {
+      if (translateInflight === text) translateInflight = null;
       if (!current) return; // 气泡已关闭
       if (!resp.ok) return setError(window.__magicLensUserFacingError(resp.error, '翻译失败，请稍后重试'), resp.status);
       const data = resp.data || {};
@@ -601,13 +615,17 @@ function startMainEngine() {
     openBubble(text, m ? m[0] : null, rect);
   }
 
-  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  // Why 具名函数声明：retireOrphan() 要能 removeListener 摘掉它（匿名箭头摘不掉），
+  // 否则扩展重载后的旧副本仍会接住 ml:openSelection，在一个已被移除的宿主上开气泡。
+  // 用函数声明而非 const：声明提升到作用域顶部，退役路径无论先后都能引用。
+  function onRuntimeMessage(msg, _sender, sendResponse) {
     if (!msg || msg.type !== 'ml:openSelection') return false; // 不认识的类型交还给其它监听
     if (window !== window.top) return false; // 气泡唯一属主是顶层文档
     openIframeSelection(msg.text, msg.rect);
     sendResponse({ ok: true });
     return false; // 同步应答，不需要保持消息通道
-  });
+  }
+  chrome.runtime.onMessage.addListener(onRuntimeMessage);
   // 悬浮离开（highlight.js 宽限到期调用）：只收「悬浮打开」的气泡，不动划选的气泡
   window.__magicLensHoverLeave = () => {
     if (window.__magicLensBubbleSource === 'hover') hide();
