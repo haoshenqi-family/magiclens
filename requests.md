@@ -37,3 +37,7 @@
 40. 金山直连查词补报四股台账（P3，随 moon-well R152 端点）：单词划词直连金山命中时 fire-and-forget 上报 /learning/strands/lookup（服务端同词同日幂等），补齐词汇股 LOOKUP_DAY 口径；miss 回退路径本就走 moon-well 无需处理。版本测试版递增 0.8.8。
 
 41. 微调 worktree 规范（家族根 + 四仓 AGENTS.md 同源修订）：不要 merge 后立即删除 worktree，改为 merge 后保留 worktree 等用户验收，验收通过后再删除。（跨四仓同源任务：moon-well R153 / magicbook R155 / app-manager R39。编号说明：本条与并行会话的金山直连查词补报曾同占 40，其已先行推送；按「只追加、不回改」原则双方记录并存，本条按纪律续编 41）
+
+## 2026-10-12
+
+42. bug 修复：单词详解面板内容一长就需要滚动，滚动时头部（词名 + ✕）跟着移出可视区，看到最后没法方便地关闭面板。要求滚动时把一部分内容固定住。（同源 magicbook R165，两仓详解面板保持同构）
