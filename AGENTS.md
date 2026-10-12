@@ -55,6 +55,7 @@
 > **模式：一任务一临时 worktree，合并后保留待验收，验收通过后删除**。正面先例：R36 发布 merge 全程在临时 worktree（/tmp/ml-release）完成，没有在并行会话共用的工作目录切分支。
 
 - **何时必须用**：编码类任务（改 `extension/`、`manifest.json` 等）开工时创建专属 worktree 开发，**不得在可能被并行会话共用的主检出上直接改分支**；纯问答、排查、文档微改可在主检出直接进行。本仓无构建链，worktree 即装即用，成本几乎为零。
+- **一次会话一个 worktree（2026-10-12 moon-well R164 同源增补；家族统一口径第 7 条）**：同一会话内的连续工作（含多阶段/多子任务）必须**复用同一个 worktree**——阶段收尾 merge 回开发分支后不删树，续作前 `git fetch` 并 merge `origin/<开发分支>` 拉齐基线继续推进；**禁止每阶段/每子任务各开新树**（反面样本：moon-well R162 重构五阶段 + NAS 下线累积 6 处驻留）。跨会话续作优先复用台账登记的该任务 worktree；仅并行会话允许并存多树。
 - **创建**（位置必须在仓库目录外的兄弟目录，命名 `magiclens-<任务slug>`；先 `git fetch origin`，从 `origin/develop` 最新点切出）：
   ```bash
   git worktree add ../magiclens-<slug> -b <type>/r<编号>-<slug> origin/develop
