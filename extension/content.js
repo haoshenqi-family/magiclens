@@ -123,10 +123,22 @@ function startMainEngine() {
         border: 1px solid #e5e7eb; border-radius: 12px;
         box-shadow: 0 12px 40px rgba(0,0,0,.18);
         font: 13px/1.65 -apple-system, 'PingFang SC', 'Segoe UI', sans-serif;
-        padding: 12px 14px;
+        /* 上内边距交给 .d-head 承担（见下）：滚动容器自带的 padding-top 会成为头部上方一条
+           漏字的缝——sticky 的吸顶边界是「padding 内缩后的区域」，负 margin 顶不开它。 */
+        padding: 0 14px 12px;
       }
       .detail.show { display: block; }
-      .d-head { display: flex; align-items: baseline; gap: 8px; }
+      /* Why：面板自身是滚动容器（max-height + overflow-y），详解内容一长，滚到底时词名与 ✕
+         一起移出可视区，用户没法就地关闭面板——头部必须吸顶常驻。
+         How：头部 sticky 吸顶并自带 12px 上内边距（面板的 padding-top 已挪到这里），白底铺满
+         整行内宽（负 margin 抵消左右 padding），滚动内容不会从头部上下透出来；8px 下内边距用
+         负 margin-bottom 收回，面板未滚动时下方各行位置与改动前逐像素一致。 */
+      .d-head {
+        position: sticky; top: 0; z-index: 1;
+        display: flex; align-items: baseline; gap: 8px;
+        margin: 0 -14px -8px; padding: 12px 14px 8px;
+        background: #fff;
+      }
       .d-word { font-size: 20px; font-weight: 700; color: #111827; }
       .d-tag {
         font-size: 11px; color: #92400e; background: #fef3c7;

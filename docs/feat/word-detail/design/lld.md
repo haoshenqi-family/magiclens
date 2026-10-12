@@ -36,6 +36,7 @@
 - forms 板块渲染为 chips，`irregular: true` 金色高亮（不规则变化一眼可见）。
 - **安全**：LLM 返回内容全部经 `textContent` 组装 DOM，不进 innerHTML（静态骨架模板除外）。
 - 交互细节：新选区自动收起旧面板；Esc/点击面板外关闭；面板内滚动不触发 scroll 关闭（scroll capture 判定 `composedPath().includes(host)`）；面板内容撑开后重新定位（气泡下方优先，放不下翻上方）。
+- 面板滚动时头部（词目 + ✕）吸顶常驻（v0.8.9 / R42）：面板自身是滚动容器，长详解滚到底原本会把 ✕ 一起带走。实现上把 `.detail` 的 `padding-top` 移交 `.d-head`——sticky 的吸顶边界是「padding 内缩后的区域」，直接用负 margin 把头部顶进那 12px 是顶不开的，会在头部上方留一条漏字的缝。
 
 **遵守硬性约定**：请求全部经 background SW 中转；UI 挂 closed Shadow DOM；token 只在 chrome.storage.sync；manifest 0.3.1 → 0.4.0。
 
