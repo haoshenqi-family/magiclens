@@ -131,12 +131,13 @@ function startMainEngine() {
       /* Why：面板自身是滚动容器（max-height + overflow-y），详解内容一长，滚到底时词名与 ✕
          一起移出可视区，用户没法就地关闭面板——头部必须吸顶常驻。
          How：头部 sticky 吸顶并自带 12px 上内边距（面板的 padding-top 已挪到这里），白底铺满
-         整行内宽（负 margin 抵消左右 padding），滚动内容不会从头部上下透出来；8px 下内边距用
-         负 margin-bottom 收回，面板未滚动时下方各行位置与改动前逐像素一致。 */
+         整行内宽（负 margin 抵消左右 padding，改面板 padding-x 必须同步改这里），滚动内容不会
+         从头部上下透出来。8px 下内边距是滚动时的呼吸缝隙，**不可**再用负 margin-bottom 收回：
+         头部有 z-index，白底板会压在下一行（变体说明只有 2px 上边距）上盖掉它的字顶。 */
       .d-head {
         position: sticky; top: 0; z-index: 1;
         display: flex; align-items: baseline; gap: 8px;
-        margin: 0 -14px -8px; padding: 12px 14px 8px;
+        margin: 0 -14px; padding: 12px 14px 8px;
         background: #fff;
       }
       .d-word { font-size: 20px; font-weight: 700; color: #111827; }
