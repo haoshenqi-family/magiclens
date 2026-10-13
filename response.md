@@ -109,6 +109,7 @@
   - `node --check extension/content.js` 通过。
 - **版本**：0.8.9 → **0.8.10-202610131011**（测试版，带时间戳不触发发布）。
 - **文档**：L1 `README.md` 功能表「本地朗读」行改写为「划词朗读（词典优先 + 浏览器兜底）」；L2 `docs/design.md` §4.3 追加更新注记；L3 `docs/feat/chrome-extension/design/lld.md` US2 状态行 + §10 变更记录（含跨仓成因链）。
-- **worktree 台账**：复用 R42 那棵树 `../magiclens-sticky-detail-head`（家族纪律第 7 条「一次会话一个 worktree」，目录名沿用 R42 的 slug 未改，因为用户可能已把它加载进 `chrome://extensions` 验收 R42——移动目录会让扩展失联），新分支 `fix/r43-dictvoice` 基于 origin/develop 826f6b0（R42 已合入，behind=0）。**未 merge、未 push**，等用户指令。
+- **worktree 台账**：复用 R42 那棵树 `../magiclens-sticky-detail-head`（家族纪律第 7 条「一次会话一个 worktree」，目录名沿用 R42 的 slug 未改，因为用户可能已把它加载进 `chrome://extensions` 验收 R42——移动目录会让扩展失联），新分支 `fix/r43-dictvoice` 基于 origin/develop 826f6b0（R42 已合入，behind=0）。
+- **交付（用户选 merge + push develop）**：主检出工作区干净、`behind=0`，`git merge --ff-only fix/r43-dictvoice` 后 push `826f6b0..0bac2f0`；版本带时间戳后缀，**不触发商店发布**（正式发布仍等用户确认去后缀 + merge release）。worktree 原样驻留等真机验收，验收通过后按闸门 `git worktree remove` + `git branch -d`（R42/R43 两条分支同树，需一并清）。
 - **待用户真机验收**：`chrome://extensions` 重载该目录 → 任意网页划一个单词点 🔊，应听到真人词库音频；划一个短语点 🔊，仍是浏览器合成音；在 magicbook 阅读器里划词点 🔊，应与未装扩展时一致。
 - **总结**：requests.md 占号 R43；本条为回应；冲突记录：无。窗口轮转：写入前含 R32–R42 共 10 个 request（另有 R36 补记一节），本条写入达 11，按纪律把最旧的 R32 原样搬至 `response-archive/response-R32.md`，窗口回到 R33–R43 共 10 个。
