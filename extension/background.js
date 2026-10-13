@@ -308,6 +308,17 @@ async function icibaLookupWithStemming(word) {
   return icibaLookup(stem);
 }
 
+// R40 查词补报：会话内去重即可（SW 挂起重置后服务端幂等兜底），遥测失败静默
+const reportedLookups = new Set();
+
+function reportLookup(word) {
+  const key = word.trim().toLowerCase();
+  if (!key || reportedLookups.has(key)) return;
+  reportedLookups.add(key);
+  callApi('/learning/strands/lookup', { body: { word: key } })
+    .catch(() => { /* callApi 自身不抛（返回 {ok:false}），此处仅防御 */ });
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
     switch (msg && msg.type) {
@@ -317,6 +328,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const text = String(msg.text || '').slice(0, 2000).trim();
         const dictTranslation = WORD_PATTERN.test(text) ? await icibaLookupWithStemming(text) : null;
         if (dictTranslation) {
+          // R40：直连命中的查词补报四股台账（词汇股 LOOKUP_DAY）——fire-and-forget，
+          // 失败静默；服务端同词同日 doc id 幂等，重复上报无副作用。
+          reportLookup(text);
           sendResponse({ ok: true, data: { text, translation: dictTranslation, source: 'iciba' } });
           break;
         }

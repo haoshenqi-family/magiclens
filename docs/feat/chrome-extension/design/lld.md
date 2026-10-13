@@ -45,7 +45,7 @@ flowchart LR
 | US | 内容 | 优先级 | 状态 |
 | --- | --- | --- | --- |
 | US1 | 鉴权基建（服务地址/Token 配置、Bearer、401 引导） | P0 | ✅ 已交付（划词共用） |
-| US2 | 划词翻译 + 认识/生词标记 + 本地朗读 | P0 | ✅ 已交付 |
+| US2 | 划词翻译 + 认识/生词标记 + 划词朗读 | P0 | ✅ 已交付（朗读部分 v0.8.10 升级：单词优先有道 dictvoice 真人音频，浏览器 speechSynthesis 降为兜底，见 §10 变更记录） |
 | US4 | **moon-well 侧**：web 场景 prompt 分支 + skipMemoryExtract | P0 前置 | ✅ moon-well 已上线（R97，2026-10-04；web 场景记忆常开，不携带 skipMemoryExtract） |
 | US3 | 伴读聊天抽屉（SSE/上下文/会话/记忆/学情） | P0 核心 | ✅ 已交付（v0.2.0，commit 039cdbf） |
 | US5 | 段落整页翻译 + 生词标注（translate-batch + analyze） | P1 | 规划 |
@@ -204,3 +204,4 @@ flowchart LR
 
 - **2026-10-04 · v0.3.0（R4）**：①**登录方案定稿**——放弃「设置页手动填 mk- key / JWT」（§6.3 的 mk- 方案降级为兼容残留），改为：设置页点「登录」→ `GET /auth/oidc/login`（Authentik 统一登录页，与 magicbook 同一账号）→ Authentik 回调白名单仍指老域名 `moonwell.haoshenqi.top`，经 Traefik 301（保留 query，实测 state 校验可用）落到 `moon-well.haoshenqi.top/auth/oidc/callback` → 页面 body 的 `Result{accessToken, refreshToken}` 由 content script **自动捕获**入库 → 401 时 background 经 `/auth/refreshToken` **静默刷新一次**后重试，刷新失败清令牌引导重登。②**记忆决策反转**（用户要求）：移除抽屉「本会话不记忆」勾选与设置页默认项，插件不再携带 `skipMemoryExtract`（记忆始终开启）；moon-well 侧字段保留（null=false 向后兼容，§5.2 设计不变，供未来需要时复用）。③**默认后端切公网域名** `https://moon-well.haoshenqi.top`（Traefik 路由上线并实测：未登录 401、伪造 X-User-* 头无效——internalUri 前缀的信任头风险被「strip 中间件 + 生产 INTERNAL_TRUST 未开启」双重覆盖；设置页移除地址/Token 手动配置，v0.2 存量内网 apiBase 一次性迁移）。
 - **2026-10-10 · v0.8.3（R35）**：**聊天凭据解析收敛到 background（bug 修复）**——chat.js 原自带 `getCfg()` 本地读 `chrome.storage.sync` 且 `apiBase` 默认空串，而公网域名只存在于 background `DEFAULT_CFG` 兜底（v0.3.0 起设置页无地址配置项，storage 从不写入该键；登录回调亦只写 token/refreshToken），导致伴读面板永远停在「未配置服务地址或 Token」、重新登录无效，而走 `callApi` 的其他功能全部正常。修复：background 新增 `ml:auth` 消息——以 background 为唯一事实源返回 `{apiBase, token}`，token 空而 refreshToken 有效时先静默刷新（超时不清凭据、确定性失败清凭据，与 `callApi` 的 401 分支同语义）；chat.js 删除本地 `getCfg`，SSE 直连前经 `ml:auth` 取凭据，未登录/续期失败仍给「重新登录」链接。SSE 仍留在 content script 消费（LLD 决策 A1 不变）。
+- **2026-10-13 · v0.8.10（R43）**：**划词朗读补词典发音**——`content.js` 的 `speak()` 原先只有浏览器 `speechSynthesis` 一条路（README 旧行「本地朗读」即此）。magicbook 侧 R141→R146 把划词让位改成运行时探测本扩展的 `data-magiclens-selection` 标记后，阅读器里的划词气泡换成本扩展那份，用户在阅读器中听到的单词发音随之从有道 dictvoice 真人音频退化为机械合成音（表现为「朗读引擎选了 AI 却变成本地」——阅读器那个 AI/browser 下拉只管段落朗读与整本连播，管不到划词气泡）。现按 magicbook `epub.js` `speakSelection` 成例对齐：`SINGLE_WORD_RE` 命中的单个英文单词走 `https://dict.youdao.com/dictvoice?type=2&audio=`（免 key、真人词库录音），`onerror` 与 `play()` reject 都回退浏览器合成且只回退一次（用 `dictAudio` 引用判重，避免旧词的迟到兜底音盖在新词上）；短语/句子仍走浏览器合成；`hide()` 与再次朗读统一经 `stopSpeak()` 停旧音。**AI 声音（US6/P2）仍未实现**，词典音频是零成本兜底之上的一层，不替代 P2。
