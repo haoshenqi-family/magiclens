@@ -176,7 +176,7 @@ function startMainEngine() {
       <div class="actions">
         <button data-act="translate" title="翻译选中文本">译</button>
         <button data-act="detail" title="单词详解（词源/搭配/变体等六板块）">详</button>
-        <button data-act="speak" title="朗读原文（浏览器本地语音）">🔊</button>
+        <button data-act="speak" title="朗读原文（单词用词典真人音频，其余用浏览器语音）">🔊</button>
         <button data-act="known" title="标记为已认识">认识</button>
         <button data-act="unknown" title="加入生词本">生词</button>
         <button data-act="ask" title="把选中内容发给伴读 AI">AI</button>
@@ -255,6 +255,7 @@ function startMainEngine() {
     card.classList.remove('show');
     current = null;
     translateInflight = null; // 收气泡即解锁：下一次选同一个词要能重新翻译
+    stopSpeak(); // 关气泡要一并静音：词典音频与浏览器合成音都可能在播
     // R21：气泡来源（selection=划选/点词, hover=悬浮生词）；highlight.js 以此决定悬浮触发与收起
     window.__magicLensBubbleSource = null;
   }
@@ -404,12 +405,52 @@ function startMainEngine() {
     });
   }
 
-  function speak() {
-    if (!current || !('speechSynthesis' in window)) return;
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(current.text);
-    u.lang = /^[\x00-\xFF]+$/.test(current.text) ? 'en-US' : 'zh-CN';
+  /* ---------- 朗读 ---------- */
+  // Why 词典音频优先：与 magicbook 划词发音同构（其 epub.js `speakSelection` 成例）——
+  // 有道 dictvoice 免费免 key、是真人词库录音，单个英文单词用它；浏览器
+  // speechSynthesis 的机械声退居兜底（短语/句子，以及外链被页面 CSP 挡住或断网时）。
+  // type=2 美式发音（1 为英式）。
+  const DICT_VOICE_URL = 'https://dict.youdao.com/dictvoice?type=2&audio=';
+  // 与 magicbook 同一条单词正则：首尾须为字母，词内的撇号/连字符算单词的一部分，
+  // 短语与句子不匹配（它们交给浏览器合成，词库也没有整句音频）
+  const SINGLE_WORD_RE = /^\s*[A-Za-z](?:[A-Za-z'’-]*[A-Za-z])?\s*$/;
+  let dictAudio = null; // 正在播的词典音频：再朗读/关气泡都先停掉，避免两声叠播
+
+  function stopSpeak() {
+    if (dictAudio) {
+      dictAudio.pause();
+      dictAudio = null;
+    }
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+  }
+
+  function speakWithBrowser(text) {
+    if (!('speechSynthesis' in window)) return;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = /^[\x00-\xFF]+$/.test(text) ? 'en-US' : 'zh-CN';
     speechSynthesis.speak(u);
+  }
+
+  function speak() {
+    if (!current) return;
+    const text = current.text;
+    stopSpeak();
+    if (!SINGLE_WORD_RE.test(text)) {
+      speakWithBrowser(text);
+      return;
+    }
+    const audio = new Audio(DICT_VOICE_URL + encodeURIComponent(text.trim()));
+    dictAudio = audio;
+    // Why 用 dictAudio 判重：onerror 与 play() 的 reject 可能都触发，只回退一次；
+    // 且期间用户若已改读别的词或关掉了气泡（dictAudio 被换掉/清空），这段的迟到回调
+    // 必须作废，否则旧词的兜底机械音会盖在新词上。
+    const fallback = () => {
+      if (dictAudio !== audio) return;
+      dictAudio = null;
+      speakWithBrowser(text);
+    };
+    audio.onerror = fallback;
+    audio.play().catch(fallback);
   }
 
   /* ---------- 单词详解（v0.4，六板块：意思/词源/搭配/变体/同反义词/俚语冷知识） ---------- */

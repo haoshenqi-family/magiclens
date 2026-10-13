@@ -28,7 +28,7 @@ flowchart LR
 | 单词详解（v0.4.0） | ✅ | `GET /vocabulary/detail/{word}`：六板块（基本意思/词源/搭配·用法·习语/变体与衍生词/同反义词/俚语冷知识）；划词变体自动还原词目（ran→run）；moon-well 侧 ES 缓存（magicbook-vocabulary 索引），重复查询不重复计费 |
 | 标记认识 / 加入生词本 | ✅ | `GET /vocabulary/known/{word}` · `GET /vocabulary/unknown/{word}`；标完本页所有同词形（含常见变形）即时点亮/熄灭 |
 | 生词智能高亮（v0.5.0；v0.7.2 起 支持 magicbook 阅读器 iframe 正文） | ✅ | 英文页自动扫描 `POST /vocabulary/reading/analyze`（手动标记优先 + 分级词档兜底，与 magicbook 阅读器同一判定矩阵），生词波浪线标注（CSS Custom Highlight API，零 DOM 改动）；**悬浮生词直接弹出完整划词气泡**（v0.7.1，悬停 ~200ms，含翻译/详解/标记/AI 全部按钮，不实际选中、点击跳转元素不受影响）；点高亮词同样唤起气泡；SPA 动态内容增量判定（`POST /vocabulary/familiar`）；网页生词顺带进入与 magicbook 互通的阅读事件流。开关：popup 或 `Alt+U`；「重新扫描本页」在 popup |
-| 本地朗读 | ✅ | 浏览器 speechSynthesis（不走后端） |
+| 划词朗读 | ✅ | **单个英文单词走有道 dictvoice 词库真人音频**（免 key、type=2 美式，v0.8.10 起，与 magicbook 阅读器划词发音同构）；短语/句子以及外链被页面 CSP 挡住/断网时回退浏览器 speechSynthesis；不走后端、零积分消耗 |
 | 域名管理（v0.8.0） | ✅ | 在设置页维护「禁用 MagicLens 的域名」名单（匹配该域名及其全部子域，输入完整网址/带端口/带 `*.` 前缀均可，自动归一化）；扩展弹窗可一键禁用/恢复当前站点。名单随浏览器账号同步，变更对已打开页面**刷新后生效** |
 | 设置页 | ✅ | 登录化（v0.3.0）：Authentik OIDC 登录 + 回调自动捕获令牌 + 401 静默刷新；无手动配置项。单词难度等级、词汇量测试等详细设置在 magicbook「阅读设置」页管理，设置页提供直达链接（v0.6.1） |
 | AI 伴读聊天抽屉 | ✅（v0.2.0） | `POST /ai/agent/chat` SSE 直连 content script；会话/记忆/学情面板；划词「问 AI」联动；moon-well 前置（web prompt + skipMemoryExtract）已上线 |

@@ -38,7 +38,7 @@ moon-well 认证三通道：
 
 1. **moon-well 无公网 HTTPS 入口**（fnOS 8082 仅内网）→ 需 Server 2 Traefik 加路由（如 `api.haoshenqi.top`）或仅内网/Tailscale 使用。
 2. **JWT 刷新窗口 30 天** → 若走 JWT 需静默 refreshToken + 过期引导重登；P0 用不过期的 `mk-` key 回避。
-3. **TTS 65s 超时** → 长段/慢网需 loading 态与降级（P0 先用浏览器 speechSynthesis，P2 接 moon-well 声音）。
+3. **TTS 65s 超时** → 长段/慢网需 loading 态与降级（P0 先用浏览器 speechSynthesis，P2 接 moon-well 声音）。更新（2026-10-13 R43）：P0 的「本地朗读」已拆成两层——单个英文单词走有道 dictvoice 真人词库音频（免 key、无超时问题），浏览器 speechSynthesis 降为兜底；AI 声音仍待 P2。
 4. **MV3 Service Worker 生命周期** → JSON 请求走 SW 无碍；P3 的 SSE 长连接应在 content script 侧消费（与页面同生命周期）或 offscreen document，不在 background 挂 300s 流。
 
 ## 5. 分期
