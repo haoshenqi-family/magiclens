@@ -402,8 +402,21 @@
     if (!resp.ok) {
       // Why 失败必须可见（R44）：这里原本写作 `if (!resp.ok) return;`——列表拉挂了下拉就只剩
       // 「＋ 新会话」，与「你真的没有历史」在界面上长得一模一样，用户只能判定「记录被吞了」。
-      // 现在把原因写进入口本身；发送与聊天不受影响（conversationId 保持原值）。
+      // 现在把原因写进入口本身，并保住当前会话态（继续追问/重命名/删除照常用，只是暂时无从切换）；
+      // 下一次成功响应会整体重建下拉。
       sel.textContent = '';
+      if (state.conversationId == null) {
+        const optNew = el('option', '', '＋ 新会话');
+        optNew.value = '';
+        sel.appendChild(optNew);
+        sel.value = '';
+      } else {
+        const cur = el('option', '', `当前会话 #${state.conversationId}（列表加载失败，暂无法切换）`);
+        cur.value = String(state.conversationId);
+        cur.disabled = true; // 禁用项仍可被选作当前值，只是用户点不到
+        sel.appendChild(cur);
+        sel.value = cur.value;
+      }
       const bad = el('option', '', `⚠ 会话列表加载失败：${resp.error || '未知错误'}`);
       bad.disabled = true;
       sel.appendChild(bad);
