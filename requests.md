@@ -45,3 +45,5 @@
 ## 2026-10-13
 
 43. 排查并补齐朗读引擎：用户反馈「朗读引擎选了 AI，最近又变成本地」，且「理论上还应该有个词典发音，默认应该是词典」。排查结论是 magiclens 划词气泡的 🔊 只有浏览器 `speechSynthesis`（moon-well TTS 属规划 P2 未实现），而阅读器划词让位（magicbook R146 + 本仓 v0.8.6 接管标记）后，magicbook 那份带有道 dictvoice 真人词库音频的气泡被换掉，单词发音退化成机械音。本条要求：给 magiclens 的朗读补词典发音分支，单个英文单词默认走 dictvoice，失败/短语句子回退浏览器语音。
+
+44. 接 R43 排查的后续（同源 moon-well R173）：伴读抽屉的会话列表/记忆/学情看不到既有记录。定性为契约漂移——moon-well 的 `/ai/agent` 面板 8 个端点返回裸对象/数组，而本仓 `callApi` 按统一 Result 包装判定 `success === true`，成功响应被误判为失败；`chat.js` 的 `refreshConversations()` 又是 `if (!resp.ok) return;`，于是静默降级成「历史凭空消失」。要求两手：① 解包改为与 magicbook `unwrap()` 同口径的容错判定；② 失败必须在界面上可见，不允许静默空列表。
