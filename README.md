@@ -31,7 +31,7 @@ flowchart LR
 | 划词朗读 | ✅ | **单个英文单词走有道 dictvoice 词库真人音频**（免 key、type=2 美式，v0.8.10 起，与 magicbook 阅读器划词发音同构）；短语/句子以及外链被页面 CSP 挡住/断网时回退浏览器 speechSynthesis；不走后端、零积分消耗 |
 | 域名管理（v0.8.0） | ✅ | 在设置页维护「禁用 MagicLens 的域名」名单（匹配该域名及其全部子域，输入完整网址/带端口/带 `*.` 前缀均可，自动归一化）；扩展弹窗可一键禁用/恢复当前站点。名单随浏览器账号同步，变更对已打开页面**刷新后生效** |
 | 设置页 | ✅ | 登录化（v0.3.0）：Authentik OIDC 登录 + 回调自动捕获令牌 + 401 静默刷新；无手动配置项。单词难度等级、词汇量测试等详细设置在 magicbook「阅读设置」页管理，设置页提供直达链接（v0.6.1） |
-| AI 伴读聊天抽屉 | ✅（v0.2.0） | `POST /ai/agent/chat` SSE 直连 content script；会话/记忆/学情面板；划词「问 AI」联动；moon-well 前置（web prompt + skipMemoryExtract）已上线 |
+| AI 伴读聊天抽屉 | ✅（v0.2.0；v0.8.11 修好会话列表） | `POST /ai/agent/chat` SSE 直连 content script；会话/记忆/学情面板；划词「问 AI」联动；moon-well 前置（web prompt + skipMemoryExtract）已上线。**打开抽屉默认起新会话**，续聊从左上角下拉里选（网页会话带「[通用]」前缀）；列表拉不动时下拉会直接显示失败原因，不再静默空着 |
 | 段落整页翻译 | 规划 P1 | `translate-batch` |
 | moon-well 声音朗读（DashScope） | 规划 P2 | `POST /tts/speak` |
 

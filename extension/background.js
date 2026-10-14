@@ -51,6 +51,26 @@ async function refreshTokens(refreshToken) {
   return result.accessToken;
 }
 
+/* ---------- moon-well 响应解包（R44） ----------
+ * Why 兼容两种形制：moon-well 的「统一 Result{success,result,message}」是各 controller
+ * 显式返回的，服务端没有任何 ResponseBodyAdvice 兜底——实测 55 个 controller 里 49 个显式
+ * 包装，而 `/ai/agent` 的 8 个面板端点漏包直接返回裸数组/对象。旧判定 `payload.success !== true`
+ * 于是把成功响应判成失败，调用方（chat.js 会话列表）再 `if (!resp.ok) return;` 一吞，
+ * 用户看到的就是「历史记录凭空消失」。现与 magicbook 侧 `ai_chat.js unwrap()` 同口径：
+ * 只有 HTTP 不成功 / 非 JSON / 显式 `success === false` 才算失败，其余取 result，
+ * 裸 payload 原样透出。
+ * How 做成不碰 fetch/storage 的纯函数：本仓无测试框架，纯函数可以直接把源码片段抽出来
+ * 喂给断言跑（见 docs/feat/chrome-extension/design/lld.md §10 R44 的验证方式）。 */
+function unwrapMoonWellResponse(resp, payload) {
+  if (!resp.ok || !payload || payload.success === false) {
+    const msg = (payload && (payload.message || payload.msg)) || `HTTP ${resp.status}`;
+    const out = { ok: false, error: msg, status: resp.status };
+    if (resp.status === 401 || resp.status === 403) out.auth = true;
+    return out;
+  }
+  return { ok: true, data: payload.result !== undefined ? payload.result : payload };
+}
+
 async function callApi(path, { method = 'POST', body, timeoutMs = TIMEOUT_MS } = {}, retried = false) {
   const { apiBase, token, refreshToken } = await getCfg();
   if (!apiBase) return { ok: false, error: '未配置服务地址', status: 0 };
@@ -96,14 +116,7 @@ async function callApi(path, { method = 'POST', body, timeoutMs = TIMEOUT_MS } =
   } catch {
     /* 非 JSON 响应按失败处理 */
   }
-  // moon-well 统一 Result{success, result, message} 包装
-  if (!resp.ok || !payload || payload.success !== true) {
-    const msg = (payload && (payload.message || payload.msg)) || `HTTP ${resp.status}`;
-    const out = { ok: false, error: msg, status: resp.status };
-    if (resp.status === 401 || resp.status === 403) out.auth = true;
-    return out;
-  }
-  return { ok: true, data: payload.result };
+  return unwrapMoonWellResponse(resp, payload);
 }
 
 /* ---------- 金山词霸 suggest 直连（单词划词快路径，R15） ----------

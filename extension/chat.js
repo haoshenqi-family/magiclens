@@ -398,8 +398,17 @@
   /* ---------- 会话管理 ---------- */
   async function refreshConversations() {
     const resp = await api('/ai/agent/conversations', {});
-    if (!resp.ok) return;
     const sel = state.els.convSel;
+    if (!resp.ok) {
+      // Why 失败必须可见（R44）：这里原本写作 `if (!resp.ok) return;`——列表拉挂了下拉就只剩
+      // 「＋ 新会话」，与「你真的没有历史」在界面上长得一模一样，用户只能判定「记录被吞了」。
+      // 现在把原因写进入口本身；发送与聊天不受影响（conversationId 保持原值）。
+      sel.textContent = '';
+      const bad = el('option', '', `⚠ 会话列表加载失败：${resp.error || '未知错误'}`);
+      bad.disabled = true;
+      sel.appendChild(bad);
+      return;
+    }
     const current = state.conversationId;
     sel.textContent = '';
     const optNew = el('option', '', '＋ 新会话');
