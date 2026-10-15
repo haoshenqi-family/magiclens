@@ -1,3 +1,5 @@
+const MSG = __magicLensRpc.MSG;  // R46：消息类型常量集中（rpc.js）
+
 /* MagicLens 设置页（v0.3）：无需手动配置地址/Token——
  * 点「登录」打开 moon-well 的 Authentik 登录页，成功后由回调页自动捕获令牌。 */
 const $loginStatus = document.getElementById('loginStatus');
@@ -15,10 +17,10 @@ function renderLoginState(loggedIn) {
 }
 
 function refreshLoginState() {
-  chrome.storage.sync.get({ token: '' }, ({ token }) => renderLoginState(Boolean(token)));
+  chrome.storage.sync.get(__magicLensDefaults, ({ token }) => renderLoginState(Boolean(token)));  // L5：默认值单点
 }
 
-chrome.storage.sync.get({ autoTranslate: true }, ({ autoTranslate }) => {
+chrome.storage.sync.get(__magicLensDefaults, ({ autoTranslate }) => {
   $auto.checked = autoTranslate;
 });
 $auto.addEventListener('change', () => {
@@ -26,16 +28,16 @@ $auto.addEventListener('change', () => {
 });
 
 $loginBtn.addEventListener('click', () => {
-  chrome.runtime.sendMessage({ type: 'ml:login' });
+  chrome.runtime.sendMessage({ type: MSG.ML_LOGIN });
 });
 
 document.getElementById('registerBtn').addEventListener('click', () => {
   // 邀请制注册（Authentik invitation-enrollment），注册完回来登录
-  chrome.runtime.sendMessage({ type: 'ml:register' });
+  chrome.runtime.sendMessage({ type: MSG.ML_REGISTER });
 });
 
 $logoutBtn.addEventListener('click', () => {
-  chrome.runtime.sendMessage({ type: 'ml:logout' }, () => {
+  chrome.runtime.sendMessage({ type: MSG.ML_LOGOUT }, () => {
     renderLoginState(false);
     showResult(false, '已退出登录');
   });
@@ -43,7 +45,7 @@ $logoutBtn.addEventListener('click', () => {
 
 document.getElementById('test').addEventListener('click', () => {
   showResult(false, '连接中…');
-  chrome.runtime.sendMessage({ type: 'ml:settings' }, (resp) => {
+  chrome.runtime.sendMessage({ type: MSG.ML_SETTINGS }, (resp) => {
     if (chrome.runtime.lastError) return showResult(false, chrome.runtime.lastError.message);
     if (resp && resp.ok) return showResult(true, '✓ 连接成功，鉴权有效');
     showResult(false, `✗ ${(resp && resp.error) || '连接失败'}`);
@@ -92,7 +94,7 @@ function renderDomains(list) {
     rm.className = 'rm';
     rm.textContent = '移除';
     rm.addEventListener('click', () => {
-      chrome.storage.sync.get({ disabledDomains: [] }, ({ disabledDomains }) => {
+      chrome.storage.sync.get(__magicLensDefaults, ({ disabledDomains }) => {
         chrome.storage.sync.set({ disabledDomains: disabledDomains.filter((x) => x !== d) });
       });
     });
@@ -101,7 +103,7 @@ function renderDomains(list) {
   }
 }
 
-chrome.storage.sync.get({ disabledDomains: [] }, ({ disabledDomains }) => renderDomains(disabledDomains));
+chrome.storage.sync.get(__magicLensDefaults, ({ disabledDomains }) => renderDomains(disabledDomains));
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'sync' && changes.disabledDomains) renderDomains(changes.disabledDomains.newValue);
 });
@@ -111,7 +113,7 @@ $domainAdd.addEventListener('click', () => {
   if (!host) return showDomainErr('无法识别该域名，请输入如 example.com 或完整网址');
   showDomainErr('');
   $domainInput.value = '';
-  chrome.storage.sync.get({ disabledDomains: [] }, ({ disabledDomains }) => {
+  chrome.storage.sync.get(__magicLensDefaults, ({ disabledDomains }) => {
     if (disabledDomains.includes(host)) return; // 幂等：重复添加静默忽略
     chrome.storage.sync.set({ disabledDomains: [...disabledDomains, host] });
   });

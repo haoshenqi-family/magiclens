@@ -23,24 +23,23 @@
    * 于 background 的 DEFAULT 兜底（设置页自 v0.3 起无地址配置项，storage 里没有
    * 这个键），token 的静默刷新也只在 background——本地读空串曾让面板永远停在
    * 「未配置服务地址或 Token」且重新登录无效。 */
+  // R46（架构评审 L1）：传输与失效分类迁 __magicLensRpc——失效文案（扩展已更新，
+  // 请刷新本页面）保留在本薄包装（面板契约是 Promise {ok,error,status}）。
+  const MSG = __magicLensRpc.MSG;  // R46：消息类型常量集中（rpc.js）
+
   function bg(msg) {
     return new Promise((resolve) => {
-      // Why try/catch + 分类：扩展重载后本页残留的旧脚本发消息会同步抛 Invalidated，
-      // 不接住就永久转圈（R13）；在途重载则从回调带 lastError，两条路都不给英文原文。
       const failed = (error) => resolve({ ok: false, error, status: 0 });
-      const classify = (m) => failed(/invalidated|disposed/i.test(m) ? '扩展已更新，请刷新本页面（F5）' : m);
-      try {
-        chrome.runtime.sendMessage(msg, (resp) => {
-          const lastErr = chrome.runtime.lastError;
-          if (lastErr) return classify(String((lastErr && lastErr.message) || lastErr));
-          resolve(resp || { ok: false, error: 'no response', status: 0 });
-        });
-      } catch (e) {
-        classify(String((e && e.message) || e));
-      }
+      __magicLensRpc.send(msg, (resp, err) => {
+        if (err) {
+          return failed(__magicLensRpc.isInvalidated(err)
+            ? '扩展已更新，请刷新本页面（F5）' : err);
+        }
+        resolve(resp || { ok: false, error: 'no response', status: 0 });
+      });
     });
   }
-  const api = (path, body) => bg({ type: 'ml:api', path, body: body || {} });
+  const api = (path, body) => bg({ type: MSG.ML_API, path, body: body || {} });
 
   /* ---------- DOM 构建（closed Shadow DOM，懒创建） ---------- */
   const CSS = `
@@ -238,7 +237,7 @@
       const link = el('span', 'cfg-link', '重新登录');
       link.addEventListener('click', () => {
         try {
-          chrome.runtime.sendMessage({ type: 'ml:login' }, () => void chrome.runtime.lastError);
+          chrome.runtime.sendMessage({ type: MSG.ML_LOGIN }, () => void chrome.runtime.lastError);
         } catch (e) {
           console.warn('[MagicLens] 扩展已更新，本页旧脚本退役；刷新页面（F5）后生效');
         }
@@ -320,7 +319,7 @@
     if (!text) return;
     if (text.length > MAX_MESSAGE) text = text.slice(0, MAX_MESSAGE);
 
-    const auth = await bg({ type: 'ml:auth' });
+    const auth = await bg({ type: MSG.ML_AUTH });
     if (!auth.ok) {
       appendError(appendAssistantShell(), auth.error || '未登录，请重新登录', Boolean(auth.auth));
       return;
@@ -494,7 +493,9 @@
       const del = el('button', '', '删除');
       del.addEventListener('click', async () => {
         const r = await api('/ai/agent/memory/delete', { id: m.id });
-        if (r.ok) loadMemory();
+        if (r.ok) { loadMemory(); return; }
+        // L6（架构评审）：删除失败必须在面板上可见——静默吞掉会让用户以为「删了还在」
+        box.appendChild(el('div', 'empty', (r.error || '删除失败') + '（删除失败）'));
       });
       item.appendChild(del);
       item.appendChild(el('div', '', m.memory || ''));
@@ -510,7 +511,9 @@
       const text = ta.value.trim();
       if (!text) return;
       const r = await api('/ai/agent/memory/save', { bookId: 0, memory: text });
-      if (r.ok) { ta.value = ''; loadMemory(); }
+      if (r.ok) { ta.value = ''; loadMemory(); return; }
+      // L6（架构评审）：手动保存失败必须可见——静默丢失会让用户以为「存了其实没存」
+      box.appendChild(el('div', 'empty', (r.error || '保存失败') + '（保存失败）'));
     });
     add.append(ta, save);
     box.appendChild(add);

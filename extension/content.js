@@ -37,7 +37,7 @@
       }, () => {
         banner(true);
         // 通知 options 页刷新登录状态；background 稍后关闭本标签
-        chrome.runtime.sendMessage({ type: 'ml:login-ok' }, () => void chrome.runtime.lastError);
+        chrome.runtime.sendMessage({ type: MSG.ML_LOGIN_OK }, () => void chrome.runtime.lastError);
         setTimeout(() => { try { window.close(); } catch { /* 非脚本打开时静默 */ } }, 3000);
       });
       return;
@@ -52,7 +52,7 @@
  * Why 经 storage 回调启动而非顶层立即执行：chrome.storage 无同步 API，禁用名单
  * 未就绪前不能放行注入；命中名单的站点保持零 UI 零监听。名单只决定新加载页面，
  * 变更后刷新本页生效（已开页面不拆装，见 LLD §US1）。 */
-chrome.storage.sync.get({ disabledDomains: [] }, ({ disabledDomains }) => {
+chrome.storage.sync.get(__magicLensDefaults, ({ disabledDomains }) => {
   if (window.__magicLensIsDisabledHost(location.hostname, disabledDomains)) return;
   startMainEngine();
 });
@@ -61,11 +61,13 @@ function startMainEngine() {
   if (window.__magicLensLoaded) return;
   window.__magicLensLoaded = true;
 
+  const MSG = __magicLensRpc.MSG;  // R46：消息类型常量集中（rpc.js）
+
   const MAX_LEN = 2000; // moon-well /vocabulary/reading/translate 的文本长度上限
 
   const cfg = { enabled: true, autoTranslate: true };
   const syncCfg = () =>
-    chrome.storage.sync.get({ enabled: true, autoTranslate: true }, (c) => Object.assign(cfg, c));
+    chrome.storage.sync.get(__magicLensDefaults, (c) => Object.assign(cfg, c));
   syncCfg();
   chrome.storage.onChanged.addListener((_changes, area) => {
     if (area === 'sync') syncCfg();
@@ -229,24 +231,16 @@ function startMainEngine() {
   }
 
   /** 统一的中转调用：上下文失效即退役，其余错误归一成 {ok:false,error} 交给调用方展示。 */
+  // R46（架构评审 L1）：传输与失效分类迁 __magicLensRpc（rpc.js）——失效退役
+  // 经 onInvalidated 钩子注册，本薄包装只保留 {ok,error} 契约形态。
+  __magicLensRpc.onInvalidated(() => retireOrphan());
+
   function askBackground(msg, onResult) {
     if (dormant) return;
-    // Why 同步抛与异步 lastError 走同一分类器：失效可能在发消息那一刻发生（throw），
-    // 也可能发生在请求在途时扩展被重载（回调带 lastError）；两条路都不得把英文原文糊进气泡。
-    const report = (message) => {
-      if (/invalidated|disposed/i.test(message)) return void retireOrphan();
-      onResult({ ok: false, error: message });
-    };
-    try {
-      if (!chrome.runtime || !chrome.runtime.id) throw new Error('Extension context invalidated');
-      chrome.runtime.sendMessage(msg, (resp) => {
-        const lastErr = chrome.runtime.lastError;
-        if (lastErr) return report(String((lastErr && lastErr.message) || lastErr));
-        onResult(resp || { ok: false, error: '无响应' });
-      });
-    } catch (e) {
-      report(String((e && e.message) || e));
-    }
+    __magicLensRpc.send(msg, (resp, err) => {
+      if (err) return onResult({ ok: false, error: err });
+      onResult(resp || { ok: false, error: '无响应' });
+    });
   }
 
   function hide() {
@@ -293,7 +287,7 @@ function startMainEngine() {
       const link = document.createElement('span');
       link.className = 'cfg-link';
       link.textContent = '重新登录';
-      link.addEventListener('click', () => askBackground({ type: 'ml:login' }, () => {}));
+      link.addEventListener('click', () => askBackground({ type: MSG.ML_LOGIN }, () => {}));
       elMsg.appendChild(link);
     }
   }
@@ -374,7 +368,7 @@ function startMainEngine() {
     if (translateInflight === text) return;
     translateInflight = text;
     setLoading('翻译中…');
-    askBackground({ type: 'ml:translate', text }, (resp) => {
+    askBackground({ type: MSG.ML_TRANSLATE, text }, (resp) => {
       if (translateInflight === text) translateInflight = null;
       if (!current) return; // 气泡已关闭
       if (!resp.ok) return setError(window.__magicLensUserFacingError(resp.error, '翻译失败，请稍后重试'), resp.status);
@@ -392,7 +386,7 @@ function startMainEngine() {
     //（会把新词传给高亮回写，页面点亮的是错的词），标记的词必须是按下按钮那一刻的词
     const word = current.word;
     btn.textContent = '…';
-    askBackground({ type: 'ml:mark', word, known }, (resp) => {
+    askBackground({ type: MSG.ML_MARK, word, known }, (resp) => {
       if (resp.ok) {
         btn.textContent = known ? '已认识 ✓' : '已入生词本 ✓';
         btn.classList.add('done');
@@ -500,7 +494,7 @@ function startMainEngine() {
       const link = document.createElement('span');
       link.className = 'cfg-link';
       link.textContent = '重新登录';
-      link.addEventListener('click', () => askBackground({ type: 'ml:login' }, () => {}));
+      link.addEventListener('click', () => askBackground({ type: MSG.ML_LOGIN }, () => {}));
       msg.appendChild(link);
     } else {
       msg.textContent = message;
@@ -538,7 +532,7 @@ function startMainEngine() {
     loading.textContent = 'AI 正常生成中…（首次查询约 15~30 秒，完成后自动显示，期间可继续浏览网页）';
     elDBody.appendChild(loading);
     positionDetail();
-    askBackground({ type: 'ml:detail', word: current.word }, (resp) => {
+    askBackground({ type: MSG.ML_DETAIL, word: current.word }, (resp) => {
       if (seq !== detailSeq || !detail.classList.contains('show')) return; // 已换词或面板已关闭
       if (!resp.ok) return dError(window.__magicLensUserFacingError(resp.error, 'AI 生成超时或繁忙，请稍后重试'), resp.status);
       renderDetail(resp.data || {});

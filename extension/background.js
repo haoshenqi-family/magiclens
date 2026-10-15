@@ -5,9 +5,13 @@
  * v0.3：默认公网域名（Traefik → fnOS:8082）；JWT 静默刷新（access 7d / refresh 30d）。
  * v0.6：单词划词直连金山词霸 suggest（免登录快路径），miss 回退 moon-well。 */
 
+// R46（架构评审 L5）：设置默认值单点在 common.js 的 __magicLensDefaults
+//（本 SW 经 importScripts 引入），新增设置键只改那一处。
+importScripts('common.js', 'rpc.js');
+const MSG = __magicLensRpc.MSG;  // R46：消息类型常量集中（rpc.js）
 const DEFAULT_CFG = {
   // 公网入口（moon-well.haoshenqi.top → fnOS tailscale :8082，见 app-manager traefik-dynamic/moonwell.yml）
-  apiBase: 'https://moon-well.haoshenqi.top',
+  apiBase: __magicLensDefaults.apiBase,
   token: '',        // moon-well JWT（OIDC 登录后自动捕获）
   refreshToken: '',
 };
@@ -71,6 +75,24 @@ function unwrapMoonWellResponse(resp, payload) {
   return { ok: true, data: payload.result !== undefined ? payload.result : payload };
 }
 
+/* ---------- L4（架构评审）：令牌刷新/清凭据决策单点 ----------
+ * Why 抽出：callApi 的 401 分支与 ml:auth 的「token 空而 refreshToken 有效」
+ * 原先各抄一份超时/清凭据分支（R35 口径靠注释对齐）——漂移即 401 处理不一致。
+ * 返回 {token}（刷新成功）或 {error, status, auth?}（失败，调用方原样透出）。 */
+async function refreshOrClear(refreshToken) {
+  try {
+    return { token: await refreshTokens(refreshToken) };
+  } catch (e) {
+    // Why 超时不清凭据：refresh 慢/断网只说明这一刻连不上，refreshToken 本身仍有效，
+    // 抹掉会把一次网络抖动变成全标签页强制重登（且刚续期成功的并发请求会被连带清掉）。
+    if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
+      return { error: `登录续期超时（${Math.round(TIMEOUT_MS / 1000)}s），请稍后重试`, status: 0 };
+    }
+    await chrome.storage.sync.set({ token: '', refreshToken: '' });
+    return { error: '登录已失效，请重新登录', status: 401, auth: true };
+  }
+}
+
 async function callApi(path, { method = 'POST', body, timeoutMs = TIMEOUT_MS } = {}, retried = false) {
   const { apiBase, token, refreshToken } = await getCfg();
   if (!apiBase) return { ok: false, error: '未配置服务地址', status: 0 };
@@ -96,18 +118,10 @@ async function callApi(path, { method = 'POST', body, timeoutMs = TIMEOUT_MS } =
 
   // 401：静默刷新一次后重试；刷新真被拒绝才清空令牌强制重登
   if (resp.status === 401 && !retried && refreshToken) {
-    try {
-      await refreshTokens(refreshToken);
-      return callApi(path, { method, body, timeoutMs }, true);
-    } catch (e) {
-      // Why 超时不清凭据：refresh 慢/断网只说明这一刻连不上，refreshToken 本身仍有效，
-      // 抹掉会把一次网络抖动变成全标签页强制重登（且刚续期成功的并发请求会被连带清掉）。
-      if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
-        return { ok: false, error: `登录续期超时（${Math.round(TIMEOUT_MS / 1000)}s），请稍后重试`, status: 0 };
-      }
-      await chrome.storage.sync.set({ token: '', refreshToken: '' });
-      return { ok: false, error: '登录已失效，请重新登录', status: 401, auth: true };
-    }
+    // L4：刷新/清凭据决策走单点 refreshOrClear
+    const refreshed = await refreshOrClear(refreshToken);
+    if (refreshed.token) return callApi(path, { method, body, timeoutMs }, true);
+    return { ok: false, error: refreshed.error, status: refreshed.status, auth: refreshed.auth };
   }
 
   let payload = null;
@@ -335,7 +349,7 @@ function reportLookup(word) {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
     switch (msg && msg.type) {
-      case 'ml:translate': {
+      case MSG.ML_TRANSLATE: {
         // Why 单词先直连金山（R15 快路径，免登录、绕开 moon-well 网络链路）；
         // miss/异常回退 moon-well 全链路（ES 缓存 + 后端词干还原 + LLM 兜底），行为兼容改动前
         const text = String(msg.text || '').slice(0, 2000).trim();
@@ -354,7 +368,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         );
         break;
       }
-      case 'ml:mark': {
+      case MSG.ML_MARK: {
         // known = 标记已认识（移出学习队列）；unknown = 加入生词本
         const action = msg.known ? 'known' : 'unknown';
         sendResponse(
@@ -362,7 +376,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         );
         break;
       }
-      case 'ml:detail':
+      case MSG.ML_DETAIL:
         // 单词详解：moon-well 缓存优先（magicbook-vocabulary 索引），miss 才调 LLM；
         // 划词可能是变体（ran），服务端负责还原词目并返回六板块结构化 JSON
         sendResponse(
@@ -370,7 +384,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             { method: 'GET', timeoutMs: DETAIL_TIMEOUT_MS })
         );
         break;
-      case 'ml:analyze':
+      case MSG.ML_ANALYZE:
         // 生词智能高亮初次扫描（P1）：整页文本走 analyze 判定矩阵（手动标记优先 + 词档兜底），
         // 返回生词列表；顺带进 reading_vocabulary 阅读事件流，与 magicbook 学情互通。
         // bookName/chapter 服务端各截 200 字符；analyze 无 LLM 调用但查词档表与 ES，放宽到 30s
@@ -385,7 +399,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           })
         );
         break;
-      case 'ml:familiar':
+      case MSG.ML_FAMILIAR:
         // 高亮增量判定（SPA 动态内容）：单词本批量查询，无阅读事件副作用，故用于增量
         sendResponse(
           await callApi('/vocabulary/familiar', {
@@ -393,10 +407,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           })
         );
         break;
-      case 'ml:settings':
+      case MSG.ML_SETTINGS:
         sendResponse(await callApi('/vocabulary/reading/settings', { method: 'GET' }));
         break;
-      case 'ml:api': {
+      case MSG.ML_API: {
         // Why 白名单：chat.js 面板端点经此中转，防任意 path 透传
         const ALLOWED = new Set([
           '/ai/agent/conversations', '/ai/agent/history',
@@ -411,7 +425,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse(await callApi(msg.path, { body: msg.body || {} }));
         break;
       }
-      case 'ml:auth': {
+      case MSG.ML_AUTH: {
         // 聊天 SSE 直连前的凭据解析（R35）：apiBase/token 只此一处出——设置页自 v0.3
         // 起不写 apiBase，公网域名仅存在于本文件 DEFAULT 兜底，chat.js 曾本地读
         // storage 默认空串导致面板永远「未配置服务地址或 Token」且重新登录无效。
@@ -420,15 +434,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const { apiBase, token, refreshToken } = await getCfg();
         let authToken = token;
         if (!authToken && refreshToken) {
-          try {
-            authToken = await refreshTokens(refreshToken);
-          } catch (e) {
-            if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
-              sendResponse({ ok: false, error: `登录续期超时（${Math.round(TIMEOUT_MS / 1000)}s），请稍后重试`, status: 0 });
-              break;
-            }
-            await chrome.storage.sync.set({ token: '', refreshToken: '' });
-            sendResponse({ ok: false, error: '登录已失效，请重新登录', status: 401, auth: true });
+          // L4：刷新/清凭据决策走单点 refreshOrClear（与 callApi 401 同分支）
+          const refreshed = await refreshOrClear(refreshToken);
+          if (refreshed.token) {
+            authToken = refreshed.token;
+          } else {
+            sendResponse({ ok: false, error: refreshed.error, status: refreshed.status, auth: refreshed.auth });
             break;
           }
         }
@@ -439,7 +450,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok: true, apiBase, token: authToken });
         break;
       }
-      case 'ml:selection': {
+      case MSG.ML_SELECTION: {
         // R36：子文档（iframe）里的选区上报——selection-relay.js 只在非顶层文档运行，
         // 气泡与按钮链路的唯一属主是顶层 content.js，故投回同一 tab 让它呈现。
         // content script 用不了 chrome.tabs，这一跳中转是必须的；不指定 frameId 即投给
@@ -450,34 +461,34 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           break;
         }
         chrome.tabs.sendMessage(sender.tab.id,
-          { type: 'ml:openSelection', text: msg.text, rect: msg.rect },
+          { type: MSG.ML_OPENSELECTION, text: msg.text, rect: msg.rect },
           () => { void chrome.runtime.lastError; }); // 顶层未装载（站点禁用/扩展刚更新）时无人接收
         sendResponse({ ok: true });
         break;
       }
-      case 'ml:login':
+      case MSG.ML_LOGIN:
         // 打开 moon-well 的 Authentik 登录页（与 magicbook 同一登录入口）；
         // 成功后 callback 页由 content.js 自动捕获令牌
         chrome.tabs.create({ url: (await getCfg()).apiBase + LOGIN_PATH });
         sendResponse({ ok: true });
         break;
-      case 'ml:register':
+      case MSG.ML_REGISTER:
         // 邀请制注册（Authentik invitation-enrollment 流程，注册完回到登录页正常登录）
         chrome.tabs.create({ url: ENROLLMENT_URL });
         sendResponse({ ok: true });
         break;
-      case 'ml:logout':
+      case MSG.ML_LOGOUT:
         await chrome.storage.sync.set({ token: '', refreshToken: '' });
         sendResponse({ ok: true });
         break;
-      case 'ml:login-ok':
+      case MSG.ML_LOGIN_OK:
         // 登录成功：callback 标签页展示 2.5s 成功横幅后由 background 关闭
         if (sender && sender.tab && sender.tab.id != null) {
           setTimeout(() => { chrome.tabs.remove(sender.tab.id).catch(() => { /* 已关则忽略 */ }); }, 2500);
         }
         sendResponse({ ok: true });
         break;
-      case 'ml:openOptions':
+      case MSG.ML_OPENOPTIONS:
         chrome.runtime.openOptionsPage();
         sendResponse({ ok: true });
         break;
@@ -500,9 +511,9 @@ chrome.commands.onCommand.addListener((command) => {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tab = tabs && tabs[0];
     if (!tab || tab.id == null) return;
-    chrome.tabs.sendMessage(tab.id, { type: 'ml:hl-toggle' }, (resp) => {
+    chrome.tabs.sendMessage(tab.id, { type: MSG.ML_HL_TOGGLE }, (resp) => {
       if (chrome.runtime.lastError || !resp || !resp.ok) {
-        chrome.storage.sync.get({ hlEnabled: true }, ({ hlEnabled }) => {
+        chrome.storage.sync.get(__magicLensDefaults, ({ hlEnabled }) => {
           chrome.storage.sync.set({ hlEnabled: !hlEnabled });
         });
       }
