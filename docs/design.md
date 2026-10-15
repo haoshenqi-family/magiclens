@@ -188,6 +188,10 @@ v0.8.5 之前的实例就是代价：扩展装着、iframe 拖选不通，阅读
 
 ## 14. 面板端点解包容错与失败可见（2026-10-14，R44，v0.8.11；同源 moon-well R173）
 
+## 15. 架构评审任务拆分（2026-10-15，R45）
+
+家族根 2026-10-14 架构评审（`../docs/architecture-review-2026-10-14.md`）对本仓的结论与待办已拆分建档至 [`docs/feat/arch-review-2026-10/design/overview.md`](./feat/arch-review-2026-10/design/overview.md)：编码重构 L1–L7（rpc 门面 / content.js 拆分 / background 减重 / token 刷新合一 / settings 单一 schema / 失败可见 / 镜像向量锁）与文档修正 DF1–DF4。波次依赖与 X1/X2 跨仓协同口径见该 overview；跨仓总账见家族根 `../docs/arch-review-2026-10-tasks-crossrepo.md`。本轮仅建档登记，未改任何 `extension/` 代码。
+
 **起因**：用户报告「伴读抽屉打开后，同一网站之前的记录都没了」。排查链：R43（朗读引擎）→ 顺带查面板数据链路 → 定位到 moon-well `/ai/agent` 的 8 个面板端点返回**裸 VO/数组**，而本仓 `background.js callApi` 按「统一 Result 包装」判定 `payload.success !== true`，于是成功响应被误判为失败；`chat.js refreshConversations()` 又写作 `if (!resp.ok) return;`，误判被静默吞掉。三者叠加的用户可见结果＝「历史凭空消失」，且界面上与「真的没有历史」完全同形。
 
 **两条决策**：
