@@ -1,6 +1,38 @@
 # response.md — 对话回应记录（仅保留最近 10 个 request 的回应）
 
-> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移） · [response-R29.md](response-archive/response-R29.md)（2026-10-11 R40 写入触发轮转搬移） · [response-R30-R31.md](response-archive/response-R30-R31.md)（2026-10-11 R41 集成时窗口超限搬移） · [response-R32.md](response-archive/response-R32.md)（2026-10-13 R43 写入触发轮转搬移） · [response-R33.md](response-archive/response-R33.md)（2026-10-14 R44 写入触发轮转搬移）
+> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移） · [response-R29.md](response-archive/response-R29.md)（2026-10-11 R40 写入触发轮转搬移） · [response-R30-R31.md](response-archive/response-R30-R31.md)（2026-10-11 R41 集成时窗口超限搬移） · [response-R32.md](response-archive/response-R32.md)（2026-10-13 R43 写入触发轮转搬移） · [response-R33.md](response-archive/response-R33.md)（2026-10-14 R44 写入触发轮转搬移） · [response-R34.md](response-archive/response-R34.md)（2026-10-15 R45 写入触发轮转搬移）
+
+### R45（家族根架构评审任务拆分建档，只写文档）
+
+- **范围**：阅读家族根 `../docs/architecture-review-2026-10-14.md`，将其中本仓相关结论（§2.3 L1–L7、§3.3 严重度标记、§2.5 X1/X2 本仓部分、§5 冲突清单）拆分为待办任务落档。**零 `extension/` 代码改动，manifest 版本不递增**（无代码修改，不触发测试版递增规则）；纯文档任务不建 worktree。
+- **建档**：新建 `docs/feat/arch-review-2026-10/design/` 三份——
+  - overview.md：任务总表（L1 波 1【X1】/ L4、L5 波 2 / L2 波 3 / L7 波 4【X2】/ L3、L6 未排——**L6 失败可见为 🔴，建议尽早** + U1–U2 + DF1–DF4）；
+  - refactor-items.md：每项含现状问题（文件:行号）、任务内容、验收判据；L6 验收强调真机模拟接口故障验证「失败可见」；L7 为本仓首个 node 断言向量入口；
+  - doc-fixes.md：DF1 N4 design.md §3 表体 token 时效改 30/90（表体直接改正文，保留 R26 更新注）、DF2 K3 README 兼 L1+契约速查二义（A 下沉 / B 豁免，待用户决策）、DF3 悬空 feat 补索引、DF4 三方一致性检查。
+- **索引登记**：`docs/design.md` 追加 §15 决策记录指向该目录（L2 层引用，消灭悬空）。
+- **归档**：R34 原样搬至 `response-archive/response-R34.md`（写入后窗口 11 条触发轮转，回 10 条内）。
+- **跨仓**：四仓同源建档（moon-well R180 / magicbook R174 / app-manager R42）；X1（L1 与 moon-well M4 / magicbook B5 同窗口）与 X2（四组镜像向量）协同口径见家族根 `../docs/arch-review-2026-10-tasks-crossrepo.md`。
+- **总结**：requests.md 占号 R45；response.md 本条；冲突记录：无。
+
+### R46（架构评审波 1+2 · L1+L4+L5+L6：rpc 门面 / 令牌刷新单点 / 默认值单点 / 失败可见）
+
+- **交付（commit `2b7be68`，分支 `refactor/r46-rpc-facade`，已 merge 本地 develop；版本 0.8.12-202610151621 测试版）**：
+  - **L1**：新增 `rpc.js`——send 统一传输与失效分类（同步抛/lastError 两路同一分类器）、onInvalidated 退役钩子（content=retireOrphan、highlight=teardown）、MSG 表 16 键（全仓 type 字面量清零）；三份薄包装保留各自契约（content {ok,error} / highlight 吞错返 null / chat Promise+失效文案）；manifest 两处 content_scripts 组与 background（importScripts）都载 rpc.js，globalThis 挂载兼容 SW 与页面；
+  - **L4**：`refreshOrClear` 单点——callApi 401 与 ml:auth 的超时/清凭据分支合一（R35 口径从注释对齐变代码单点）；
+  - **L5**：`__magicLensDefaults` 冻结表入 common.js（globalThis 挂载），五处内联默认与 DEFAULT_CFG 全部引用单点，新增设置键只改一处；
+  - **L6**：highlight analyze 失败不再纯静默（console.warn + storage.local 上报 + popup 常驻失败原因行，高亮页本身仍不打扰阅读）；chat memory save/delete 补失败提示。
+- **验证（诚实）**：node --check 10 文件全过；node 冒烟（SW/页面双环境挂载、DEFAULTS 取值、失效双钩子触发均过，**冒烟曾抓到 onInvalidated 未定义的真 bug**——node --check 只查语法不查引用，已补）；MSG 表-引用一致性脚本核验无缺失无冗余；真机手工清单待用户重载验收（划词/高亮/伴读全链路 + popup 失败行 + 记忆保存失败提示）。
+- **X1 合围收官**：moon-well M4（包装兑底）+ magicbook B5（统一解包）+ magiclens L1（rpc 门面）三端齐——R44/R173 类事故链从「三端各自防御」变「两端机制 + 一端可见」，联合验收待三仓真机同步。
+- **台账**：worktree `../magiclens-arch-l1`（分支 `refactor/r46-rpc-facade`，merge commit `2b7be68`）驻留待验收，验收通过后 remove + branch -d；验收发现新问题在原 worktree 修（manifest 按 §0.2 再递增）。未 push（push develop 不触发发布；正式发布需用户确认后去时间戳 merge release）。
+- **总结**：requests.md 占号 R46；response.md 本条；冲突记录：无。
+
+### R47（架构评审波 3 · L2 阶段一：OIDC 回调迁独立 content_script）
+
+- **交付（commit `906e232`，分支 `refactor/r46-rpc-facade` 同分支第二 commit，已 merge 本地 develop；版本 0.8.13-202610151643 测试版）**：新增 `oidc-callback.js`（matches 仅 moon-well.haoshenqi.top）——回调捕获不再依赖全站注入的 content.js；content.js 734→688 行（回调段迁出），回调页不再跑完整划词引擎启动门控，其余页面卸下永不生效的死逻辑。
+- **L2 阶段二（登记）**：bubble.js / detail-panel.js / tts.js 三模块拆分（共享 shadow 状态需重构为 window 命名空间互调）与 magicbook epub.js 拆分（B4）同批——同属前端巨石拆分，模式统一后一次做。
+- **验证**：node --check 全过；真机验收点：moon-well 登录回调仍能自动捕获 token 写 storage + 三秒关页（独立脚本在新条目下首次真机验证）；划词/高亮/伴读回归。
+- **台账**：worktree `../magiclens-arch-l1` 同树第二 commit（r46→r47），merge 后驻留待验收。未 push；正式发布待用户确认后去时间戳 merge release（会同时带上 R46+R47 两批）。
+- **总结**：requests.md 占号 R47；冲突记录：无。
 
 ### R35（bug 修复：伴读 AI 永远「未配置服务地址或 Token」，重新登录无效）
 
@@ -12,17 +44,6 @@
 - **验证**：`node --check` chat.js/background.js 通过；分支推演覆盖 未登录（auth 链接）/ token 空+refresh 有效（静默刷新后放行）/ 刷新超时（保凭据提示重试）/ 刷新被拒（清凭据+重登链接）/ 扩展重载（刷新页面提示，无登录链接）。真机清单（需用户 chrome://extensions 重载后实测）：① 退出登录 → 问 AI 提示「未登录，请先在设置页登录」+ 链接；② 点链接完成 OIDC 登录 → 回页直接发送 → SSE 流式回复正常；③ 会话列表/记忆/学情面板正常；④ 划词翻译等其他功能回归正常。
 - **总结**：requests.md 占号 R35；response.md 本条；归档 R23–R24（窗口回到 10 条内）。冲突记录：与 R34（iframe 划词，另一会话在途）并行——manifest.json 版本竞态（R34 会话 15:23 写入 `0.8.2-202610101523`，本会话按「每次修改完成递增」续增为 `0.8.3-202610101524`）；本会话未触碰 content.js/highlight.js。
 - **更新（2026-10-10 发布）**：用户真机验收通过后已发正式版 **v0.8.3**（run 38035576570，Release 含 magiclens-extension-v0.8.3.zip，zip 内 manifest version/version_name 均为纯 0.8.3）。发布锚定 9e57c04（R34+R35），**不含其后未验收的 R36 选区中继重构**（c64b541 待其自行验收走 v0.8.4）；去时间戳提交 a0ccbc8 仅落 release 分支（develop 已被 R36 前移、避免非快返推送），下次发版 merge 时 manifest 以新版为准。
-
-### R34（补 iframe 内拖选划词：阅读器里选中单词没反应）
-
-- **用户报告**：magicbook 阅读器里「选中单词没有反应，但波浪线正常生成」，并问是否是后端接口改动导致。
-- **结论：不是后端，是插件自身的覆盖缺口**。`manifest.json` 未声明 `all_frames` → content.js（气泡与划词流程）只在顶层文档运行；highlight.js 的 per-doc 监听只有 `mousemove/mousedown/click/keydown/scroll`，**没有 `mouseup`**；而 iframe 内的 mouseup 不跨文档冒泡、其选区也不属于顶层 `window.getSelection()`，于是 `mouseup → processSelection → selectionInfo` 一次都没触发。波浪线之所以正常，是因为高亮引擎本就按文档实例化（往每个同源 iframe 注入 `::highlight()` 样式表 + 各自的 IntersectionObserver）；hover 生词与点高亮词能弹气泡，是因为 R24 专门搭了 `__magicLensShowWordBubble` 这条跨文档钩子——**当年只搬了这两条交互，选区那条从来没接进来**。
-- **该缺口原本有账**：`docs/feat/vocab-highlight/design/lld.md` §6.5 写着「iframe 内长句划选翻译不可用……阅读场景影响小」并列为 R25 候选，一直没闭。magicbook R141/R143 把口径定为「只隐藏 magiclens 已实现的部分」并下线内置气泡后，这个「影响小」的判断直接变成用户可感知的故障。
-- **交付（commit `ba0eaa8`）**：highlight.js 给 **iframe 文档单独**加绑 `mouseup`（延迟 60ms 等选区稳定；顶层不绑——与 content.js 同绑会双开气泡、双发翻译请求，两个入口算出的矩形一个原生一个换算、未必逐字相等，500ms 去重兜不住），取选区文本 + Range 矩形按 `tokRect` 同款换算叠加 iframe 偏移，经新钩子 `__magicLensShowIframeSelection(text, rect)` 交顶层；content.js 把 `processSelection` 的呈现部分抽成共用 `openBubble(text, word, rect)`，词形前缀口径、2000 字符上限、`autoTranslate` 与译/详/🔊/认识/生词/问 AI 全部复用同一条链路，不复制第二套语义。文档同步：lld.md §6.4/§6.5、README 功能表、design.md §11。
-- **验证状态（诚实）**：本项目无自动化测试；`node --check` 两文件通过、相邻同文行扫描无异常，但**扩展装载与真机效果未验**——需你在 `chrome://extensions` 重新加载插件并刷新阅读页（插件自带旧脚本退役保护，不刷新不生效），然后拖选书页里任意单词应出气泡、点空白/Esc 能收。AGENTS §3 手工清单的「划词→翻译展示」此前只在顶层文档验过，iframe 路径属新增覆盖面。
-- **版本冲突记录**：manifest 的 `version/version_name` 不由我的 commit 携带——写码期间 R35 会话已把它推到 `0.8.3-202610101524`，其 `background.js`/`chat.js`/`docs/feat/chrome-extension/design/lld.md`/`requests.md#35` 仍是未提交在途改动，我不代为收编；我的代码已在工作区，随那个版本号一起被浏览器加载即可。
-- **代提交记录**：本条下方的 response.md 窗口轮转（R23、R24 原样搬至 `response-archive/response-R23-R24.md`）系 R35 会话在 2026-10-10 做的，已逐字核对为原文搬移、未改写，随本条一起入库；另 R32 会话 2026-10-08 未提交的 v0.8.1「错误文案卫生」已由 commit `b74cea0` 单独收编并注明其自记验收状态。
-- **总结**：requests.md 占号 R34（`a94de1c` 单独锁号；占号时确认 34 未占用，随后发现 35 已被并行会话占用，按不回改纪律保留）；response.md 本条，当前窗口 10 条、无需再搬。
 
 ### R36（iframe 选区与生词高亮解耦：all_frames 选区中继）
 

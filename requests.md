@@ -47,3 +47,13 @@
 43. 排查并补齐朗读引擎：用户反馈「朗读引擎选了 AI，最近又变成本地」，且「理论上还应该有个词典发音，默认应该是词典」。排查结论是 magiclens 划词气泡的 🔊 只有浏览器 `speechSynthesis`（moon-well TTS 属规划 P2 未实现），而阅读器划词让位（magicbook R146 + 本仓 v0.8.6 接管标记）后，magicbook 那份带有道 dictvoice 真人词库音频的气泡被换掉，单词发音退化成机械音。本条要求：给 magiclens 的朗读补词典发音分支，单个英文单词默认走 dictvoice，失败/短语句子回退浏览器语音。
 
 44. 接 R43 排查的后续（同源 moon-well R173）：伴读抽屉的会话列表/记忆/学情看不到既有记录。定性为契约漂移——moon-well 的 `/ai/agent` 面板 8 个端点返回裸对象/数组，而本仓 `callApi` 按统一 Result 包装判定 `success === true`，成功响应被误判为失败；`chat.js` 的 `refreshConversations()` 又是 `if (!resp.ok) return;`，于是静默降级成「历史凭空消失」。要求两手：① 解包改为与 magicbook `unwrap()` 同口径的容错判定；② 失败必须在界面上可见，不允许静默空列表。
+
+## 2026-10-15
+
+45. 家族根架构评审任务拆分建档（跨四仓同源：moon-well R180 / magicbook R174 / magiclens R45 / app-manager R42）：阅读家族根 `../docs/architecture-review-2026-10-14.md`，把评审结论拆分为各仓待办并落入各仓文档，**仅写文档不做开发**。magiclens 侧落位 `docs/feat/arch-review-2026-10/design/`（overview 总表 / refactor-items L1–L7 + U1–U2 + X2 本仓部分 / doc-fixes DF1–DF4，含 N4 token 时效表体旧值与 K3 README 二义待决策等登记项），跨仓协同项 X1–X6 与家族根修正任务登记在家族根 `../docs/arch-review-2026-10-tasks-crossrepo.md`。design.md 追加 §15 决策记录指向该目录；不改任何 `extension/` 代码，manifest 版本不递增（无代码修改）。
+
+46. 架构评审波 1+2——L1+L4+L5+L6：统一 RPC 门面 rpc.js（三份消息封装合一，X1 本仓部分收官）、令牌刷新/清凭据单点 refreshOrClear（callApi 401 与 ml:auth 同分支）、设置默认值单点 __magicLensDefaults（五处内联默认+DEFAULT_CFG 引用）、失败可见（highlight analyze 失败 console.warn + storage.local 上报 + popup 常驻失败行；chat memory save/delete 补失败提示）。版本 0.8.12-时间戳测试版递增，不触发发布；真机手工清单待验收。（编号说明：接 R45）
+
+47. 架构评审波 3——L2 阶段一：OIDC 回调捕获迁独立 content_script oidc-callback.js（matches 仅 moon-well 域）——回调页不再跑完整划词引擎启动门控，其余页面卸下永不生效的死逻辑；bubble/detail-panel/tts 三模块拆分（阶段二）与 epub.js 拆分（B4）同批，登记下一轮。版本 0.8.13 测试版递增。（编号说明：接 R46）
+
+49. 家族迁入 PingCode（跨仓同源：magicbook R184 / magiclens R49 / ops R131；用户指令：学习使用 PingCode，把项目搬上去）：①知识管理——本仓 `docs/` 与根 README 全量镜像至 PingCode DEV 空间（目录结构同源；顶级页与空间主页平级，主页是空间系统页、API 不能挂子页；仓库 docs/ 仍是权威源，wiki 只读镜像）；②产品管理——本仓全史 requests 48 条（R01–R47 含归档）建为 MAGICLENS 产品需求池条目，标题 R 编号开头、描述带原文与来源脚注，状态按已完成/未完成分类；③工作流——此后新需求先记本台账占号，再 `../ops/tools/pingcode.py idea-create magiclens "R<编号> 标题" --desc "详情"` 发布，agent 按看板领取建 worktree 开发并流转状态（手册 `../ops/pingcode.md` §10）。（编号说明：git 已有 r48 提交（background.js 金山直连域迁移）但其台账条目尚未落文件，按全史最大编号 +1 取 49；其 R48 条目落本文件时双方并存）

@@ -190,7 +190,15 @@ v0.8.5 之前的实例就是代价：扩展装着、iframe 拖选不通，阅读
 
 ## 15. 架构评审任务拆分（2026-10-15，R45）
 
-家族根 2026-10-14 架构评审（`../docs/architecture-review-2026-10-14.md`）对本仓的结论与待办已拆分建档至 [`docs/feat/arch-review-2026-10/design/overview.md`](./feat/arch-review-2026-10/design/overview.md)：编码重构 L1–L7（rpc 门面 / content.js 拆分 / background 减重 / token 刷新合一 / settings 单一 schema / 失败可见 / 镜像向量锁）与文档修正 DF1–DF4。波次依赖与 X1/X2 跨仓协同口径见该 overview；跨仓总账见家族根 `../docs/arch-review-2026-10-tasks-crossrepo.md`。本轮仅建档登记，未改任何 `extension/` 代码。
+家族根 2026-10-14 架构评审对本仓的待办已拆分建档至 [`docs/feat/arch-review-2026-10/design/overview.md`](./feat/arch-review-2026-10/design/overview.md)。本轮仅建档登记，未改任何 `extension/` 代码。
+
+## 16. 统一 RPC 门面 rpc.js（2026-10-15，R46，v0.8.12；架构评审 L1/L4/L5/L6）
+
+**决策**：消息传输与失效分类收编 `rpc.js`（window/globalThis 双环境挂载）——send 同一失效分类器（同步抛/lastError 两路）、onInvalidated 退役钩子（content=retireOrphan、highlight=teardown，各自保留副作用）、MSG 消息类型表 16 键集中（发送端与 background case 同表，禁止裸字符串扩散）。三份薄包装（content {ok,error} / highlight 吞错返 null / chat Promise）保留各自契约不迁就——统一在传输层而非契约层，调用点零迁移。
+
+**同批落地**：L4 令牌刷新/清凭据单点 `refreshOrClear`（callApi 401 与 ml:auth 同分支，R35 口径从注释对齐变代码单点）；L5 设置默认值单点 `__magicLensDefaults`（common.js 冻结表，五处内联默认与 DEFAULT_CFG 全部引用）；L6 失败可见（highlight analyze 失败 console.warn + storage.local 上报 + popup 常驻失败原因行；chat memory save/delete 补失败提示——降级逻辑不变，只消除「接口故障伪装成无生词/静默丢失」）。
+
+**Why**：三份消息封装语义各异（{ok,error} / 吞错 null / Promise），R16/R24 类漂移靠注释对齐；X1 三端合围的 magiclens 侧（moon-well M4 包装兑底 + magicbook B5 统一解包已落地）。任务明细见 `docs/feat/arch-review-2026-10/design/refactor-items.md` L1/L4/L5/L6。
 
 **起因**：用户报告「伴读抽屉打开后，同一网站之前的记录都没了」。排查链：R43（朗读引擎）→ 顺带查面板数据链路 → 定位到 moon-well `/ai/agent` 的 8 个面板端点返回**裸 VO/数组**，而本仓 `background.js callApi` 按「统一 Result 包装」判定 `payload.success !== true`，于是成功响应被误判为失败；`chat.js refreshConversations()` 又写作 `if (!resp.ok) return;`，误判被静默吞掉。三者叠加的用户可见结果＝「历史凭空消失」，且界面上与「真的没有历史」完全同形。
 

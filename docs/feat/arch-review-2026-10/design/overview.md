@@ -22,7 +22,7 @@
 | L6 | 失败可见：高亮 analyze 静默降级上浮 + chat memory 写操作补提示 | 编码 | 🔴 | 未排（原波次表未覆盖；🔴 建议尽早，可与波 1 同窗口） | 无 | 待启动 |
 | L4 | 抽 `ensureAuthToken()`：token 刷新链两份手抄合一 | 编码 | 🟠 | 波 2 | 无 | 待启动 |
 | L5 | settings.js 单一 schema：DEFAULTS 并入 common.js，消灭 5 处默认值 | 编码 | 🟡 | 波 2 | 无 | 待启动 |
-| L2 | content.js 拆分（oidc-callback / bubble / detail-panel / tts） | 编码 | 🟠 | 波 3 | 无 | 待启动 |
+| L2 | content.js 拆分（oidc-callback / bubble / detail-panel / tts） | 编码 | 🟠 | 波 3 | 无 | 进行中（阶段一 r47 完成待验收；阶段二三模块拆分与 B4 同批） |
 | L3 | background.js 减重：importScripts 移出领域代码 | 编码 | 🟡 | 未排（原波次表未覆盖） | 无 | 待启动 |
 | L7 | 镜像向量锁：四组同构逻辑建 node 断言向量（X2 本仓部分） | 测试 | 🟠 | 波 4 | 与 magicbook / moon-well 同窗口 | 待启动 |
 | U1 | §3.3 未编号：`__magicLens*` 隐式钩子 13 处靠 manifest 顺序——注册表化 | 编码 | 🟡 | 未排 | 无 | 待启动 |
