@@ -65,7 +65,7 @@ async function refreshTokens(refreshToken) {
  * 只有 HTTP 不成功 / 非 JSON / 显式 `success === false` 才算失败，其余取 result，
  * 裸 payload 原样透出。
  * How 做成不碰 fetch/storage 的纯函数：本仓无测试框架，纯函数可以直接把源码片段抽出来
- * 喂给断言跑（见 docs/feat/chrome-extension/design/lld.md §10 R44 的验证方式）。 */
+ * 喂给断言跑（见 docs/project/_legacy/feat/chrome-extension/design/lld.md §10 R44 的验证方式）。 */
 function unwrapMoonWellResponse(resp, payload) {
   if (!resp.ok || !payload || payload.success === false) {
     const msg = (payload && (payload.message || payload.msg)) || `HTTP ${resp.status}`;

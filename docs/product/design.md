@@ -44,8 +44,8 @@ moon-well 认证三通道：
 ## 5. 分期
 
 - **P0（已交付）**：划词翻译 + 认识/生词标记 + 本地朗读 + 设置页（US1/US2）。
-- **P0.5（已交付）**：AI 伴读聊天抽屉（R119 评估并入当前批次，与划词共享全部基建）+ moon-well 侧两改动（web prompt 分支 + skipMemoryExtract），设计见 `docs/feat/chrome-extension/design/lld.md`。
-- **P1（部分交付）**：生词智能高亮已交付（v0.5.0，2026-10-06，借鉴「明畅·个人词库」机制：CSS Custom Highlight API 渲染 + analyze 判定矩阵 + 视口懒渲染 + MutationObserver 增量，设计见 `docs/feat/vocab-highlight/design/lld.md`）；v0.7.2（2026-10-07，R24）补多文档（iframe）支持——magicbook 阅读器正文在 epub.js 同源 iframe 里且阅读页标题为中文书名，引擎按文档多实例化 + 文档绑定早于首扫 + 逐文档正文采样门控（lld.md §6）；剩段落整页翻译（translate-batch）与 OIDC/JWT 相关收尾。
+- **P0.5（已交付）**：AI 伴读聊天抽屉（R119 评估并入当前批次，与划词共享全部基建）+ moon-well 侧两改动（web prompt 分支 + skipMemoryExtract），设计见 `docs/project/_legacy/feat/chrome-extension/design/lld.md`。
+- **P1（部分交付）**：生词智能高亮已交付（v0.5.0，2026-10-06，借鉴「明畅·个人词库」机制：CSS Custom Highlight API 渲染 + analyze 判定矩阵 + 视口懒渲染 + MutationObserver 增量，设计见 `docs/project/_legacy/feat/vocab-highlight/design/lld.md`）；v0.7.2（2026-10-07，R24）补多文档（iframe）支持——magicbook 阅读器正文在 epub.js 同源 iframe 里且阅读页标题为中文书名，引擎按文档多实例化 + 文档绑定早于首扫 + 逐文档正文采样门控（lld.md §6）；剩段落整页翻译（translate-batch）与 OIDC/JWT 相关收尾。
 - **P2**：moon-well TTS 朗读（/tts/speak 音频播放状态机 + speechSynthesis 降级）。
 - **储备**：chrome.sidePanel 兜底方案、Readability 深度正文抽取、右键菜单「问 AI」。
 
@@ -54,8 +54,8 @@ moon-well 认证三通道：
 仓库已转 **public**。版本号两段式，发布全自动：
 
 - **测试版 `X.Y.Z-YYYYMMDDHHmm`**：每次修改完成即递增（`version` 语义化 +1，时间戳写进 `version_name`），供 `chrome://extensions` 重载验证，**不触发发布**。
-- **正式版 `X.Y.Z`**：**用户确认**可发布后，清理 `version_name` 时间戳推送到 `develop`，再由 AI merge `develop` 到 `release` 分支——push 到 `release` 才触发 [.github/workflows/release.yml](./.github/workflows/release.yml)（R18 起，原 develop 触发已废除；`release` 分支随 R18 自 develop HEAD 建立）：打 `vX.Y.Z` tag、创建 GitHub Release、附 `extension/` 打包 zip；测试后缀或 Release 已存在均跳过。
-- **分发渠道（2026-10-07，R23 决策）**：**仅通过 GitHub Releases 分发，不上架 Chrome Web Store**——避免注册费、`<all_urls>` 广泛权限深度审核与后续每次更新的审核维护成本；用户经开发者模式加载 zip 自装。商店上架材料已备好备用：[docs/webstore/listing.md](./webstore/listing.md)（listing 文案/权限理由/截图规格）与 [PRIVACY.md](../PRIVACY.md)（隐私政策），未来决定上架时直接可用。注意 GitHub 分发的固有限制：扩展更新需手动重新下载 zip 并在 `chrome://extensions` 重载（无自动更新通道）。
+- **正式版 `X.Y.Z`**：**用户确认**可发布后，清理 `version_name` 时间戳推送到 `develop`，再由 AI merge `develop` 到 `release` 分支——push 到 `release` 才触发 [.github/workflows/release.yml](../../.github/workflows/release.yml)（R18 起，原 develop 触发已废除；`release` 分支随 R18 自 develop HEAD 建立）：打 `vX.Y.Z` tag、创建 GitHub Release、附 `extension/` 打包 zip；测试后缀或 Release 已存在均跳过。
+- **分发渠道（2026-10-07，R23 决策）**：**仅通过 GitHub Releases 分发，不上架 Chrome Web Store**——避免注册费、`<all_urls>` 广泛权限深度审核与后续每次更新的审核维护成本；用户经开发者模式加载 zip 自装。商店上架材料已备好备用：[listing.md](webstore/listing.md)（listing 文案/权限理由/截图规格）与 [PRIVACY.md](../../PRIVACY.md)（隐私政策），未来决定上架时直接可用。注意 GitHub 分发的固有限制：扩展更新需手动重新下载 zip 并在 `chrome://extensions` 重载（无自动更新通道）。
 
 ## 7. 金山词霸直连快路径（2026-10-07，R15，v0.6.0）
 
@@ -78,7 +78,7 @@ moon-well 认证三通道：
 
 ## 9. 域名管理：按域名禁用插件（2026-10-07，R25，v0.8.0）
 
-**决策**：`chrome.storage.sync` 新增 `disabledDomains: string[]`，条目为归一化 hostname，匹配语义「该域 + 全部子域」（无精确/仅子域两种模式——域名禁用的直觉语义就是整站别管，多一种模式多一份理解成本）；门控放 content script 注入层（content.js 主引擎与 highlight.js boot 各自判定，`common.js` 提供共享的归一化/匹配助手），禁用站零 UI、零 DOM 监听、零请求（highlight.js 保留判定所需的 chrome.runtime/storage 内部监听，页面 DOM 监听为零）。UI：options 名单管理 + popup 本站一键禁用/恢复。设计细节见 `docs/feat/domain-management/design/lld.md`。
+**决策**：`chrome.storage.sync` 新增 `disabledDomains: string[]`，条目为归一化 hostname，匹配语义「该域 + 全部子域」（无精确/仅子域两种模式——域名禁用的直觉语义就是整站别管，多一种模式多一份理解成本）；门控放 content script 注入层（content.js 主引擎与 highlight.js boot 各自判定，`common.js` 提供共享的归一化/匹配助手），禁用站零 UI、零 DOM 监听、零请求（highlight.js 保留判定所需的 chrome.runtime/storage 内部监听，页面 DOM 监听为零）。UI：options 名单管理 + popup 本站一键禁用/恢复。设计细节见 `docs/project/_legacy/feat/domain-management/design/lld.md`。
 
 - **生效语义（统一）**：名单只决定新加载页面，变更后刷新生效。Why 不做运行中即时拆装：content.js 的 UI 与监听是顶层一次性装配，可逆化需把装配重写为 init/retire 对称结构，风险与收益不成比例（低频配置动作）。
 - **highlight.js 的坑**：它有 storage.onChanged / Alt+U 等现成「重开路径」，只挡 boot 的话禁用站会被后续全局开关变化复活引擎；因此启动时把判定结果固化进 `siteDisabled` 并入 `shouldEngineRun()`，所有路径统一封死。
@@ -96,7 +96,7 @@ moon-well 认证三通道：
 
 **背景**：magicbook R141/R143 把阅读器内置划词气泡下线，口径是「只隐藏 magiclens 已经实现的部分」。
 但 R24 的多文档引擎只把**生词高亮**与**hover 生词 / 点高亮词弹气泡**两条交互搬进了同源 iframe，
-「拖选→翻译」这条链路一直留在顶层文档——该缺口当年就写在 `docs/feat/vocab-highlight/design/lld.md`
+「拖选→翻译」这条链路一直留在顶层文档——该缺口当年就写在 `docs/project/_legacy/feat/vocab-highlight/design/lld.md`
 §6.5「已知边界（R25 候选）」里，并被判为「阅读场景影响小」。内置气泡下线后，这个"影响小"的缺口
 变成用户可感知的故障：阅读器里选中单词毫无反应，而波浪线照常出现。
 
@@ -190,7 +190,7 @@ v0.8.5 之前的实例就是代价：扩展装着、iframe 拖选不通，阅读
 
 ## 15. 架构评审任务拆分（2026-10-15，R45）
 
-家族根 2026-10-14 架构评审对本仓的待办已拆分建档至 [`docs/feat/arch-review-2026-10/design/overview.md`](./feat/arch-review-2026-10/design/overview.md)。本轮仅建档登记，未改任何 `extension/` 代码。
+家族根 2026-10-14 架构评审对本仓的待办已拆分建档至 [`docs/project/_legacy/feat/arch-review-2026-10/design/overview.md`](../project/_legacy/feat/arch-review-2026-10/design/overview.md)。本轮仅建档登记，未改任何 `extension/` 代码。
 
 ## 16. 统一 RPC 门面 rpc.js（2026-10-15，R46，v0.8.12；架构评审 L1/L4/L5/L6）
 
@@ -198,7 +198,7 @@ v0.8.5 之前的实例就是代价：扩展装着、iframe 拖选不通，阅读
 
 **同批落地**：L4 令牌刷新/清凭据单点 `refreshOrClear`（callApi 401 与 ml:auth 同分支，R35 口径从注释对齐变代码单点）；L5 设置默认值单点 `__magicLensDefaults`（common.js 冻结表，五处内联默认与 DEFAULT_CFG 全部引用）；L6 失败可见（highlight analyze 失败 console.warn + storage.local 上报 + popup 常驻失败原因行；chat memory save/delete 补失败提示——降级逻辑不变，只消除「接口故障伪装成无生词/静默丢失」）。
 
-**Why**：三份消息封装语义各异（{ok,error} / 吞错 null / Promise），R16/R24 类漂移靠注释对齐；X1 三端合围的 magiclens 侧（moon-well M4 包装兑底 + magicbook B5 统一解包已落地）。任务明细见 `docs/feat/arch-review-2026-10/design/refactor-items.md` L1/L4/L5/L6。
+**Why**：三份消息封装语义各异（{ok,error} / 吞错 null / Promise），R16/R24 类漂移靠注释对齐；X1 三端合围的 magiclens 侧（moon-well M4 包装兑底 + magicbook B5 统一解包已落地）。任务明细见 `docs/project/_legacy/feat/arch-review-2026-10/design/refactor-items.md` L1/L4/L5/L6。
 
 **起因**：用户报告「伴读抽屉打开后，同一网站之前的记录都没了」。排查链：R43（朗读引擎）→ 顺带查面板数据链路 → 定位到 moon-well `/ai/agent` 的 8 个面板端点返回**裸 VO/数组**，而本仓 `background.js callApi` 按「统一 Result 包装」判定 `payload.success !== true`，于是成功响应被误判为失败；`chat.js refreshConversations()` 又写作 `if (!resp.ok) return;`，误判被静默吞掉。三者叠加的用户可见结果＝「历史凭空消失」，且界面上与「真的没有历史」完全同形。
 

@@ -106,3 +106,18 @@
 - **交付（用户选「两仓都 merge + push develop」）**：主检出工作区干净、`behind=0`，`git merge --ff-only fix/r44-agent-result-tolerant` 后 push `6cdc08d..3ea50bd`；版本带时间戳后缀不触发商店发布（正式发布仍等用户确认）。worktree 原样驻留等真机验收。
 - **待用户真机验收**：重载扩展 → 打开伴读抽屉，左上角下拉应列出既有会话（网页会话带 `[通用]` 前缀）；🧠 记忆面板不再显示 `HTTP 200` 之类假错误。注意：**后端那半（moon-well R173）未上线前，本仓容错已足以让列表恢复**——上线顺序不敏感。
 - **总结**：requests.md 占号 R44；本条为回应；冲突记录：无。窗口轮转：写入前含 R33–R43 共 10 个 request（另有 R36 补记一节），本条写入达 11，按纪律把最旧的 R33 原样搬至 `response-archive/response-R33.md` 并登记索引，窗口回到 R34–R44 共 10 个。
+
+## 2026-10-16（R50：docs v2 迁移——单模块退化形态）
+
+### R50（用户指令「moon-well 和 magiclens 也整理 docs」：家族文档架构 v2 试点第三仓）
+
+- **范围**：纯文档结构迁移（`git mv` + 链接 / 口径改写），**零代码行为改动**——`extension/` 只动了 `background.js` 一行 Javadoc 里的文档路径；manifest 版本未递增，不触发发布。
+- **前置处置（用户拍板「先原样提交再迁移」）**：主检出在途未提交的台账与文档先原样落库（commit `888a84e`）——requests 补落 R45/R46/R47/R49 四条、response 补 R45/R46/R47 三条回应、design.md §15/§16、架构评审 overview 状态行、R34 归档。「原样」提交：R48 台账条目仍缺这一既存缺口也照原样保留（见 R49 条目自述）。
+- **窗口轮转（本条写入触发）**：写入前 response.md 实含 12 个 request（并行会话插入 R45–R47 时未按纪律轮转，窗口已超限）；本条写入前先把最旧的 R35 / R36 / R38 三节原样搬至新建的 `response-archive/response-R35-R38.md` 并登记索引（与占号同 commit `786961b`），窗口回 10 个 request（R39–R44 / R45–R47 / R50）。
+- **物理搬迁（`git mv`，内容不改写）**：本仓为**单模块纯前端扩展**，按 v2 **退化形态**落地——**L1 仍是根 `README.md`**（不建 `docs/product/readme/`，不为目录对称把单模块硬拆）；`docs/design.md`（L2 ADR 兼任）→`docs/product/design.md`；`docs/feat/`（5 个：arch-review-2026-10 / chrome-extension / domain-management / vocab-highlight / word-detail）→`docs/project/_legacy/feat/`（**冻结归档、不回溯**）；`docs/webstore/listing.md`→`docs/product/webstore/listing.md`（产品级静态）；仓库根 `requests.md` / `response.md` / `requests-archive/` / `response-archive/`→`docs/project/requests/`。
+- **链接口径**：脚本改写 8 条（`./docs/design.md` → `docs/product/design.md`、`./feat/...` → `../project/_legacy/feat/...` 等）+ 手工修 5 条随迁移变深 / 变浅的根文件相对链（`docs/product/design.md` 与 `docs/product/webstore/listing.md` 指向 `PRIVACY.md`、`.github/workflows/release.yml`）。改后 `docs/product`、`README.md`、`AGENTS.md` 相对链接存在性校验 **0 坏链**。代码侧同步 1 处（`extension/background.js` Javadoc）。
+- **文档改写**：`AGENTS.md` 文档规范节整体改 v2 **退化形态**（L1 = 根 `README.md` / L2 = `docs/product/design.md` ADR 兼任 / L3 = `docs/product/features/<FEATURE>.md`；工作项目录标准结构；其他目录表；「交付四问」），工作流目标路径、前置阅读（补 L1/L2 入口）与「对话记录」节路径同步。
+- **占号与基线**：台账占号 **R50**（全史最大 49 + 1，49 为家族迁入 PingCode 条目）；worktree 从本地 `develop` 切出（与 `origin/develop` 同点，0/0）。
+- **未做 / 待决**：① Wiki 镜像重刷与前两仓同批**暂缓**（用户拍板）；② `docs/product/features/`（L3）与 `docs/project/iterations/` 从新工作开始建；③ 本仓无 `docs/tasks/`，未新建 `docs/project/tasks/`。
+- **验证**：目录树与 `git status` 复核；相对链接存在性脚本 0 坏链；`AGENTS.md` 三处路径口径自检；`extension/` 无行为改动（无需手工清单全跑）。
+- **收尾**：merge 本地 `develop`；worktree `../magiclens-docs-v2` 与分支 `refactor/r50-docs-v2` **原样保留待验收**（本仓验收方式 = `chrome://extensions` 加载该目录实测；本轮零代码改动，验收以目录与文档口径复核为主）。push 一条另行待批。

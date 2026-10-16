@@ -65,7 +65,7 @@ flowchart LR
 
 ## 关联文档
 
-- 可行性评估与决策记录：`docs/design.md`（源自 magicbook 仓库 `response.md` R118/R119）
+- 可行性评估与决策记录：`docs/product/design.md`（源自 magicbook 仓库 `response.md` R118/R119）
 - 上游项目：[magicbook](https://github.com/haoshenqi-family/magicbook)（阅读器，逻辑移植来源）、[moon-well](https://github.com/haoshenqi-family/moon-well)（后端 API）
 
 ## 待办（启动前置）
