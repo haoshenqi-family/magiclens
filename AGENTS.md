@@ -23,7 +23,7 @@
 - **后端默认走公网域名 `https://moon-well.haoshenqi.top`**（Server 2 Traefik → fnOS:8082，含 X-User-* 信任头剥离中间件，配置源 `app-manager/deploy/traefik-dynamic/moonwell.yml`）；用户经 Authentik 统一登录（与 magicbook 同一账号），令牌由 `/auth/oidc/callback` 页自动捕获、`/auth/refreshToken` 静默续期——**设置页不提供手动地址/Token 配置项**；记忆始终开启（不携带 skipMemoryExtract）。
 - 无构建链，`extension/` 目录即最终产物：改完在 `chrome://extensions` 重新加载即可验证；**版本号两段式规则 `X.Y.Z` / `X.Y.Z-YYYYMMDDHHmm`：每次修改完成后必须递增**——
     - **测试版（默认）**：修改完成即递增——`version` 按语义化版本 +1（Chrome manifest 的 `version` 只接受点分整数，时间戳不能写进该字段），`version_name` 写完整 `X.Y.Z-YYYYMMDDHHmm`（取修改完成时刻的时间戳），popup 展示 `version_name`；**带时间戳后缀的版本不触发发布**。
-    - **正式版**：**用户确认**某版本可发布后由 AI 执行发布流程——把 `version_name` 的时间戳后缀去掉（只留纯 `X.Y.Z`）推送到 `develop`，再 merge `develop` 到 `release` 分支并 push；**只有 `release` 分支的 push 触发** [.github/workflows/release.yml](./.github/workflows/release.yml) 自动打 `vX.Y.Z` tag、创建 GitHub Release 并附 `extension/` 打包 zip（Release 已存在或带时间戳后缀则跳过）。日常开发 push `develop` 不再触发发布。
+    - **正式版**：**用户确认**某版本可发布后由 AI 执行发布流程——把 `version_name` 的时间戳后缀去掉（只留纯 `X.Y.Z`）推送到 `develop`，再 merge `develop` 到 `release` 分支并 push；**只有 `release` 分支的 push 触发** [.github/workflows/release.yml](./.github/workflows/release.yml) 自动打 `vX.Y.Z` tag、创建 GitHub Release 并附 `extension/` 打包 zip（Release 已存在或带时间戳后缀则跳过）。日常开发 push `develop` 不再触发发布；2026-10-21 R51 起**纯文档 push `release` 分支**同样跳过打包与发布。
 - 选区文本上限 2000 字符（moon-well translate 接口约束）；生词标记仅英文单词（正则提取首个英文词）；`known`=标记已认识（移出学习队列）、`unknown`=加入生词本。
 - 图标由 `scripts/gen_icons.py` 生成（纯标准库）并入库，改图标改脚本后重新生成，不手工编辑 PNG。
 
