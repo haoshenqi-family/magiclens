@@ -12,7 +12,64 @@ permissions:
   contents: write
 
 jobs:
+  # 改动范围判定：纯文档 push 不打包、不发布（2026-10-21 R51 用户口径）
+  changes:
+    name: 判定改动范围
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.scope.outputs.docs_only }}
+    steps:
+      - name: Detect docs-only push
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+
+          # Why: 纯文档提交（docs/ 目录与 *.md 等）不改扩展产物，发布 tag/Release 是噪声。
+          # How: 用 compare API 取本次 push 的全部改动文件；只有「确认全是文档」才置 true，
+          #      判定失败 / 首次推送 / 改动过多一律按 false 走正常发布判定。
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+          ZERO="0000000000000000000000000000000000000000"
+          docs_only=false
+
+          if [ -n "$BEFORE" ] && [ "$BEFORE" != "$ZERO" ] && [ "$BEFORE" != "$AFTER" ]; then
+            RESP=$(curl -sS --max-time 30 \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/compare/${BEFORE}...${AFTER}?per_page=100" || true)
+            FILES=$(printf '%s' "$RESP" | jq -r '.files // [] | .[].filename' 2>/dev/null || true)
+            COUNT=$(printf '%s\n' "$FILES" | grep -c . || true)
+            # compare API 的 files 最多返回 300 条：取到 300 说明可能被截断，不判纯文档。
+            if [ "${COUNT:-0}" -gt 0 ] && [ "${COUNT:-0}" -lt 300 ]; then
+              NON_DOC=$(printf '%s\n' "$FILES" | grep -vE '(^|/)docs?/|\.md$|\.MD$|(^|/)LICENSE|(^|/)\.gitignore$|(^|/)\.gitattributes$' || true)
+              if [ -z "$NON_DOC" ]; then
+                docs_only=true
+              else
+                echo "非文档改动："
+                printf '%s\n' "$NON_DOC"
+              fi
+            fi
+          else
+            echo "无可用基线（首次推送），按非纯文档处理"
+          fi
+
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+          {
+            echo "### 改动范围判定"
+            echo ""
+            if [ "$docs_only" = "true" ]; then
+              echo "本次 push 仅涉及文档，**跳过打包与发布**。"
+            else
+              echo "存在非文档改动（或无法判定），进入版本判定。"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
   release:
+    name: 打包并发布
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
