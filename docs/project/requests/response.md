@@ -1,18 +1,6 @@
 # response.md — 对话回应记录（仅保留最近 10 个 request 的回应）
 
-> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移） · [response-R29.md](response-archive/response-R29.md)（2026-10-11 R40 写入触发轮转搬移） · [response-R30-R31.md](response-archive/response-R30-R31.md)（2026-10-11 R41 集成时窗口超限搬移） · [response-R32.md](response-archive/response-R32.md)（2026-10-13 R43 写入触发轮转搬移） · [response-R33.md](response-archive/response-R33.md)（2026-10-14 R44 写入触发轮转搬移） · [response-R34.md](response-archive/response-R34.md)（2026-10-15 R45 写入触发轮转搬移） · [response-R35-R38.md](response-archive/response-R35-R38.md)（2026-10-16 R50 写入触发轮转搬移，窗口回 10 条 request 内）
-
-### R45（家族根架构评审任务拆分建档，只写文档）
-
-- **范围**：阅读家族根 `../docs/architecture-review-2026-10-14.md`，将其中本仓相关结论（§2.3 L1–L7、§3.3 严重度标记、§2.5 X1/X2 本仓部分、§5 冲突清单）拆分为待办任务落档。**零 `extension/` 代码改动，manifest 版本不递增**（无代码修改，不触发测试版递增规则）；纯文档任务不建 worktree。
-- **建档**：新建 `docs/feat/arch-review-2026-10/design/` 三份——
-  - overview.md：任务总表（L1 波 1【X1】/ L4、L5 波 2 / L2 波 3 / L7 波 4【X2】/ L3、L6 未排——**L6 失败可见为 🔴，建议尽早** + U1–U2 + DF1–DF4）；
-  - refactor-items.md：每项含现状问题（文件:行号）、任务内容、验收判据；L6 验收强调真机模拟接口故障验证「失败可见」；L7 为本仓首个 node 断言向量入口；
-  - doc-fixes.md：DF1 N4 design.md §3 表体 token 时效改 30/90（表体直接改正文，保留 R26 更新注）、DF2 K3 README 兼 L1+契约速查二义（A 下沉 / B 豁免，待用户决策）、DF3 悬空 feat 补索引、DF4 三方一致性检查。
-- **索引登记**：`docs/design.md` 追加 §15 决策记录指向该目录（L2 层引用，消灭悬空）。
-- **归档**：R34 原样搬至 `response-archive/response-R34.md`（写入后窗口 11 条触发轮转，回 10 条内）。
-- **跨仓**：四仓同源建档（moon-well R180 / magicbook R174 / app-manager R42）；X1（L1 与 moon-well M4 / magicbook B5 同窗口）与 X2（四组镜像向量）协同口径见家族根 `../docs/arch-review-2026-10-tasks-crossrepo.md`。
-- **总结**：requests.md 占号 R45；response.md 本条；冲突记录：无。
+> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移） · [response-R29.md](response-archive/response-R29.md)（2026-10-11 R40 写入触发轮转搬移） · [response-R30-R31.md](response-archive/response-R30-R31.md)（2026-10-11 R41 集成时窗口超限搬移） · [response-R32.md](response-archive/response-R32.md)（2026-10-13 R43 写入触发轮转搬移） · [response-R33.md](response-archive/response-R33.md)（2026-10-14 R44 写入触发轮转搬移） · [response-R34.md](response-archive/response-R34.md)（2026-10-15 R45 写入触发轮转搬移） · [response-R35-R38.md](response-archive/response-R35-R38.md)（2026-10-16 R50 写入触发轮转搬移，窗口回 10 条 request 内） · [response-R45.md](response-archive/response-R45.md)（2026-10-21 R51 写入触发轮转搬移）
 
 ### R46（架构评审波 1+2 · L1+L4+L5+L6：rpc 门面 / 令牌刷新单点 / 默认值单点 / 失败可见）
 
@@ -121,3 +109,11 @@
 - **未做 / 待决**：① Wiki 镜像重刷与前两仓同批**暂缓**（用户拍板）；② `docs/product/features/`（L3）与 `docs/project/iterations/` 从新工作开始建；③ 本仓无 `docs/tasks/`，未新建 `docs/project/tasks/`。
 - **验证**：目录树与 `git status` 复核；相对链接存在性脚本 0 坏链；`AGENTS.md` 三处路径口径自检；`extension/` 无行为改动（无需手工清单全跑）。
 - **收尾**：merge 本地 `develop`；worktree `../magiclens-docs-v2` 与分支 `refactor/r50-docs-v2` **原样保留待验收**（本仓验收方式 = `chrome://extensions` 加载该目录实测；本轮零代码改动，验收以目录与文档口径复核为主）。push 一条另行待批。
+
+### R51（发布链纯文档跳过打包发布）
+
+- **范围**：用户指令「修改一下部署脚本，如果只有文档更新，则不触发部署」；四仓同源 + 「触发但跳过」两口径拍板。本仓无部署产物，对应的是 `release` 分支的**发布**流程。
+- **改动**：`.github/workflows/release.yml` 新增 `changes` job（compare API 取本次 push 改动文件 + 文档口径正则），`release` job 加 `needs` / `if` 门禁；纯文档 push 到 `release` 时打包 zip 与 GitHub Release 创建整体跳过，step summary 留痕。
+- **文档口径**：`docs/`、`doc/` 下任意文件、`*.md`、`LICENSE`、`.gitignore`、`.gitattributes`；判定失败 / 首次推送一律走原判定（安全侧）。
+- **验证**：YAML 解析通过、`bash -n` 通过、桩响应端到端 5 例符合预期（纯文档 true，其余 false）。
+- **驻留**：worktree `../magiclens-doc-skip-deploy`，分支 `chore/r51-doc-skip-deploy`，合并 commit `875166e`（本地 `develop`，未 push）。
