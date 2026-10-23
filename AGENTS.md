@@ -50,23 +50,24 @@
 
 ---
 
-## 🔀 Git Worktree 使用规范（2026-10-10 R38 增补；家族统一口径见 ../AGENTS.md「Git Worktree 开发纪律」）
+## 🔀 Git Worktree 使用规范（2026-10-10 R38 增补；2026-10-23 ops R158 修订命名并增补同编号互斥；家族统一口径见 ../AGENTS.md「Git Worktree 开发纪律」）
 
 > **模式：一任务一临时 worktree，合并后保留待验收，验收通过后删除**。正面先例：R36 发布 merge 全程在临时 worktree（/tmp/ml-release）完成，没有在并行会话共用的工作目录切分支。
 
 - **何时必须用**：编码类任务（改 `extension/`、`manifest.json` 等）开工时创建专属 worktree 开发，**不得在可能被并行会话共用的主检出上直接改分支**；纯问答、排查、文档微改可在主检出直接进行。本仓无构建链，worktree 即装即用，成本几乎为零。
 - **一次会话一个 worktree（2026-10-12 moon-well R164 同源增补；家族统一口径第 7 条）**：同一会话内的连续工作（含多阶段/多子任务）必须**复用同一个 worktree**——阶段收尾 merge 回开发分支后不删树，续作前 `git fetch` 并 merge `origin/<开发分支>` 拉齐基线继续推进；**禁止每阶段/每子任务各开新树**（反面样本：moon-well R162 重构五阶段 + NAS 下线累积 6 处驻留）。跨会话续作优先复用台账登记的该任务 worktree；仅并行会话允许并存多树。
-- **创建**（位置必须在仓库目录外的兄弟目录，命名 `magiclens-<任务slug>`；先 `git fetch origin`，从 `origin/develop` 最新点切出）：
+- **创建**（位置必须在仓库目录外的兄弟目录，命名 **`magiclens-r<编号>-<slug>`**，目录名与分支名的编号一致——2026-10-23 ops R158 修订，原 `<任务slug>` 不带编号、同一任务可被起成两个名字，无法作互斥判据；先 `git fetch origin`，从 `origin/develop` 最新点切出）：
   ```bash
-  git worktree add ../magiclens-<slug> -b <type>/r<编号>-<slug> origin/develop
+  git worktree add ../magiclens-r<编号>-<slug> -b <type>/r<编号>-<slug> origin/develop
   ```
+- **同编号互斥（2026-10-23 ops R158；家族统一口径第 9 条）**：一个 request 编号同时只允许存在一个 worktree——目录名带编号后由文件系统天然强制，同编号目录已存在时 `git worktree add` 直接失败，此时**禁止换 slug 绕开**：是验收期驻留 → 按上条在原 worktree 续作；是另一并行会话在途 → 协调而非并行开工；是登记外残留 → 向用户报告，不擅删。互斥粒度钉在编号（功能）级，不升到模块级。
 - **收尾闸门（merge 后不立即删除，等验收）**：
   ```bash
   git merge <type>/r<编号>-<slug>        # 在主检出 develop 上执行
   ```
   merge 完成后 worktree **原样保留**，等用户验收；验收通过后执行删除：
   ```bash
-  git worktree remove ../magiclens-<slug>
+  git worktree remove ../magiclens-r<编号>-<slug>
   git branch -d <type>/r<编号>-<slug>    # 只用 -d：未合并会被 git 拒绝，此时停下排查
   ```
   **禁止 `branch -D`**（会吞掉未合并提交，属破坏性操作，必须先经用户确认）；worktree 内有未提交残留导致 remove 被拒时，先向用户出示 diff 再处置，不得静默丢弃。
@@ -176,7 +177,7 @@
 ## 📝 对话记录 (docs/project/requests/ · requests.md / response.md)
 
 - **位置（2026-10-16 R50）**：需求台账已从仓库根迁入 `docs/project/requests/`（`requests.md` / `response.md` + `requests-archive/` / `response-archive/`）；本节下文凡称 `requests.md` / `response.md` / 归档目录，均指该目录下对应文件。
-- **`requests.md`**：仅记录每一次对话用户的需求，除此之外不做任何事情。**接到任务立即追加编号占位**：读文件取当前最大编号 +1，随即写入需求原文；编号在任务开始即锁定，避免并行会话争用同一编号。
+- **`requests.md`**：仅记录每一次对话用户的需求，除此之外不做任何事情。**接到任务立即追加编号占位（占号即 push，2026-10-23 ops R158）**：按 `origin` 最新台账取当前最大编号 +1 写入需求原文，随即**只含该文件 commit 并 push 到 develop，push 成功才算占到号**；被拒即有人先占，`rebase` 后重算编号再 push；本地 develop 领先远端（有待点头的未 push 提交）时用临时 claim worktree 占号，序列见 `../ops/dev-workflow.md` §1 步骤 4。（原「写入即锁定」口径废止：并行会话各自工作区的写入互不可见直到 push，moon-well 152/154 两次撞号即此。）
 - **`response.md`**：任务**完成后**再写入回应（编号对应 requests.md 开始时占用的条目），包括：
   - 对每个 request 的回应；
   - 对 requests.md 与 response.md 两个文件的总结。
