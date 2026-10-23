@@ -177,7 +177,7 @@
 ## 📝 对话记录 (docs/project/requests/ · requests.md / response.md)
 
 - **位置（2026-10-16 R50）**：需求台账已从仓库根迁入 `docs/project/requests/`（`requests.md` / `response.md` + `requests-archive/` / `response-archive/`）；本节下文凡称 `requests.md` / `response.md` / 归档目录，均指该目录下对应文件。
-- **`requests.md`**：仅记录每一次对话用户的需求，除此之外不做任何事情。**接到任务立即追加编号占位（占号即 push，2026-10-23 ops R158）**：按 `origin` 最新台账取当前最大编号 +1 写入需求原文，随即**只含该文件 commit 并 push 到 develop，push 成功才算占到号**；被拒即有人先占，`rebase` 后重算编号再 push；本地 develop 领先远端（有待点头的未 push 提交）时用临时 claim worktree 占号，序列见 `../ops/dev-workflow.md` §1 步骤 4。（原「写入即锁定」口径废止：并行会话各自工作区的写入互不可见直到 push，moon-well 152/154 两次撞号即此。）
+- **`requests.md`**：仅记录每一次对话用户的需求，除此之外不做任何事情。**接到任务立即占号（占号即 push，2026-10-23 ops R158/R159）**：跑 **`../ops/tools/claim.sh magiclens --title "需求标题"`**，stdout 末行 `CLAIMED <N> <sha>` 即占到（`--quiet` 只输出编号，`--dry-run` 只看下一号）。脚本对 `origin` 最新台账算全史最大 +1、只含台账文件 commit 并 push 到 develop，**push 成功才算占到号**，被拒自动重算；全程不动主检出，本地 develop 领先远端 / 工作区脏都不影响、不会带出待点头提交。脚本不可用时的手动兜底序列与原理见 `../ops/dev-workflow.md` §1 步骤 4。（原「写入即锁定」口径废止：并行会话各自工作区的写入互不可见直到 push，moon-well 152/154 两次撞号即此。）
 - **`response.md`**：任务**完成后**再写入回应（编号对应 requests.md 开始时占用的条目），包括：
   - 对每个 request 的回应；
   - 对 requests.md 与 response.md 两个文件的总结。
