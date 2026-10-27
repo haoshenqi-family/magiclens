@@ -116,4 +116,4 @@
 - **验证（诚实）**：`node --check` 两文件全过；渲染器 node 冒烟 23 例全过（链接/CJK 断词/标点出链/同源归一/query·fragment 保留/外链·`//host`·`javascript:`·userinfo·反斜杠·控制字符拒绝/HTML 转义/代码块隔离/粗体/换行/空串/注入 origin 隔离）；**真机手工清单待用户**：从本 worktree 重载扩展 → ① 回复气泡下不再出现 `tokens x+y`；② 让 AI 给本站链接（如「我的积分页在哪」），点击新窗口打开 magicbook 对应页；③ 历史会话里的旧回复同样可点链接、无 token 行；④ 代码块与外链仍为文本。
 - **文档**：README 功能表回填；LLD `iterations/1.0/r52-buddy-parity/lld.md`；迭代 `plan.md` 增 MAGICLENS-6。
 - **台账**：worktree `../magiclens-r52-buddy-parity`（分支 `feat/r52-buddy-parity`）merge 后驻留待验收，验收通过后 remove + branch -d；未 push（push develop 不触发发布；正式发布需用户确认后去时间戳 merge release）。窗口轮转：本条写入前已把最旧的 R39 原样搬至 `response-archive/response-R39.md` 并登记索引，写入后窗口 10 条未超限。
-- **总结**：requests.md 占号 R52（claim.sh `e56575e`）；response.md 本条；冲突记录：无。
+- **总结**：requests.md 占号 R52（claim.sh `e56575e`）；PingCode idea [ML-51 / 6Lljn2pb](https://haoshenqi.pingcode.com/ship/ideas/6Lljn2pb)（Pending → In progress，待验收后 Completed）；response.md 本条；冲突记录：无。
