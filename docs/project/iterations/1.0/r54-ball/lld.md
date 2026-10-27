@@ -1,6 +1,6 @@
 # LLD — R54 常驻入口悬浮球（设置开关 + 首次安装引导选择）
 
-> 状态：**已 merge 本地 develop，待真机验收**（2026-10-27）
+> 状态：**已 merge 本地 develop，待真机验收；2026-10-27 验收修订 v2（0.8.18）对齐 magicbook R223 形态**（见 §5）
 > 来源：用户需求原话「添加一个常驻入口，可以用户选择是否开启常驻。首次安装插件的时候，
 > 提示用户选择。」背景：R52 汇报指出 magiclens 的伴读抽屉唯一入口是划词「问 AI」
 >（无悬浮球/快捷键），用户拍板补常驻入口。worktree 沿用 r52 驻留树（家族口径第 7 条）。
@@ -59,3 +59,47 @@
 - chrome:// 等扩展页无 content script 注入，天然无球。
 - 首次引导若用户直接关掉设置页未表态：下次进设置页仍会看到卡片（`ballAsked` 未落），球
   保持关闭直至表态。
+
+## 5. 验收修订 v2（2026-10-27，0.8.18-202610271758）——对齐 magicbook R223 形态
+
+用户修改意见（R54 交付当天）：「这个悬浮球和 magicbook 的保持一致，使用 buddy 形象，
+悬浮提供更多选项。」按仓规验收期修改意见在原 worktree 续作、版本再递增；ball.js 重写，
+视觉与交互**逐段移植 magicbook `ai_chat.js`/`ai_chat.css` 的 R223 实现**：
+
+- **buddy 形象**：56px 透明头像球（呼吸动效；未装备伙伴回落浅蓝「AI」底，R206 同款
+  「probe 成功才切头像」防裂图）。头像来源 = moon-well `POST /buddy/catalog`（JWT 经
+  background `ML_API` 白名单新增 `/buddy/catalog`）取 equipped 伙伴的 MinIO 匿名直链。
+- **hover 径向快捷气泡**（类 iPhone AssistiveTouch）：40px 气泡、扇区横展 120°/贴边 90°、
+  半径 74px、弹簧曲线 `cubic-bezier(0.34,1.56,0.64,1)`；350ms 延迟关闭（FAB 与气泡间
+  空隙的穿越容忍）；focusin/focusout 键盘可达；外点与 Esc 关闭；展开方向按球位置自适应
+  （朝屏幕内侧，顶/底距不足 94px 时整体让位）——几何代码原样移植。
+- **动作集（固定五项，chat 恒首位 = R234 服务端不变量的扩展侧同构）**：💬 对话（开抽屉）、
+  〰 生词高亮（经 background 新增 `ML_HL_TOGGLE` case 转发本页 highlight.js，与 Alt+U
+  同链路同语义含站点禁用兜底）、🎓 每日学习 / 📚 书库 / 👤 我的（新标签开 magicbook，
+  路由与 magicbook `dispatchBubbleAction` 一致：`/learning`、`/`、`/me`）。
+- **拖拽 + 吸附 + 位置记忆**：pointer 事件移植（**capture 延迟到 6px 拖动阈值**——R223 真机
+  缺陷修法，防 click 被重定向；`buttons & 1` 守卫防悬停误拖；`dragstart` 防头像原生拖拽）；
+  松手吸附左右边缘（gap 10px、0.22s ease-out）；位置记忆改 `chrome.storage.local` 键
+  `magiclens.fabPos`（按 hostname）——禁污染宿主 localStorage。
+- 球 z-index 2147483645（v1 已定），气泡与球同层、仍压在伴读抽屉遮罩之下。
+
+### 与 magicbook 的刻意分叉（修订版）
+
+| # | magicbook | 本仓 | Why |
+| --- | --- | --- | --- |
+| 头像来源 | 本站代理 `/ajax/buddy/image`（Flask 会话） | moon-well `/buddy/catalog`（JWT）+ MinIO 直链 `<img>` | 扩展无 Flask 会话；R220 的跨站图片被拦风险由 probe-再切换兜底（失败保文字球） |
+| 动作集 | `/buddy` 页可配置（4-5，服务端归一 R234） | 固定五项，chat 钉首位 | magicbook 配置存 Flask `view_settings`，扩展无该通道；可配置性登记遗留 |
+| 位置记忆 | 页面 localStorage | `chrome.storage.local`（per-hostname） | AGENTS 禁污染宿主页存储 |
+| 动作语义 | 阅读页转发顶栏工具（翻译/朗读/书签） | 网页上下文替换为高亮开关 + magicbook 导航 | 顶栏工具不存在于任意网页；高亮是扩展的「本页动作」对位物 |
+
+### 修订版验证
+
+- `node --check` ball.js / background.js 过；几何冒烟 12 例全过（吸附四向、径向扇
+  三姿态〔右半屏左展/左半屏右展/贴顶让位〕、扇对称、z 顺序、chat 首位、五动作数、
+  350ms/6px 字面量、白名单）——径向数学按 magicbook 公式独立复算，测试初版预期
+  误按「向上扇」算错 5 例，复核公式（扇心=正内侧、数学角 `(cos a, -sin a)`）后全绿。
+- **手工清单（追加，待用户真机）**：⑧ 开关开启后球显示**装备伙伴头像**（magicbook 装备
+  伙伴后扩展球同步换形象；未装备是蓝色 AI 球）；⑨ hover 球弹出五个气泡（💬 恒第一），
+  点「对话」开抽屉、点「生词高亮」本页高亮开关翻转（与 Alt+U 等效）、点「书库」新标签
+  开 magicbook；⑩ 拖球到屏幕中间松手 → 吸附左或右边缘，刷新后位置保持；⑪ hover 后
+  移开 ~0.35s 气泡收起，穿越球与气泡间隙不误关。

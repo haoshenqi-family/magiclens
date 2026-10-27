@@ -310,12 +310,31 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           '/ai/agent/conversation/rename', '/ai/agent/conversation/delete',
           '/ai/agent/memory/list', '/ai/agent/memory/save', '/ai/agent/memory/delete',
           '/ai/agent/book-profile',
+          '/buddy/catalog', // R54 修订：悬浮球 buddy 形象（equipped 伙伴头像直链）
         ]);
         if (!ALLOWED.has(msg.path)) {
           sendResponse({ ok: false, error: 'path not allowed', status: 0 });
           break;
         }
         sendResponse(await callApi(msg.path, { body: msg.body || {} }));
+        break;
+      }
+      case MSG.ML_HL_TOGGLE: {
+        // R54 修订：悬浮球「生词高亮」气泡——content script 用不了 chrome.tabs，
+        // 经此转发给同 tab 的 highlight.js，与 Alt+U 完全同一链路与语义
+        //（含站点禁用不动全局开关的兜底：highlight.js 侧判定）
+        if (!sender.tab || sender.tab.id == null) {
+          sendResponse({ ok: false });
+          break;
+        }
+        chrome.tabs.sendMessage(sender.tab.id, { type: MSG.ML_HL_TOGGLE }, (resp) => {
+          if (chrome.runtime.lastError || !resp || !resp.ok) {
+            chrome.storage.sync.get(__magicLensDefaults, ({ hlEnabled }) => {
+              chrome.storage.sync.set({ hlEnabled: !hlEnabled });
+            });
+          }
+          sendResponse({ ok: true });
+        });
         break;
       }
       case MSG.ML_AUTH: {
