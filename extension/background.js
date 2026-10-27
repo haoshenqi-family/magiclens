@@ -94,44 +94,138 @@ async function refreshOrClear(refreshToken) {
   }
 }
 
-async function callApi(path, { method = 'POST', body, timeoutMs = TIMEOUT_MS } = {}, retried = false) {
+/* ---------- moon-well 调用低层（R53 抽出）：鉴权 + fetch + 超时 + 401 静默刷新单点 ----------
+ * callApi（JSON/Result）、ASR 转写（multipart）、TTS 朗读（二进制响应）三类请求共用
+ * 这一段。此前 401/超时分支只活在 callApi 里，语音两类若照抄等于把 R35/L4 类漂移
+ * 温床再抄两份。返回 {resp}（HTTP 层已完成，由调用方按各自形制解包）或
+ * {error, status, auth?}（请求未发出 / 刷新失败）。 */
+async function callMoonWellRaw(path, init, timeoutMs = TIMEOUT_MS, retried = false) {
   const { apiBase, token, refreshToken } = await getCfg();
-  if (!apiBase) return { ok: false, error: '未配置服务地址', status: 0 };
-  if (!token && !refreshToken) return { ok: false, error: '未登录，请先在设置页登录', status: 0, auth: true };
+  if (!apiBase) return { error: '未配置服务地址', status: 0 };
+  if (!token && !refreshToken) return { error: '未登录，请先在设置页登录', status: 0, auth: true };
 
   let resp;
   try {
     resp = await fetch(apiBase.replace(/\/+$/, '') + path, {
-      method,
+      ...init,
       headers: {
-        'Content-Type': 'application/json',
+        ...(init.headers || {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (e) {
     if (e.name === 'TimeoutError' || e.name === 'AbortError') {
-      return { ok: false, error: `请求超时（${Math.round(timeoutMs / 1000)}s），请稍后重试`, status: 0 };
+      return { error: `请求超时（${Math.round(timeoutMs / 1000)}s），请稍后重试`, status: 0 };
     }
-    return { ok: false, error: `网络错误：${e.message}`, status: 0 };
+    return { error: `网络错误：${e.message}`, status: 0 };
   }
 
-  // 401：静默刷新一次后重试；刷新真被拒绝才清空令牌强制重登
+  // 401：静默刷新一次后重试；刷新真被拒绝才清空令牌强制重登（L4 单点 refreshOrClear）。
+  // retried 守卫防死循环：刚刷新的 token 再被拒就该停（与原 callApi 口径一致）
   if (resp.status === 401 && !retried && refreshToken) {
-    // L4：刷新/清凭据决策走单点 refreshOrClear
     const refreshed = await refreshOrClear(refreshToken);
-    if (refreshed.token) return callApi(path, { method, body, timeoutMs }, true);
-    return { ok: false, error: refreshed.error, status: refreshed.status, auth: refreshed.auth };
+    if (refreshed.token) return callMoonWellRaw(path, init, timeoutMs, true);
+    return { error: refreshed.error, status: refreshed.status, auth: refreshed.auth };
   }
+  return { resp };
+}
 
+async function callApi(path, { method = 'POST', body, timeoutMs = TIMEOUT_MS } = {}) {
+  const out = await callMoonWellRaw(path, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  }, timeoutMs);
+  if (out.error) return { ok: false, error: out.error, status: out.status ?? 0, auth: out.auth };
+  let payload = null;
+  try {
+    payload = await out.resp.json();
+  } catch {
+    /* 非 JSON 响应按失败处理 */
+  }
+  return unwrapMoonWellResponse(out.resp, payload);
+}
+
+/* ---------- R53 语音输入：offscreen 录音文档生命周期 ----------
+ * Why offscreen 而非 SW/content script 录音：SW 无 DOM（AudioContext/ScriptProcessor
+ * 采集链路没有语义保证），content script 录音要把麦克风权限对每个宿主站点逐个授权、
+ * http 页更拿不到 getUserMedia；offscreen 属扩展自身 origin，权限一次授权到处可用。
+ * createDocument 在文档已存在时抛错——getContexts 要 Chrome 116，为兼容 manifest 的
+ * min 110，用「试建 + 吞已存在错误」模式；SW 中途挂起再醒来也靠它幂等续命。 */
+async function ensureOffscreen() {
+  try {
+    await chrome.offscreen.createDocument({
+      url: 'offscreen.html',
+      reasons: ['USER_MEDIA'],
+      justification: '伴读抽屉语音输入：把麦克风录音转写成文字',
+    });
+  } catch (e) {
+    if (!/single|exist/i.test(String((e && e.message) || e))) throw e;
+  }
+}
+
+function sendToOffscreen(msg) {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(msg, (resp) => {
+      if (chrome.runtime.lastError) return resolve(null);
+      resolve(resp || null);
+    });
+  });
+}
+
+/* ---------- R53 ASR 转写：multipart 直传 moon-well /learning/asr/transcribe ----------
+ * 为什么不走 callApi：body 是 FormData（Content-Type 边界由浏览器生成，手工设置会坏）。
+ * 上限 10MB/次由 moon-well 校验；响应是 Result 包装，取 result.text。 */
+const ASR_TIMEOUT_MS = 60000;
+
+async function transcribeAudio(audioBase64) {
+  const bytes = __magicLensB64Decode(audioBase64);
+  const form = new FormData();
+  form.append('file', new Blob([bytes], { type: 'audio/wav' }), 'recording.wav');
+  const out = await callMoonWellRaw('/learning/asr/transcribe', { method: 'POST', body: form }, ASR_TIMEOUT_MS);
+  if (out.error) return { ok: false, error: out.error, status: out.status ?? 0, auth: out.auth };
+  let payload = null;
+  try {
+    payload = await out.resp.json();
+  } catch {
+    /* 非 JSON 按 unwrap 的失败分支处理 */
+  }
+  return unwrapMoonWellResponse(out.resp, payload);
+}
+
+/* ---------- R53 回复朗读：/tts/speak（二进制音频，不套 Result 包装） ----------
+ * body 不带 bookName/chapter：moon-well 据此把音频落「AI 临时语音」档（7 天清理），
+ * 不污染书籍段落永久缓存（R227 D3 口径）。听=消费：命中缓存也扣 1 积分/次（R166）。
+ * Why 超时放宽到 180s：fnOS 本地 Qwen3-TTS 长段合成本来就要分钟级（tts.local.timeout-ms 同值）。 */
+const TTS_TIMEOUT_MS = 180000;
+
+async function synthesizeSpeech(text) {
+  const out = await callMoonWellRaw('/tts/speak', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  }, TTS_TIMEOUT_MS);
+  if (out.error) return { ok: false, error: out.error, status: out.status ?? 0, auth: out.auth };
+  const resp = out.resp;
+  const type = (resp.headers.get('Content-Type') || '').toLowerCase();
+  if (resp.ok && (type.startsWith('audio/') || type.startsWith('application/octet-stream'))) {
+    return { ok: true, audioBase64: __magicLensB64Encode(await resp.arrayBuffer()) };
+  }
+  // 失败体是 moon-well 的 Result 信封（HTTP 500 + JSON），典型是「积分不足，无法使用AI功能」。
+  // 不带出 message 的话前端只能拿 JSON 字节去解码，把计费拒绝伪装成「播放器坏了」（R227）。
   let payload = null;
   try {
     payload = await resp.json();
   } catch {
-    /* 非 JSON 响应按失败处理 */
+    /* 非 JSON 按状态码兜底 */
   }
-  return unwrapMoonWellResponse(resp, payload);
+  return {
+    ok: false,
+    error: (payload && (payload.message || payload.msg)) || `HTTP ${resp.status}`,
+    status: resp.status,
+    auth: resp.status === 401 || resp.status === 403,
+  };
 }
 
 // R40 查词补报：会话内去重即可（SW 挂起重置后服务端幂等兜底），遥测失败静默
@@ -290,6 +384,48 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       case MSG.ML_OPENOPTIONS:
         chrome.runtime.openOptionsPage();
         sendResponse({ ok: true });
+        break;
+      case MSG.ML_REC_START: {
+        // 录音开始：惰性建 offscreen 文档并转发 ML_REC_GO。
+        // Why GO/DONE 与 START/STOP 两套类型：content 的 runtime.sendMessage 会广播
+        // 到全部扩展上下文（含 offscreen），offscreen 只认 GO/DONE/CANCEL 且对其余
+        // 类型不回话，避免抢占 SW 的响应通道（rpc.js MSG 表注释同口径）。
+        try {
+          await ensureOffscreen();
+          const rec = await sendToOffscreen({ type: MSG.ML_REC_GO });
+          sendResponse(rec || { ok: false, error: '录音模块无响应，请重试' });
+        } catch (e) {
+          sendResponse({ ok: false, error: (e && e.message) || '录音启动失败' });
+        }
+        break;
+      }
+      case MSG.ML_REC_STOP: {
+        // 取音频 → 关文档 → 转写。文档先关：ASR 慢（最长 60s），offscreen 文档
+        // 没必要陪等；ASR 失败也不影响录音已正常收尾。
+        try {
+          await ensureOffscreen();
+          const rec = await sendToOffscreen({ type: MSG.ML_REC_DONE });
+          chrome.offscreen.closeDocument().catch(() => { /* 已关/不存在则忽略 */ });
+          if (!rec || !rec.ok) {
+            sendResponse({ ok: false, error: (rec && rec.error) || '录音模块无响应，请重试' });
+            break;
+          }
+          sendResponse(await transcribeAudio(rec.audioBase64));
+        } catch (e) {
+          sendResponse({ ok: false, error: (e && e.message) || '转写失败' });
+        }
+        break;
+      }
+      case MSG.ML_REC_CANCEL:
+        // 关抽屉等场景放弃录音：丢弃音频、不转写不计费
+        await sendToOffscreen({ type: MSG.ML_REC_CANCEL });
+        chrome.offscreen.closeDocument().catch(() => { /* 已关/不存在则忽略 */ });
+        sendResponse({ ok: true });
+        break;
+      case MSG.ML_TTS_SPEAK:
+        // 朗读合成：SW 取二进制音频转 base64 回传（content 里 Web Audio 解码播放，
+        // 与宿主页 CSP 无涉——字节经消息通道进来，连 connect-src 都不占用）
+        sendResponse(await synthesizeSpeech(String(msg.text || '').slice(0, 2000)));
         break;
       default:
         sendResponse({ ok: false, error: 'unknown message type' });

@@ -60,10 +60,19 @@
     ML_MARK: 'ml:mark',
     ML_OPENSELECTION: 'ml:openSelection',
     ML_OPENOPTIONS: 'ml:openOptions',
+    // R53 伴读语音：START/STOP/CANCEL 是 content→SW；GO/DONE 是 SW→offscreen 文档的
+    // 内部转发。Why 分两套：content 的 runtime.sendMessage 会广播到全部扩展上下文
+    //（含 offscreen），offscreen 只认自己那两个类型、其余不回话，避免抢占响应通道。
+    ML_REC_CANCEL: 'ml:rec-cancel',
+    ML_REC_DONE: 'ml:rec-done',
+    ML_REC_GO: 'ml:rec-go',
+    ML_REC_START: 'ml:rec-start',
+    ML_REC_STOP: 'ml:rec-stop',
     ML_REGISTER: 'ml:register',
     ML_SELECTION: 'ml:selection',
     ML_SETTINGS: 'ml:settings',
     ML_TRANSLATE: 'ml:translate',
+    ML_TTS_SPEAK: 'ml:tts-speak',
   });
 
   g.__magicLensRpc = { send, onInvalidated, isInvalidated, MSG };

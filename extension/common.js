@@ -146,4 +146,51 @@
     restore(true);
     return esc;
   };
+
+  /* ---------- R53 伴读语音共享工具（content / background / offscreen 三处共用） ---------- */
+
+  /** base64 ↔ 字节。Why 手写分块而不是一次 btoa/fromCharCode：音频几百 KB 一次
+   * Function.apply 展开会栈溢出；SW 与扩展页、offscreen 三处都要，故落共享件。 */
+  g.__magicLensB64Encode = (buffer) => {
+    const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(bin);
+  };
+  g.__magicLensB64Decode = (b64) => {
+    const bin = atob(String(b64 || ''));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+    return bytes.buffer;
+  };
+
+  /** 朗读分段（R227 D4 口径）：/tts/speak 单次上限 2000 字（moon-well 校验），1800 留
+   * 余量。先按空行分段，段仍超长再按句末标点（中英文都认）切，最后才硬切——不把
+   * 半句话读成两条。纯函数，node 直测。 */
+  g.__magicLensSplitForSpeech = (text, segmentMax) => {
+    const MAX = segmentMax || 1800;
+    const normalized = String(text || '').replace(/\r\n/g, '\n').trim();
+    if (!normalized) return [];
+    const out = [];
+    normalized.split(/\n{2,}/).forEach((para) => {
+      para = para.trim();
+      if (!para) return;
+      if (para.length <= MAX) { out.push(para); return; }
+      const sentences = para.match(/[^.!?。！？；;]+[.!?。！？；;]*/g) || [para];
+      let current = '';
+      sentences.forEach((sentence) => {
+        if (sentence.length > MAX) {
+          if (current) { out.push(current); current = ''; }
+          for (let i = 0; i < sentence.length; i += MAX) out.push(sentence.slice(i, i + MAX));
+          return;
+        }
+        if (current && (current + sentence).length > MAX) { out.push(current); current = ''; }
+        current += sentence;
+      });
+      if (current) out.push(current);
+    });
+    return out;
+  };
 })();

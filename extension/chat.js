@@ -15,6 +15,7 @@
     view: 'chat',                // chat | memory | profile
     conversationId: null,        // null = 新会话（服务端首问创建，final 回传）
     running: false, abort: null,
+    recording: false, recTimer: null,   // R53 语音输入（录音状态与本地计时器）
     els: null,
   };
 
@@ -98,6 +99,18 @@
     .profile .kv { color: #6b7280; font-size: 12px; }
     .empty { color: #9ca3af; text-align: center; padding: 24px 0; }
     .cfg-link { color: #4f46e5; cursor: pointer; text-decoration: underline; }
+    /* R53 语音：麦克风按钮（录音红底呼吸）、语音状态行、每条回复的朗读按钮 */
+    .mic { all: unset; cursor: pointer; text-align: center; width: 36px; height: 36px; line-height: 36px;
+      border-radius: 10px; background: #f3f4f6; font-size: 15px; flex: 0 0 auto; }
+    .mic:hover { background: #e5e7eb; }
+    .mic:disabled { opacity: .5; cursor: default; }
+    .mic.rec { background: #dc2626; color: #fff; animation: ml-mic-pulse 1.2s ease-in-out infinite; }
+    @keyframes ml-mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+    .voice-status { min-height: 15px; margin-top: 6px; font-size: 11px; color: #6b7280; white-space: normal; }
+    .speak-btn { all: unset; cursor: pointer; margin-top: 6px; margin-right: 6px; display: inline-block;
+      font-size: 11px; color: #4f46e5; background: #eef2ff; border-radius: 6px; padding: 2px 8px; }
+    .speak-btn:hover { background: #e0e7ff; }
+    .speak-btn.playing { background: #dc2626; color: #fff; }
   `;
 
   function build() {
@@ -129,9 +142,11 @@
         <main class="panel view-profile" hidden></main>
         <div class="compose">
           <div class="row">
+            <button class="mic" title="语音输入（点击开始，说完再点一下停止）">🎤</button>
             <textarea class="input" rows="2" placeholder="问点什么…（Enter 发送 / Shift+Enter 换行）"></textarea>
             <button class="send">发送</button>
           </div>
+          <div class="voice-status"></div>
         </div>
       </aside>`;
     shadow.appendChild(wrap);
@@ -145,6 +160,8 @@
       profile: shadow.querySelector('.view-profile'),
       input: shadow.querySelector('.input'),
       sendBtn: shadow.querySelector('.send'),
+      mic: shadow.querySelector('.mic'),
+      voiceStatus: shadow.querySelector('.voice-status'),
     };
 
     // ---------- 事件 ----------
@@ -166,6 +183,7 @@
       if (state.running) { state.abort && state.abort.abort(); return; }
       send(state.els.input.value);
     });
+    state.els.mic.addEventListener('click', () => { toggleMic(); });
     state.els.input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!state.running) send(state.els.input.value); }
     });
@@ -190,6 +208,8 @@
     state.open = false;
     state.els.wrap.classList.remove('on');
     if (state.running && state.abort) state.abort.abort(); // P0 不做关抽屉续跑（LLD 非目标）
+    stopSpeech();       // R227 口径：关抽屉立即停朗读，不留「念着但找不到停止入口」
+    cancelRecording();  // 录音直接放弃（不转写不计费）
   }
 
   function switchView(view) {
@@ -372,7 +392,11 @@
           // R232（对齐 magicbook）：不展示 token 用量——账务只在 magicbook 设置·积分查；
           // meta 仅保留非完成状态提示，成功时留空（gotFinal 兜底判空逻辑不受影响）
           shell.meta.textContent = d.status && d.status !== 'COMPLETED' ? String(d.status) : '';
-          if (acc) shell.text.innerHTML = window.__magicLensAssistantHtml(acc); // R233：站内链接可点
+          if (acc) {
+            shell.text.innerHTML = window.__magicLensAssistantHtml(acc); // R233：站内链接可点
+            shell.root.__mlRaw = acc;   // R53：朗读正文取原文
+            attachSpeakButton(shell);
+          }
           refreshConversations();
         },
         onError: (d) => {
@@ -400,6 +424,186 @@
       state.els.sendBtn.classList.remove('stop');
       scrollBottom();
     }
+  }
+
+  /* ---------- R53 语音（对齐 magicbook R227）：录音转写输入 + 回复朗读 ----------
+   * 请求全部经 background 中转（AGENTS 硬性约定）：录音在扩展 offscreen 文档采集
+   *（麦克风权限归扩展 origin，不受宿主页 http/混合内容限制），ASR/TTS 由 SW 发出；
+   * 音频字节以 base64 走消息通道，content 侧 Web Audio 解码播放——连宿主页 CSP 的
+   * media-src/connect-src 都不占用（R227 D2 的扩展版：任意宿主页 CSP 不可控）。
+   * 朗读口径同 R227：每条手动点（不自动播）、分段 ≤1800 顺序播、播放中再点是停止、
+   * 切会话/关抽屉即停。 */
+
+  let voiceStatusTimer = null;
+
+  function setVoiceStatus(text, sticky) {
+    state.els.voiceStatus.textContent = text || '';
+    if (voiceStatusTimer) { clearTimeout(voiceStatusTimer); voiceStatusTimer = null; }
+    if (text && !sticky) {
+      voiceStatusTimer = setTimeout(() => {
+        state.els.voiceStatus.textContent = '';
+        voiceStatusTimer = null;
+      }, 6000);
+    }
+  }
+
+  function micReset() {
+    state.recording = false;
+    if (state.recTimer) { clearInterval(state.recTimer); state.recTimer = null; }
+    state.els.mic.classList.remove('rec');
+    state.els.mic.disabled = false;
+    state.els.mic.textContent = '🎤';
+    state.els.mic.title = '语音输入（点击开始，说完再点一下停止）';
+  }
+
+  /** 放弃录音：丢弃音频、不转写（不产生 ASR 调用）。关抽屉时走这里。 */
+  function cancelRecording() {
+    if (!state.recording) return;
+    micReset();
+    bg({ type: MSG.ML_REC_CANCEL });
+  }
+
+  async function toggleMic() {
+    const mic = state.els.mic;
+    if (!state.recording) {
+      if (state.running) { setVoiceStatus('上一条还在发送，发完再录音'); return; }
+      mic.disabled = true;
+      setVoiceStatus('正在请求麦克风…', true);
+      const resp = await bg({ type: MSG.ML_REC_START });
+      mic.disabled = false;
+      if (!resp || !resp.ok) { setVoiceStatus('⚠ ' + ((resp && resp.error) || '录音启动失败')); return; }
+      state.recording = true;
+      mic.classList.add('rec');
+      mic.textContent = '⏹';
+      // Why 本地计时：录音态活在 offscreen 文档里，SW 可能中途挂起，不值得为
+      // 秒表显示做 SW↔content 推送；时长只作展示，硬顶在 offscreen 侧执行
+      const startedAt = Date.now();
+      const tick = () => {
+        // 与 offscreen 侧 5 分钟硬顶（MAX_MS）对齐：到顶后停表提示，避免无限走表
+        const s = Math.floor((Date.now() - startedAt) / 1000);
+        const capped = s >= 300;
+        const short = capped ? '已到 5 分钟上限'
+          : `录音中 ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+        mic.title = `${short} · 点击停止`;
+        setVoiceStatus(capped ? `${short}，点击停止转写` : `${short}，说完再点一下停止`, true);
+      };
+      tick();
+      state.recTimer = setInterval(tick, 500);
+      return;
+    }
+    // 停止 → offscreen 编码 wav → SW 转写。按钮禁用到回执，任何失败都必须复位
+    //（R158 口径：同步段抛错/失败路径漏复位会让按钮永远停在「转写中…」）
+    clearInterval(state.recTimer); state.recTimer = null;
+    mic.disabled = true;
+    mic.classList.remove('rec');
+    setVoiceStatus('转写中…', true);
+    const resp = await bg({ type: MSG.ML_REC_STOP });
+    const errText = (!resp || !resp.ok) ? ((resp && resp.error) || '转写失败') : '';
+    const text = (resp && resp.ok) ? String((resp.data && resp.data.text) || '').trim() : '';
+    micReset();
+    if (errText) { setVoiceStatus('⚠ ' + errText); return; }
+    if (!text) { setVoiceStatus('⚠ 未识别到语音，请靠近麦克风再试一次'); return; }
+    // R227 口径：转写结果追加到输入框（有草稿时空格连接），不自动发送
+    const cur = state.els.input.value.replace(/\s+$/, '');
+    state.els.input.value = cur ? `${cur} ${text}` : text;
+    state.els.input.focus();
+    try { state.els.input.setSelectionRange(state.els.input.value.length, state.els.input.value.length); } catch (e) { /* 类型不符时忽略 */ }
+    setVoiceStatus('转写完成，可编辑后发送');
+  }
+
+  /* ---------- R53 回复朗读（/tts/speak 1 积分/次，听=消费；长回复分段顺序播） ---------- */
+  const speech = { ctx: null, source: null, btn: null, token: 0 };
+
+  function speechContext() {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    if (!speech.ctx) speech.ctx = new Ctx();
+    // 点击手势链里创建/恢复：无手势时浏览器把上下文留在 suspended，播不出声时
+    // 按状态行提示（与 magicbook 同口径）
+    if (speech.ctx.state === 'suspended' && speech.ctx.resume) speech.ctx.resume();
+    return speech.ctx;
+  }
+
+  function markSpeakButton(btn, playing) {
+    if (!btn) return;
+    btn.classList.toggle('playing', !!playing);
+    const label = btn.querySelector('.speak-label');
+    if (label) label.textContent = playing ? '⏹ 停止朗读' : '🔊 朗读本条';
+  }
+
+  function stopSpeech() {
+    speech.token += 1;
+    if (speech.source) {
+      try { speech.source.onended = null; speech.source.stop(); } catch (e) { /* 已结束 */ }
+      speech.source = null;
+    }
+    if (speech.btn) { markSpeakButton(speech.btn, false); speech.btn = null; }
+  }
+
+  // 老 Safari 只有回调形态的 decodeAudioData，Promise 形态会被当成 undefined（magicbook 同款兼容）
+  function decodeSpeech(ctx, bytes) {
+    return new Promise((resolve, reject) => {
+      const maybe = ctx.decodeAudioData(bytes, resolve, reject);
+      if (maybe && typeof maybe.then === 'function') maybe.then(resolve, reject);
+    });
+  }
+
+  function playReply(rawText, btn) {
+    stopSpeech();
+    const segments = window.__magicLensSplitForSpeech(rawText);
+    if (!segments.length) { setVoiceStatus('没有可朗读的内容'); return; }
+    const ctx = speechContext();
+    if (!ctx) { setVoiceStatus('⚠ 当前浏览器不支持音频播放'); return; }
+
+    const token = speech.token;
+    speech.btn = btn;
+    markSpeakButton(btn, true);
+
+    const playAt = (index) => {
+      if (token !== speech.token) return;
+      if (index >= segments.length) { stopSpeech(); setVoiceStatus(''); return; }
+      if (segments.length > 1) setVoiceStatus(`朗读中 ${index + 1}/${segments.length}`, true);
+      bg({ type: MSG.ML_TTS_SPEAK, text: segments[index] }).then((resp) => {
+        if (token !== speech.token) return null;
+        if (!resp || !resp.ok) throw new Error((resp && resp.error) || '朗读音频不可用');
+        return decodeSpeech(ctx, window.__magicLensB64Decode(resp.audioBase64));
+      }).then((buffer) => {
+        if (!buffer || token !== speech.token) return;
+        if (ctx.state === 'suspended') {
+          stopSpeech();
+          setVoiceStatus('⚠ 浏览器拦截了音频播放，请先与页面交互后重试');
+          return;
+        }
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        speech.source = source;
+        source.onended = () => playAt(index + 1);
+        source.start(0);
+      }).catch((err) => {
+        if (token !== speech.token) return;
+        stopSpeech();
+        setVoiceStatus('⚠ ' + (err.message || String(err)));
+      });
+    };
+    playAt(0);
+  }
+
+  /** 每条助手消息挂「朗读本条」（只挂助手侧——读自己的提问没有意义，R227）。
+   * Why 正文取渲染前原文（shell.root.__mlRaw）而非渲染后 DOM 反解析：扩展侧消息
+   * 是纯文本 + 受控链接，原文即最忠实的朗读稿，也免去 magicbook 那套 br/pre 还原。 */
+  function attachSpeakButton(shell) {
+    const raw = shell.root.__mlRaw;
+    if (!raw || !raw.trim()) return;
+    const old = shell.root.querySelector('.speak-btn');
+    if (old) old.remove();
+    const btn = el('button', 'speak-btn');
+    btn.appendChild(el('span', 'speak-label', '🔊 朗读本条'));
+    btn.addEventListener('click', () => {
+      if (btn.classList.contains('playing')) { stopSpeech(); return; }
+      playReply(shell.root.__mlRaw, btn);
+    });
+    shell.root.appendChild(btn);
   }
 
   /* ---------- 会话管理 ---------- */
@@ -446,6 +650,7 @@
 
   async function switchConversation(id) {
     if (state.running && state.abort) state.abort.abort();
+    stopSpeech(); // R227 口径：切会话立即停朗读，不给旧会话的声音留停止入口
     state.conversationId = id;
     state.els.msgs.textContent = '';
     if (id == null) { welcome(); return; }
@@ -459,6 +664,8 @@
         // R52（对齐 magicbook R233）：历史助手消息同样渲染站内链接（书内会话的历史
         // 也会出现在下拉里，其中可能有 /book/N、/me 等站内路径）
         shell.text.innerHTML = window.__magicLensAssistantHtml(m.content || '');
+        shell.root.__mlRaw = m.content || '';   // R53：历史回复同样可朗读
+        attachSpeakButton(shell);
         renderTrace(shell, m.toolTrace);
       }
     }
@@ -480,6 +687,7 @@
     if (!confirm('删除当前会话？')) return;
     const resp = await api('/ai/agent/conversation/delete', { conversationId: state.conversationId });
     if (resp.ok) {
+      stopSpeech(); // 删掉正在朗读的会话同理
       state.conversationId = null;
       state.els.msgs.textContent = '';
       welcome();

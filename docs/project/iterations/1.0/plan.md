@@ -19,6 +19,7 @@
 | MAGICLENS-4 R46 架构评审波 1+2 真机验收 | 任务 | （idea In progress） | — | 等用户真机验收，不在本轮设计范围 |
 | MAGICLENS-5 R47 架构评审波 3 阶段二 | 用户故事 | （idea In progress） | — | 开发中（bubble/detail-panel/tts 拆分），不在本轮设计范围 |
 | MAGICLENS-6 R52 伴读抽屉对齐 magicbook R232/R233 | 用户故事 | [idea 6Lljn2pb](https://haoshenqi.pingcode.com/ship/ideas/6Lljn2pb)（ML-51，In progress） | [r52-buddy-parity/](./r52-buddy-parity/)（LLD） | 已 merge 本地 develop（0.8.15 测试版），待真机验收（2026-10-27） |
+| MAGICLENS-7 R53 伴读抽屉语音双向（对齐 magicbook R227） | 用户故事 | （idea 见 response R53 回执） | [r53-buddy-voice/](./r53-buddy-voice/)（LLD） | 已 merge 本地 develop（0.8.16 测试版，与 R52 同树续作），待真机验收（2026-10-27） |
 
 ## 备注
 
