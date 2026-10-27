@@ -117,4 +117,4 @@
 - **验证（诚实）**：node --check 五文件全过；node 冒烟 22 例全过（分段边界×8、base64 跨块往返、**encodeWav 抽源码实跑**校验 RIFF 头/16k/16bit/样本数）；MSG 表 23 键引用一致；callApi 重构 diff 逐行自审（retried 守卫保留）。**真机手工清单待用户**：①🎤 说一句→停止→转写进输入框可编辑发送；②首次授权只弹一次；③🔊 出声/再点停止；④长回复「朗读中 n/m」；⑤关抽屉朗读立停；⑥积分不足报「积分不足」。
 - **文档**：README 功能表与 API 契约表回填（`/tts/speak` 转「部分接入」+ 补 ASR 行）；LLD `iterations/1.0/r53-buddy-voice/lld.md`；迭代 plan.md 增 MAGICLENS-7。
 - **台账**：worktree `../magiclens-r52-buddy-parity`（分支 `feat/r52-buddy-parity`）merge 后驻留待验收（R52+R53 两批一起验）；未 push（正式发布需用户确认后去时间戳 merge release）。窗口轮转：最旧的 R46 原样搬至 `response-archive/response-R46.md` 并登记索引，写入后窗口 10 条。
-- **总结**：requests.md 占号 R53（claim.sh `f9805c8`）；PingCode idea 待建（见下）；response.md 本条；冲突记录：无。
+- **总结**：requests.md 占号 R53（claim.sh `f9805c8`）；PingCode idea [ML-52 / 1nxbdoBF](https://haoshenqi.pingcode.com/ship/ideas/1nxbdoBF)（Pending → In progress，待验收后 Completed）；response.md 本条；冲突记录：无。
