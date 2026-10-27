@@ -65,6 +65,12 @@
     .msg.user { background: #4f46e5; color: #fff; margin-left: auto; border-bottom-right-radius: 4px; }
     .msg.assistant { background: #f3f4f6; border-bottom-left-radius: 4px; }
     .msg.assistant .meta { margin-top: 4px; font-size: 11px; color: #9ca3af; white-space: normal; }
+    /* R52（对齐 magicbook R233）：助手消息里的站内链接（__magicLensAssistantHtml 产物） */
+    .msg.assistant a.ai-chat-site-link { color: #4f46e5; text-decoration: underline; }
+    .msg.assistant a.ai-chat-site-link:hover { color: #3730a3; }
+    .msg.assistant pre { background: #eef1f6; padding: 6px 8px; border-radius: 8px; overflow-x: auto;
+      white-space: pre-wrap; word-break: break-word; margin: 4px 0; }
+    .msg.assistant code { background: #e8ebf3; border-radius: 4px; padding: 0 3px; }
     .msg.err { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
     .msg.hint { background: #eef2ff; color: #4f46e5; max-width: 100%; }
     .tools { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
@@ -345,6 +351,7 @@
     if (state.conversationId) body.conversationId = state.conversationId;
 
     let gotFinal = false;
+    let acc = ''; // 流式原文缓冲：final 后按 R52 渲染站内链接（textContent 只在流式阶段用）
     try {
       const resp = await fetch(auth.apiBase.replace(/\/+$/, '') + SSE_PATH, {
         method: 'POST',
@@ -356,15 +363,16 @@
       if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`);
 
       await consumeSse(resp, {
-        onDelta: (t) => { shell.text.textContent += t; scrollBottom(); },
+        onDelta: (t) => { acc += t; shell.text.textContent = acc; scrollBottom(); },
         onToolCall: (d) => { shell.tools.appendChild(chipCall(d)); scrollBottom(); },
         onToolResult: (d) => chipResult(shell, d),
         onFinal: (d) => {
           gotFinal = true;
-          if (d.conversationId) state.conversationId = d.conversationId; // 首问回填
-          const u = d.usage || {};
-          shell.meta.textContent = `tokens ${u.promptTokens ?? '?'}+${u.completionTokens ?? '?'}`
-            + (d.status && d.status !== 'COMPLETED' ? ` · ${d.status}` : '');
+          if (d.conversationId) state.conversationId = d.conversationId; // 首问回填（R232 口径：删用量不许顺手删此分支）
+          // R232（对齐 magicbook）：不展示 token 用量——账务只在 magicbook 设置·积分查；
+          // meta 仅保留非完成状态提示，成功时留空（gotFinal 兜底判空逻辑不受影响）
+          shell.meta.textContent = d.status && d.status !== 'COMPLETED' ? String(d.status) : '';
+          if (acc) shell.text.innerHTML = window.__magicLensAssistantHtml(acc); // R233：站内链接可点
           refreshConversations();
         },
         onError: (d) => {
@@ -448,7 +456,9 @@
         appendMsg('user', m.content);
       } else if (m.role === 'assistant') {
         const shell = appendAssistantShell();
-        shell.text.textContent = m.content || '';
+        // R52（对齐 magicbook R233）：历史助手消息同样渲染站内链接（书内会话的历史
+        // 也会出现在下拉里，其中可能有 /book/N、/me 等站内路径）
+        shell.text.innerHTML = window.__magicLensAssistantHtml(m.content || '');
         renderTrace(shell, m.toolTrace);
       }
     }

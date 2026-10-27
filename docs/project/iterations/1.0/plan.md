@@ -18,6 +18,7 @@
 | MAGICLENS-3 R32 报错详情不暴露 | 缺陷 | [idea IBnRbOtq](https://haoshenqi.pingcode.com/ship/ideas/IBnRbOtq) | [r32-error-hygiene/](./r32-error-hygiene/)（本轮新增） | 防御层 v0.8.1 已上线；剩余接入点收尾设计草案 v1 |
 | MAGICLENS-4 R46 架构评审波 1+2 真机验收 | 任务 | （idea In progress） | — | 等用户真机验收，不在本轮设计范围 |
 | MAGICLENS-5 R47 架构评审波 3 阶段二 | 用户故事 | （idea In progress） | — | 开发中（bubble/detail-panel/tts 拆分），不在本轮设计范围 |
+| MAGICLENS-6 R52 伴读抽屉对齐 magicbook R232/R233 | 用户故事 | （idea 见 response R52 回执） | [r52-buddy-parity/](./r52-buddy-parity/)（LLD） | 已 merge 本地 develop（0.8.15 测试版），待真机验收（2026-10-27） |
 
 ## 备注
 

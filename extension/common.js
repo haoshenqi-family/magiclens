@@ -62,4 +62,88 @@
     }
     return raw;
   };
+
+  /* R52（对齐 magicbook R232/R233）：伴读 AI 回复「站内」归宿。AI 提示词里的
+   * /me、/credits、/book/N 等路径都是 magicbook 站点路径；Why 不取
+   * window.location——扩展 content script 的 location 是宿主页，与站内语义无关。
+   * 与 apiBase 兜底同口径（设置页不提供手改），改域名两处一起改。 */
+  g.__magicLensSiteOrigin = 'https://magicbook.haoshenqi.top';
+
+  /** 助手消息安全渲染（R52，安全口径移植 magicbook ai_chat.js renderMarkdown·R233）：
+   * 先整段 HTML 转义，再只把「magicbook 站内」目标还原为受控 <a>——Markdown 链接
+   * [文本](/path)、裸站内路径、整段即站内路径的行内代码；其余（含外部 URL、
+   * ```代码块```）保持转义纯文本。拒绝控制字符/反斜杠/协议相对 URL/外部
+   * origin/非 http(s)/带 userinfo；href 只写规范化结果并按属性上下文再转义；
+   * 链接恒 target=_blank rel=noopener noreferrer。与上游两处分叉：
+   * ① origin 用 __magicLensSiteOrigin 常量（上游取 window.location.origin）；
+   * ② href 写绝对地址（相对路径会解析到宿主页 origin）且不把 \n 转 <br>
+   *（.msg 挂 pre-wrap，转义文本换行由 CSS 呈现，流式 textContent 与最终
+   * innerHTML 观感一致）。siteOrigin 参数仅供测试注入，生产走默认。 */
+  g.__magicLensAssistantHtml = (text, siteOrigin) => {
+    const origin = siteOrigin || g.__magicLensSiteOrigin;
+    const escapeHtml = (value) => String(value == null ? '' : value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    if (!text) return '';
+    let esc = escapeHtml(text);
+    const decodeEscaped = (v) => String(v || '').replace(/&(amp|lt|gt|quot|#39);/g,
+      (_, n) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[n]);
+
+    const normalizeSiteHref = (raw) => {
+      const value = decodeEscaped(raw).trim();
+      if (!value || /[\u0000-\u001f\u007f\\]/.test(value)) return '';
+      if (value !== origin && value.indexOf(origin + '/') !== 0 && value.charAt(0) !== '/') return '';
+      if (value.indexOf('//') === 0) return '';
+      let url;
+      try { url = new URL(value, origin); } catch { return ''; }
+      if (url.origin !== origin || url.username || url.password) return '';
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+      return url.pathname + url.search + url.hash;
+    };
+    const siteLink = (href, labelHtml) =>
+      `<a class="ai-chat-site-link" href="${escapeHtml(origin + href)}" target="_blank" rel="noopener noreferrer">${labelHtml}</a>`;
+
+    // 代码与 Markdown 链接先占位：代码里的路径样 token 绝不能进裸路径扫描，
+    // 非法链接目标保持纯文本；普通占位在粗体扫描前还原，粗体包链接才不会碎。
+    const held = [];
+    let marker = '\u0000';
+    while (esc.indexOf(marker) !== -1) marker += '\u0000';
+    const hold = (html, isFinal) => { held.push({ html, final: !!isFinal }); return `${marker}${held.length - 1}${marker}`; };
+    const restore = (finalOnly) => {
+      for (let pass = 0; pass < held.length; pass += 1) {
+        held.forEach((item, index) => {
+          if (!!item.final === finalOnly) esc = esc.split(`${marker}${index}${marker}`).join(item.html);
+        });
+      }
+    };
+
+    esc = esc.replace(/```([\s\S]*?)```/g, (_, code) => hold(`<pre><code>${code.replace(/^\n/, '')}</code></pre>`, true));
+    esc = esc.replace(/`([^`\n]+)`/g, (_, code) => {
+      const href = normalizeSiteHref(code);
+      return hold(href ? siteLink(href, `<code>${code}</code>`) : `<code>${code}</code>`, true);
+    });
+    esc = esc.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (whole, label, target) => {
+      const href = normalizeSiteHref(target);
+      if (!href) return hold(whole, true);
+      const labelHtml = label.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      return hold(siteLink(href, labelHtml), true);
+    });
+
+    // 裸站内路径 / 站内 origin 开头的绝对 URL：尾随中英文标点与括号留在链接外。
+    // 与上游第三处分叉：token 只吃 ASCII 可打印字符——上游字符类放行 CJK，
+    // 「/credits，或者」会被整段吞进 href；站内路由均为 ASCII，到非 ASCII 即断。
+    esc = esc.replace(/(^|[\s(（\[【:：,，;；、])(\/[\x21-\x7e]+|https?:\/\/[\x21-\x7e]+)/g,
+      (_, prefix, target) => {
+        const chain = target.match(/(?:[.,;:!?，。；：！？、）)\]}>】》]+)$/);
+        const trailing = chain ? chain[0] : '';
+        const trimmed = trailing ? target.slice(0, -trailing.length) : target;
+        const href = normalizeSiteHref(trimmed);
+        if (!href) return prefix + target;
+        return prefix + siteLink(href, escapeHtml(href)) + trailing;
+      });
+    restore(false);
+    esc = esc.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    restore(true);
+    return esc;
+  };
 })();
