@@ -1,6 +1,6 @@
 # response.md — 对话回应记录（仅保留最近 10 个 request 的回应）
 
-> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移） · [response-R29.md](response-archive/response-R29.md)（2026-10-11 R40 写入触发轮转搬移） · [response-R30-R31.md](response-archive/response-R30-R31.md)（2026-10-11 R41 集成时窗口超限搬移） · [response-R32.md](response-archive/response-R32.md)（2026-10-13 R43 写入触发轮转搬移） · [response-R33.md](response-archive/response-R33.md)（2026-10-14 R44 写入触发轮转搬移） · [response-R34.md](response-archive/response-R34.md)（2026-10-15 R45 写入触发轮转搬移） · [response-R35-R38.md](response-archive/response-R35-R38.md)（2026-10-16 R50 写入触发轮转搬移，窗口回 10 条 request 内） · [response-R45.md](response-archive/response-R45.md)（2026-10-21 R51 写入触发轮转搬移）
+> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移） · [response-R29.md](response-archive/response-R29.md)（2026-10-11 R40 写入触发轮转搬移） · [response-R30-R31.md](response-archive/response-R30-R31.md)（2026-10-11 R41 集成时窗口超限搬移） · [response-R32.md](response-archive/response-R32.md)（2026-10-13 R43 写入触发轮转搬移） · [response-R33.md](response-archive/response-R33.md)（2026-10-14 R44 写入触发轮转搬移） · [response-R34.md](response-archive/response-R34.md)（2026-10-15 R45 写入触发轮转搬移） · [response-R35-R38.md](response-archive/response-R35-R38.md)（2026-10-16 R50 写入触发轮转搬移，窗口回 10 条 request 内） · [response-R45.md](response-archive/response-R45.md)（2026-10-21 R51 写入触发轮转搬移） · [response-R39.md](response-archive/response-R39.md)（2026-10-27 R52 写入触发轮转搬移）
 
 ### R46（架构评审波 1+2 · L1+L4+L5+L6：rpc 门面 / 令牌刷新单点 / 默认值单点 / 失败可见）
 
@@ -21,18 +21,6 @@
 - **验证**：node --check 全过；真机验收点：moon-well 登录回调仍能自动捕获 token 写 storage + 三秒关页（独立脚本在新条目下首次真机验证）；划词/高亮/伴读回归。
 - **台账**：worktree `../magiclens-arch-l1` 同树第二 commit（r46→r47），merge 后驻留待验收。未 push；正式发布待用户确认后去时间戳 merge release（会同时带上 R46+R47 两批）。
 - **总结**：requests.md 占号 R47；冲突记录：无。
-
-### R39（真机两问题：`Error://(:0)` 与「译点几下就卡死」）
-
-- **用户报告**：装上 0.8.6 后控制台出现 `Error://(:0)`；阅读器里选中一个单词后，「译」点几下就卡死。
-- **卡死根因（代码级，非推测）**：`content.js` 的 `translate()` **没有在途守卫**，`background.js` 的 `ml:translate` 也没有去重——每次点击都实打实发一条请求（单词走金山+词形还原，短语/句子走 moon-well LLM，一条可能十几秒）。连点就是把慢响应一个个压进气泡、并把 moon-well 免费档并发占满，表现为一直转圈的「卡死」。这是扩展既有缺陷，但 R36/R37 之后阅读器里的划词第一次真正高频走这条链路，所以现在就暴露了。
-- **修复**：
-  - `translate()` 加 `translateInflight`（同文本在途时点「译」直接忽略），完成回调里按文本解锁；`hide()` 与每次 `openBubble()` 都复位锁——这样即使某条请求因扩展重载永久不回（`askBackground` 在 invalidated 分支不调 onResult），也不会把这个词此后锁死。
-  - `Error://(:0)` 归因到「扩展重载后残留在页上的旧副本」：孤立世界里抛出的 `Extension context invalidated` 没有源文件与行号，就显示成这种无名错误。`selection-relay.js` 改为一次性 `try getManifest` 失败即整体不注册；`sendMessage` 包 try/catch，抛错就 `retire()` 摘掉自己的监听并**收回 `data-magiclens-selection` 标记**（宿主的内置气泡因此能立刻回来，而不是留一个不会工作的空声明）；`highlight.js` 的 `markTakenOver()` 同样吞掉失效异常。
-  - 顺带修一处我自己引入的漏洞：`retireOrphan()` 原来只摘 DOM 监听，R36 新加的 `chrome.runtime.onMessage` 监听摘不掉（匿名箭头），退役副本仍会接住 `ml:openSelection` 并在已 remove 的宿主上开气泡。现改为具名 `function onRuntimeMessage`（声明提升，退役路径任何顺序都能引用）并在 `retireOrphan()` 里 `removeListener`。
-- **验证状态（诚实）**：`node --check` 四个 JS 全过；**未做真机验证**——扩展装不进这台自动化浏览器，且 magicbook 阅读器正文在自动化浏览器里渲染不出来（`file.epub` 200 但 iframe 不产生，控制台无 JS 报错，换书同样）。需要你在自己 Chrome 里重载 0.8.7 后验三件事：① 连点「译」不再叠请求（DevTools Network 里 `ml:translate` 对应的那次 moon-well/金山调用应当只有一条在途）；② 控制台不再出现 `:0` 那类无名错误；③ 重载扩展后旧标签页刷新前不应再有报错。
-- **版本**：manifest `0.8.6 → 0.8.7-202610110826`（测试版，不触发发布）。0.8.6 已推 origin/develop 但**未发 GitHub Release**，所以线上扩展 zip 仍是 v0.8.5——它不写接管标记，magicbook 的探测版已上线，两者会同时出现（双气泡、双波浪线），**请尽快重载到 0.8.7**。
-- **总结**：requests.md 占号 R39（`e0eda8e` 单独锁号）；本条写入使窗口达 11 个 request，最旧的 R28 原样搬至 `response-archive/response-R28.md` 并在索引登记；冲突记录：无（39 未被占用，顶端他人 commit 未动）。
 
 ## 2026-10-11（R40：金山直连查词补报四股台账）
 
@@ -117,3 +105,15 @@
 - **文档口径**：`docs/`、`doc/` 下任意文件、`*.md`、`LICENSE`、`.gitignore`、`.gitattributes`；判定失败 / 首次推送一律走原判定（安全侧）。
 - **验证**：YAML 解析通过、`bash -n` 通过、桩响应端到端 5 例符合预期（纯文档 true，其余 false）。
 - **驻留**：worktree `../magiclens-doc-skip-deploy`，分支 `chore/r51-doc-skip-deploy`，合并 commit `875166e`（本地 `develop`，未 push）。
+
+### R52（伴读抽屉对齐 magicbook R232/R233：回复不显示 token 用量、站内链接新窗口可点）
+
+- **背景**：用户指令「阅读近期 magicbook 的能力提升，同步到 magiclens」。盘点 magicbook 2026-10-26 批次：R232（伴读面板隐藏 token 用量）在本仓有**已登记遗留**（magicbook R232 LLD §5 点名 `chat.js` onFinal 的 `tokens x+y`，彼时「只记录、不夹带修改」）；R233（AI 回复站内链接可点、新窗口）同期上线；R234（悬浮球快捷动作 chat 钉首位）本仓无快捷动作 UI，**不适用**。
+- **交付（worktree `../magiclens-r52-buddy-parity`，分支 `feat/r52-buddy-parity`，版本 0.8.15-202610271026 测试版）**：
+  - `common.js`：新增 `__magicLensSiteOrigin` 常量（`https://magicbook.haoshenqi.top`）与 `__magicLensAssistantHtml()` 助手消息安全渲染器（纯函数，node 可直测）——安全口径逐条移植 magicbook `ai_chat.js` R233：先整段转义再受控还原、href 白名单归一化（拒控制字符/反斜杠/`//host`/外部 origin/userinfo/非 http(s)）、`target="_blank" rel="noopener noreferrer"`、围栏代码隔离、尾随标点出链。**三处刻意分叉**：① origin 用常量（content script 的 location 是宿主页）；② href 写绝对地址（相对路径会解析到宿主页 origin）；③ 裸路径 token 只吃 ASCII（上游字符类放行 CJK，`/credits，或者` 会被整段吞进 href；本仓顺带修掉、未回提上游）。
+  - `chat.js`：`onFinal` 删 token 用量展示（`usage` 不再消费；`conversationId` 回填与非 COMPLETED 状态提示保留——R232 守卫口径「删用量不许顺手删分支」）；流式原文缓冲 `acc`，final 与历史渲染统一走渲染器（历史里书内会话的 `/book/N` 同样可点）；抽屉 CSS 补链接/代码样式。
+  - moon-well 零改动：`final` 帧 `usage` 照旧下发，扩展只是不消费；用量唯一入口 = magicbook 设置·积分。
+- **验证（诚实）**：`node --check` 两文件全过；渲染器 node 冒烟 23 例全过（链接/CJK 断词/标点出链/同源归一/query·fragment 保留/外链·`//host`·`javascript:`·userinfo·反斜杠·控制字符拒绝/HTML 转义/代码块隔离/粗体/换行/空串/注入 origin 隔离）；**真机手工清单待用户**：从本 worktree 重载扩展 → ① 回复气泡下不再出现 `tokens x+y`；② 让 AI 给本站链接（如「我的积分页在哪」），点击新窗口打开 magicbook 对应页；③ 历史会话里的旧回复同样可点链接、无 token 行；④ 代码块与外链仍为文本。
+- **文档**：README 功能表回填；LLD `iterations/1.0/r52-buddy-parity/lld.md`；迭代 `plan.md` 增 MAGICLENS-6。
+- **台账**：worktree `../magiclens-r52-buddy-parity`（分支 `feat/r52-buddy-parity`）merge 后驻留待验收，验收通过后 remove + branch -d；未 push（push develop 不触发发布；正式发布需用户确认后去时间戳 merge release）。窗口轮转：本条写入前已把最旧的 R39 原样搬至 `response-archive/response-R39.md` 并登记索引，写入后窗口 10 条未超限。
+- **总结**：requests.md 占号 R52（claim.sh `e56575e`）；response.md 本条；冲突记录：无。
