@@ -53,12 +53,22 @@
     });
   };
 
+  /** R56：宿主已自带常驻入口的域名——扩展悬浮球在这些域及子域自动让位。
+   * Why 不放开给用户配置：这是「同一入口不能有两个」的产品约束，不是用户偏好；
+   * 用户想关掉宿主球时应去 magicbook 自身设置调整，不应靠扩展再叠一个。 */
+  g.__magicLensBallYieldDomains = Object.freeze(['magicbook.haoshenqi.top']);
+
   /** R54 常驻入口（悬浮球）可见性判定：主开关 + 悬浮球开关 + 顶层文档 + 域名管理
    * 名单（复用 __magicLensIsDisabledHost，与划词/高亮同一份禁用语义）。
+   * R56：magicbook 站点自带的 buddy 球是全站 layout 注入的宿主能力，扩展球在
+   * 该域及子域让位——否则两个球同位置重叠，用户无法分辨点哪个。为什么不由
+   * magicbook 探测扩展后隐藏：宿主球还承载读书上下文与站内快捷动作，扩展只提供
+   * 通用网页入口；让「能力更完整的一方」留任，且域名判定是静态配置、无需 DOM 轮询。
    * 纯函数入 common.js：ball.js 每次显隐判定与 node 冒烟共用同一实现。 */
   g.__magicLensBallVisible = (cfg, host, isTop) =>
     Boolean(isTop && cfg && cfg.enabled && cfg.ballEnabled
-      && !g.__magicLensIsDisabledHost(host, cfg.disabledDomains));
+      && !g.__magicLensIsDisabledHost(host, cfg.disabledDomains)
+      && !g.__magicLensIsDisabledHost(host, g.__magicLensBallYieldDomains));
 
   /** 上游错误详情不进 UI（R32 用户反馈：报错详情用户看不懂也不想了解）：
    * 疑似技术细节（URL/内部 IP/英文异常/网关标识）归一为通用文案，原文进

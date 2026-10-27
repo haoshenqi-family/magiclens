@@ -69,4 +69,4 @@
 
 55. **缺陷：R48 金山直连模块化回归（icibaLookupWithStemming 未导出）**：用户在 `magiclens-r52-buddy-parity` worktree 重载扩展后，划词触发 `Uncaught (in promise) TypeError: icibaLookupWithStemming is not a function`（`background.js:249`）。R48 把金山直连域迁 `iciba.js` 时公开键为 `lookupWithStemming`，`background.js` 却按内部函数名解构；要求修复导出契约、补回归守卫并回填测试版。关联需求：R48 金山直连域迁 `iciba.js`（原台账缺条，保持原样不重写）。
 
-56. **缺陷：magicbook 站内悬浮球与 MagicLens 悬浮球重复显示**（占号 2026-10-27，待回填）
+56. **缺陷：magicbook 站内悬浮球与 MagicLens 悬浮球重复显示**：开启 MagicLens「常驻入口」后，magicbook 全站自带的 buddy 悬浮球与扩展悬浮球同时出现在同一位置。产品口径为宿主站内优先：magicbook 主域及子域保留原生入口，扩展球自动让位；其他网站继续显示扩展球。同时确认 MagicLens 悬浮球的 buddy 形象、hover 径向快捷气泡、拖拽吸附与位置记忆已对齐 magicbook R223，刻意差异仅在头像通道、动作集配置性、位置存储与网页场景动作语义。

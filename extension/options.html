@@ -44,8 +44,8 @@
 
   <!-- R54 首次安装引导：安装时 background 自动打开本页，卡片在用户表态（ballAsked）前常驻页首 -->
   <div class="field ball-ask" id="ballAsk" hidden>
-    <label>要把伴读入口常驻到每个网页吗？</label>
-    <div class="about">开启后，所有网页右下角会显示一个 MagicLens 悬浮球，点一下就能打开 AI 伴读抽屉，不用先划词。域名管理名单里的站点不显示；随时可以在下方「常驻入口」开关里改变主意。</div>
+    <label>要把伴读入口常驻到其他网页吗？</label>
+    <div class="about">开启后，除 magicbook 站内（使用站点自带悬浮球）外，网页右下角会显示一个 MagicLens 悬浮球，点一下就能打开 AI 伴读抽屉，不用先划词。域名管理名单里的站点不显示；随时可以在下方「常驻入口」开关里改变主意。</div>
     <div class="row">
       <button id="ballAskOn">开启常驻入口</button>
       <button id="ballAskOff" class="ghost">暂不开启</button>
@@ -90,7 +90,7 @@
   <!-- R54 常驻入口开关（悬浮球） -->
   <div class="field">
     <label><input type="checkbox" id="ballEnabled"> 常驻入口（悬浮球）：网页右下角显示，点击直接打开 AI 伴读</label>
-    <div class="hint">已打开的页面<b>实时生效</b>（无需刷新）；域名管理名单里的站点不显示；主开关关闭或扩展被禁用时也不显示。关闭悬浮球后仍可划词点「问 AI」进入伴读。</div>
+    <div class="hint">已打开的页面<b>实时生效</b>（无需刷新）；magicbook 站内使用站点自带悬浮球，扩展球会自动隐藏；域名管理名单里的站点不显示；主开关关闭或扩展被禁用时也不显示。关闭悬浮球后仍可划词点「问 AI」进入伴读。</div>
   </div>
 
   <div class="field">

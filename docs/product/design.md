@@ -215,3 +215,29 @@ v0.8.5 之前的实例就是代价：扩展装着、iframe 拖选不通，阅读
 **容错不等于纵容**：权威形制仍是统一 `Result` 包装，后端那 8 个端点已在 moon-well R173 补齐并由两条形制断言锁住；本仓容错只是护栏，防止后端再漂移时又演变成「数据消失」。
 
 **验证**：抽出 `background.js` 里真实的 `unwrapMoonWellResponse` 源码，node 跑 12 条断言全过——包装/裸数组/裸对象/空数组/`result:null` 五类成功形制都判成功；`success:false`、非 JSON、HTTP 500、401/403（带 `auth` 标记）四类失败形制都判失败；控制组用旧判定跑同一批 payload，裸数组与裸对象确实「判失败」，证明断言有鉴别力而非自证。
+
+## 17. 宿主悬浮球优先：magicbook 站内扩展球让位（2026-10-27，R56，v0.8.20）
+
+**决策**：`magicbook.haoshenqi.top` 及其全部子域由宿主 magicbook 保留站内悬浮球，
+MagicLens 扩展悬浮球在这些域自动隐藏；其他网站继续按用户开关显示扩展球。
+
+**为什么不让宿主探测扩展后隐藏**：
+
+- magicbook 的 buddy 球通过全站 `layout.html` / 阅读器模板注入，承载读书上下文与站内快捷动作；
+  扩展球是通用网页入口，能力更窄，冲突时应由能力更完整、上下文更准确的一方留任。
+- 网页无法可靠枚举已安装扩展，未打包扩展 ID 还会随安装路径变化。让宿主反向探测会重复
+  R37 能力握手已规避的不稳定前提。
+- 域名让位是静态产品约束，不需要 DOM 轮询或跨端消息，也不会把「扩展是否加载成功」变成
+  宿主球能否工作的前置条件。
+
+**契约**：`common.js` 的 `__magicLensBallVisible(cfg, host, isTop)` 在原有
+「主开关 × `ballEnabled` × 顶层文档 × 用户禁用名单」基础上增加冻结的
+`__magicLensBallYieldDomains`。匹配复用 `__magicLensIsDisabledHost`，因此让位域同时覆盖
+子域，但不会命中 `notmagicbook.haoshenqi.top` 这类相似域名。
+
+**边界**：
+
+- 只影响悬浮球，不影响 magicbook 站内的划词、高亮、标记与伴读抽屉。
+- 不开放为用户配置：同一页面不能让两个常驻入口并存；用户若想关闭宿主球，应使用 magicbook
+  自身设置。
+- 旧域 `magicbook.haoyuhang.top` 已 301 到现域，让位名单无需重复登记。

@@ -18,8 +18,11 @@
  * - 位置记忆：magicbook 用页面 localStorage；扩展禁污染宿主，改 chrome.storage.local
  *   按 hostname 键（同一站点各页共用，换设备不跟随——位置本就是屏幕相关）。
  *
- * 其余约定同 R54 v1：closed Shadow DOM、显隐=主开关×球开关×域名管理（common.js
- * __magicLensBallVisible）、storage.onChanged 实时显隐、rpc onInvalidated 失效退役；
+ * R56：magicbook 站内保留宿主自带、带阅读上下文的悬浮球，本扩展球在该域及子域
+ * 自动让位（__magicLensBallYieldDomains），避免两个球同位置重叠；其他网站不受影响。
+ *
+ * 其余约定同 R54 v1：closed Shadow DOM、显隐=主开关×球开关×域名管理×宿主让位名单
+ *（common.js __magicLensBallVisible）、storage.onChanged 实时显隐、rpc onInvalidated 失效退役；
  * z-index 2147483645 压在伴读抽屉遮罩（2147483646）之下，开抽屉时球与气泡被遮罩盖住。 */
 (() => {
   if (window.__magicLensBallLoaded) return;
