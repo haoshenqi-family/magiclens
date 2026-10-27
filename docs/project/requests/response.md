@@ -1,18 +1,6 @@
 # response.md — 对话回应记录（仅保留最近 10 个 request 的回应）
 
-> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移） · [response-R29.md](response-archive/response-R29.md)（2026-10-11 R40 写入触发轮转搬移） · [response-R30-R31.md](response-archive/response-R30-R31.md)（2026-10-11 R41 集成时窗口超限搬移） · [response-R32.md](response-archive/response-R32.md)（2026-10-13 R43 写入触发轮转搬移） · [response-R33.md](response-archive/response-R33.md)（2026-10-14 R44 写入触发轮转搬移） · [response-R34.md](response-archive/response-R34.md)（2026-10-15 R45 写入触发轮转搬移） · [response-R35-R38.md](response-archive/response-R35-R38.md)（2026-10-16 R50 写入触发轮转搬移，窗口回 10 条 request 内） · [response-R45.md](response-archive/response-R45.md)（2026-10-21 R51 写入触发轮转搬移） · [response-R39.md](response-archive/response-R39.md)（2026-10-27 R52 写入触发轮转搬移）
-
-### R46（架构评审波 1+2 · L1+L4+L5+L6：rpc 门面 / 令牌刷新单点 / 默认值单点 / 失败可见）
-
-- **交付（commit `2b7be68`，分支 `refactor/r46-rpc-facade`，已 merge 本地 develop；版本 0.8.12-202610151621 测试版）**：
-  - **L1**：新增 `rpc.js`——send 统一传输与失效分类（同步抛/lastError 两路同一分类器）、onInvalidated 退役钩子（content=retireOrphan、highlight=teardown）、MSG 表 16 键（全仓 type 字面量清零）；三份薄包装保留各自契约（content {ok,error} / highlight 吞错返 null / chat Promise+失效文案）；manifest 两处 content_scripts 组与 background（importScripts）都载 rpc.js，globalThis 挂载兼容 SW 与页面；
-  - **L4**：`refreshOrClear` 单点——callApi 401 与 ml:auth 的超时/清凭据分支合一（R35 口径从注释对齐变代码单点）；
-  - **L5**：`__magicLensDefaults` 冻结表入 common.js（globalThis 挂载），五处内联默认与 DEFAULT_CFG 全部引用单点，新增设置键只改一处；
-  - **L6**：highlight analyze 失败不再纯静默（console.warn + storage.local 上报 + popup 常驻失败原因行，高亮页本身仍不打扰阅读）；chat memory save/delete 补失败提示。
-- **验证（诚实）**：node --check 10 文件全过；node 冒烟（SW/页面双环境挂载、DEFAULTS 取值、失效双钩子触发均过，**冒烟曾抓到 onInvalidated 未定义的真 bug**——node --check 只查语法不查引用，已补）；MSG 表-引用一致性脚本核验无缺失无冗余；真机手工清单待用户重载验收（划词/高亮/伴读全链路 + popup 失败行 + 记忆保存失败提示）。
-- **X1 合围收官**：moon-well M4（包装兑底）+ magicbook B5（统一解包）+ magiclens L1（rpc 门面）三端齐——R44/R173 类事故链从「三端各自防御」变「两端机制 + 一端可见」，联合验收待三仓真机同步。
-- **台账**：worktree `../magiclens-arch-l1`（分支 `refactor/r46-rpc-facade`，merge commit `2b7be68`）驻留待验收，验收通过后 remove + branch -d；验收发现新问题在原 worktree 修（manifest 按 §0.2 再递增）。未 push（push develop 不触发发布；正式发布需用户确认后去时间戳 merge release）。
-- **总结**：requests.md 占号 R46；response.md 本条；冲突记录：无。
+> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移） · [response-R29.md](response-archive/response-R29.md)（2026-10-11 R40 写入触发轮转搬移） · [response-R30-R31.md](response-archive/response-R30-R31.md)（2026-10-11 R41 集成时窗口超限搬移） · [response-R32.md](response-archive/response-R32.md)（2026-10-13 R43 写入触发轮转搬移） · [response-R33.md](response-archive/response-R33.md)（2026-10-14 R44 写入触发轮转搬移） · [response-R34.md](response-archive/response-R34.md)（2026-10-15 R45 写入触发轮转搬移） · [response-R35-R38.md](response-archive/response-R35-R38.md)（2026-10-16 R50 写入触发轮转搬移，窗口回 10 条 request 内） · [response-R45.md](response-archive/response-R45.md)（2026-10-21 R51 写入触发轮转搬移） · [response-R39.md](response-archive/response-R39.md)（2026-10-27 R52 写入触发轮转搬移） · [response-R46.md](response-archive/response-R46.md)（2026-10-27 R53 写入触发轮转搬移）
 
 ### R47（架构评审波 3 · L2 阶段一：OIDC 回调迁独立 content_script）
 
@@ -117,3 +105,16 @@
 - **文档**：README 功能表回填；LLD `iterations/1.0/r52-buddy-parity/lld.md`；迭代 `plan.md` 增 MAGICLENS-6。
 - **台账**：worktree `../magiclens-r52-buddy-parity`（分支 `feat/r52-buddy-parity`）merge 后驻留待验收，验收通过后 remove + branch -d；未 push（push develop 不触发发布；正式发布需用户确认后去时间戳 merge release）。窗口轮转：本条写入前已把最旧的 R39 原样搬至 `response-archive/response-R39.md` 并登记索引，写入后窗口 10 条未超限。
 - **总结**：requests.md 占号 R52（claim.sh `e56575e`）；PingCode idea [ML-51 / 6Lljn2pb](https://haoshenqi.pingcode.com/ship/ideas/6Lljn2pb)（Pending → In progress，待验收后 Completed）；response.md 本条；冲突记录：无。
+
+### R53（伴读抽屉语音双向，对齐 magicbook R227：麦克风转写输入 + 回复朗读）
+
+- **背景**：用户对 R52 汇报的拍板「要做」。R227 双向口径承接：录音→16k wav→ASR 转写→**追加**输入框不自动发送；每条助手回复「🔊 朗读本条」手动点，≤1800 字分段顺序播，`/tts/speak` 听=消费、不带书籍上下文落 7 天临时档。moon-well/magicbook 零改动。
+- **交付（分支 `feat/r52-buddy-parity` 同树续作（家族口径第 7 条），版本 0.8.16-202610271104 测试版，manifest permissions + `offscreen`）**：
+  - **录音宿主 = offscreen 文档**（D1）：content 录音要逐站点授权麦克风、http 页拿不到 getUserMedia，SW 无 DOM；offscreen 属扩展 origin 一次授权。消息两套：`ml:rec-start/stop/cancel`（content→SW）与 `ml:rec-go/done`（SW→offscreen 转发）——content 的 runtime.sendMessage 广播到全部扩展上下文，offscreen 只认自己那组、其余不回话；popup/options/content/highlight 四处监听器逐一核实不会抢响应。
+  - **采集核心移植 magicbook learning-voice.js**（D2）：16k wav 采集端编码（webm/opus 兼容性存疑不用 MediaRecorder）、R159 全静音 −46dB 判定、R158 失败必复位；新增 5 分钟硬顶（停采保音频 + 清引用，content 计时同步封顶）。
+  - **播放 = Web Audio + 字节走消息通道**（D3）：SW 取 TTS 二进制转 base64 回传，content 解码播放——比 magicbook 的 CSP 规避更彻底，宿主页 media-src/connect-src 都不占用；自动播放拦截/suspended/老 Safari 回调形态三处兼容照搬。
+  - **background 抽出 `callMoonWellRaw`**（D4）：鉴权+超时+401 静默刷新单点，callApi（JSON）委托之，ASR（multipart）与 TTS（二进制）复用同分支；TTS 失败体 Result 信封必带出 message（积分不足不伪装成播放器坏了）；TTS 超时 180s（本地 Qwen3-TTS 分钟级）、ASR 60s。
+- **验证（诚实）**：node --check 五文件全过；node 冒烟 22 例全过（分段边界×8、base64 跨块往返、**encodeWav 抽源码实跑**校验 RIFF 头/16k/16bit/样本数）；MSG 表 23 键引用一致；callApi 重构 diff 逐行自审（retried 守卫保留）。**真机手工清单待用户**：①🎤 说一句→停止→转写进输入框可编辑发送；②首次授权只弹一次；③🔊 出声/再点停止；④长回复「朗读中 n/m」；⑤关抽屉朗读立停；⑥积分不足报「积分不足」。
+- **文档**：README 功能表与 API 契约表回填（`/tts/speak` 转「部分接入」+ 补 ASR 行）；LLD `iterations/1.0/r53-buddy-voice/lld.md`；迭代 plan.md 增 MAGICLENS-7。
+- **台账**：worktree `../magiclens-r52-buddy-parity`（分支 `feat/r52-buddy-parity`）merge 后驻留待验收（R52+R53 两批一起验）；未 push（正式发布需用户确认后去时间戳 merge release）。窗口轮转：最旧的 R46 原样搬至 `response-archive/response-R46.md` 并登记索引，写入后窗口 10 条。
+- **总结**：requests.md 占号 R53（claim.sh `f9805c8`）；PingCode idea 待建（见下）；response.md 本条；冲突记录：无。
