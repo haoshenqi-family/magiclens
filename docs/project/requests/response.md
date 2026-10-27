@@ -123,4 +123,4 @@
 - **验证（诚实）**：`node --check` 三文件全过；`__magicLensBallVisible` node 冒烟 10 例全过（全开/球关/主开关关/iframe/禁用域名及子域/其他域名/URL 形态条目/默认值两项）；options DOM id 齐全性脚本 html+js 双侧命中。**真机手工清单待用户**：① 设置页出现引导卡片；② 点「开启」→ 已打开网页不刷新即现球；③ 点球开抽屉；④ 关开关球立刻消失；⑤ 域名管理站点球不显示；⑥ 抽屉打开时球不穿层；⑦ 重载扩展旧球随旧副本退役。
 - **文档**：README 功能表增「常驻入口悬浮球」行；LLD `iterations/1.0/r54-ball/lld.md`；迭代 plan.md 增 MAGICLENS-8。
 - **台账**：worktree `../magiclens-r52-buddy-parity`（分支 `feat/r52-buddy-parity`）merge 后驻留待验收（R52/R53/R54 三批一起验）；未 push（正式发布需用户确认后去时间戳 merge release）。窗口轮转：最旧的 R40 原样搬至 `response-archive/response-R40.md` 并登记索引，写入后窗口 10 条。
-- **总结**：requests.md 占号 R54（claim.sh `c0e00fd`）；PingCode idea 见下条回填；response.md 本条；冲突记录：无。
+- **总结**：requests.md 占号 R54（claim.sh `c0e00fd`）；PingCode idea [ML-53 / G8snk5AS](https://haoshenqi.pingcode.com/ship/ideas/G8snk5AS)（Pending → In progress，待验收后 Completed）；response.md 本条；冲突记录：无。
