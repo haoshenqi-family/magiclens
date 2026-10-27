@@ -16,6 +16,11 @@
     refreshToken: '',
     apiBase: 'https://moon-well.haoshenqi.top',
     disabledDomains: [],
+    // R54 常驻入口（悬浮球）：默认关闭——是否常驻交给用户选择，首次安装由设置页
+    // 引导卡片问一次（ballAsked 记录「已表态」，问过就不再弹）；存量用户升级后
+    // 不突现悬浮球，想要时设置页自行打开
+    ballEnabled: false,
+    ballAsked: false,
   });
 
   if (g.__magicLensNormDomain) return;
@@ -47,6 +52,13 @@
       return Boolean(n) && (h === n || h.endsWith(`.${n}`));
     });
   };
+
+  /** R54 常驻入口（悬浮球）可见性判定：主开关 + 悬浮球开关 + 顶层文档 + 域名管理
+   * 名单（复用 __magicLensIsDisabledHost，与划词/高亮同一份禁用语义）。
+   * 纯函数入 common.js：ball.js 每次显隐判定与 node 冒烟共用同一实现。 */
+  g.__magicLensBallVisible = (cfg, host, isTop) =>
+    Boolean(isTop && cfg && cfg.enabled && cfg.ballEnabled
+      && !g.__magicLensIsDisabledHost(host, cfg.disabledDomains));
 
   /** 上游错误详情不进 UI（R32 用户反馈：报错详情用户看不懂也不想了解）：
    * 疑似技术细节（URL/内部 IP/英文异常/网关标识）归一为通用文案，原文进

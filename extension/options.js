@@ -27,6 +27,28 @@ $auto.addEventListener('change', () => {
   chrome.storage.sync.set({ autoTranslate: $auto.checked });
 });
 
+/* ---------- 常驻入口（R54）：首次安装引导 + 常驻开关 ----------
+ * 引导卡片只在用户尚未表态（ballAsked=false）时显示——安装时 background 自动打开
+ * 本页正好承接；表态后永不再问，开关随时可翻。任何一次明确选择都同时落
+ * ballEnabled + ballAsked 两个键，避免「关了开关又被问一遍」。 */
+const $ball = document.getElementById('ballEnabled');
+const $ballAsk = document.getElementById('ballAsk');
+
+function setBall(on) {
+  $ball.checked = on;
+  chrome.storage.sync.set({ ballEnabled: on, ballAsked: true });
+}
+
+chrome.storage.sync.get(__magicLensDefaults, ({ ballEnabled, ballAsked }) => {
+  $ball.checked = ballEnabled;
+  $ballAsk.hidden = ballAsked;
+});
+document.getElementById('ballAskOn').addEventListener('click', () => setBall(true));
+document.getElementById('ballAskOff').addEventListener('click', () => setBall(false));
+$ball.addEventListener('change', () => {
+  chrome.storage.sync.set({ ballEnabled: $ball.checked, ballAsked: true });
+});
+
 $loginBtn.addEventListener('click', () => {
   chrome.runtime.sendMessage({ type: MSG.ML_LOGIN });
 });
