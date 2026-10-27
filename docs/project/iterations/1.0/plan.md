@@ -21,6 +21,7 @@
 | MAGICLENS-6 R52 伴读抽屉对齐 magicbook R232/R233 | 用户故事 | [idea 6Lljn2pb](https://haoshenqi.pingcode.com/ship/ideas/6Lljn2pb)（ML-51，In progress） | [r52-buddy-parity/](./r52-buddy-parity/)（LLD） | 已 merge 本地 develop（0.8.15 测试版），待真机验收（2026-10-27） |
 | MAGICLENS-7 R53 伴读抽屉语音双向（对齐 magicbook R227） | 用户故事 | [idea 1nxbdoBF](https://haoshenqi.pingcode.com/ship/ideas/1nxbdoBF)（ML-52，In progress） | [r53-buddy-voice/](./r53-buddy-voice/)（LLD） | 已 merge 本地 develop（0.8.16 测试版，与 R52 同树续作），待真机验收（2026-10-27） |
 | MAGICLENS-8 R54 常驻入口悬浮球（设置开关 + 首次安装引导） | 用户故事 | [idea G8snk5AS](https://haoshenqi.pingcode.com/ship/ideas/G8snk5AS)（ML-53，In progress） | [r54-ball/](./r54-ball/)（LLD） | 已 merge 本地 develop（0.8.17 测试版，同树续作），待真机验收（2026-10-27） |
+| MAGICLENS-9 R55 修复 R48 金山直连模块导出契约回归 | 缺陷 | （无 PJM，台账承载） | [r55-iciba-export/](./r55-iciba-export/)（LLD） | 已 merge 本地 develop（0.8.19 测试版），待真机验收（2026-10-27） |
 
 ## 备注
 

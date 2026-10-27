@@ -61,6 +61,11 @@ moon-well 认证三通道：
 
 **决策**：单词划词由 background service worker 直连金山词霸 suggest 接口（`dict-mobile.iciba.com`，免费无凭证，与 moon-well `IcibaDictClient` 同一端点同一解析口径），miss/异常静默回退 moon-well `/vocabulary/reading/translate`。moon-well 零改动，magicbook 不受影响。
 
+> **更新（2026-10-27，R48/R55）**：直连域已从 `background.js` 拆到 `extension/iciba.js`，
+> service worker 只消费模块公开键。R48 拆分时曾因按内部函数名解构导致划词运行时报错，
+> R55 已修复并由 `scripts/check-extension-modules.js` 锁住跨文件导出契约；实现与边界见
+> [`features/iciba-direct.md`](features/iciba-direct.md)。
+
 - **动机**：原链路单词查询要绕行 浏览器→Traefik(Server 2)→Tailscale→fnOS→出网查金山（两段 TLS + 一段隧道）；R122 曾观测到浏览器→moon-well 入口间 ~5.9s 未解释盲区。直连一跳通常百毫秒级，且免登录（未登录用户单词翻译也可用）。
 - **权限**：manifest 本就 `host_permissions: ["<all_urls>"]`，无新增权限。
 - **词干还原**：background.js 内置 JS 版 Porter，对齐 moon-well `WordStemmer` 依赖的 Lucene 8.3.0 `EnglishAnalyzer`（94 向量经真实 Lucene 实测逐一验证）。注意 Lucene 版与 1980 原始算法有两处规则差异（`bli→ble` 替代 `abli→able`、新增 `logi→log`），且 `wolves→wolv`、`agreed→agre` 才是 Lucene 实测输出（moon-well `WordStemmer` 注释里 `wolves→wolve` 的示例是 step1 中间值，非最终输出；行为结论「截出的非词由 iciba 自然 miss 降级 LLM」不受影响）。若未来 Java/JS 两份实现出现偏差，后果仅是金山多 miss 一次后回退后端（权威兜底），不会产生错误翻译。

@@ -8,7 +8,9 @@
 // R46（架构评审 L5）：设置默认值单点在 common.js 的 __magicLensDefaults
 //（本 SW 经 importScripts 引入），新增设置键只改那一处。
 importScripts('common.js', 'rpc.js', 'iciba.js');
-const { WORD_PATTERN, icibaLookupWithStemming } = __magicLensIciba;  // R47/L3：金山直连域模块化
+// R55：消费模块公开键名，再别名为路由侧沿用名称——R48 拆分时按内部函数名解构，
+// 实际导出键是 lookupWithStemming，导致 ML_TRANSLATE 每次调用都抛 not a function。
+const { WORD_PATTERN, lookupWithStemming: icibaLookupWithStemming } = __magicLensIciba;
 const MSG = __magicLensRpc.MSG;  // R46：消息类型常量集中（rpc.js）
 const DEFAULT_CFG = {
   // 公网入口（moon-well.haoshenqi.top → fnOS tailscale :8082，见 app-manager traefik-dynamic/moonwell.yml）
