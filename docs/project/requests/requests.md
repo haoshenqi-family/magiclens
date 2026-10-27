@@ -60,3 +60,5 @@
 50. docs v2 迁移（家族文档架构 v2 试点第三仓；蓝本 `../ops/docs-architecture.md` §2 退化形态/§5/§7；用户指令「moon-well 和 magiclens 也整理 docs」）：本仓为**单模块纯前端扩展**，按 v2 **退化形态**落地——**L1 仍是根 `README.md`**（不建 `docs/product/readme/`，不为目录对称把单模块硬拆）；`docs/design.md`（L2 ADR 兼任）→`docs/product/design.md`；`docs/feat/`（4 个）→`docs/project/_legacy/feat/`（**冻结归档、不回溯迭代归属**）；`docs/webstore/listing.md`→`docs/product/webstore/listing.md`（产品级静态）；仓库根 `requests.md`/`response.md` + `requests-archive/`/`response-archive/`→`docs/project/requests/`。同步改写本仓 `AGENTS.md` 文档规范节为 v2 退化形态，并更新家族根 `Agents.md` 四仓落位映射。（编号说明：全史最大 49，按「全史最大 +1」取 50；跨仓：magicbook R188 / moon-well R190 已完成）
 
 51. 发布链加「纯文档提交不发布」判据（跨仓同源：app-manager R51 / magicbook R192 / moon-well R194）：`.github/workflows/release.yml` 增 `changes` 判定 job——compare API 取本次 push 改动文件，全部是文档时 `docs_only=true`，打包与 GitHub Release 步骤整体跳过；混合改动、判定失败走原版本判定。本仓无部署产物，此处对应的是「发布」而非「部署」。worktree 开发，push 闸门留用户。
+
+52. **伴读抽屉对齐 magicbook R232/R233——AI 回复不显示 token 用量、站内链接新窗口可点**（占号 2026-10-27，待回填）
