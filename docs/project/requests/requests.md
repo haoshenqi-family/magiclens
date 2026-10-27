@@ -62,3 +62,5 @@
 51. 发布链加「纯文档提交不发布」判据（跨仓同源：app-manager R51 / magicbook R192 / moon-well R194）：`.github/workflows/release.yml` 增 `changes` 判定 job——compare API 取本次 push 改动文件，全部是文档时 `docs_only=true`，打包与 GitHub Release 步骤整体跳过；混合改动、判定失败走原版本判定。本仓无部署产物，此处对应的是「发布」而非「部署」。worktree 开发，push 闸门留用户。
 
 52. **伴读抽屉对齐 magicbook R232/R233——AI 回复不显示 token 用量、站内链接新窗口可点**（占号 2026-10-27，待回填）
+
+53. **伴读抽屉语音双向（对齐 magicbook R227）：麦克风转写输入 + 回复朗读**（占号 2026-10-27，待回填）
