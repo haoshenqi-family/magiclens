@@ -1,13 +1,20 @@
-/* MagicLens service worker：全部 HTTP 调用的唯一出口（moon-well API 中转 + 金山词霸直连）。
+/* MagicLens service worker：moon-well API 中转 + 消息路由（金山词霸直连域已迁 iciba.js，R47/L3）。
  * Why：MV3 中 content script 的 fetch 遵循页面源的 CORS 规则，
  * 而 service worker 持有 host_permissions 豁免，且能绕开 http 页面对
  * http 接口的混合内容限制，故所有 JSON API 请求统一在此中转。
  * v0.3：默认公网域名（Traefik → fnOS:8082）；JWT 静默刷新（access 7d / refresh 30d）。
  * v0.6：单词划词直连金山词霸 suggest（免登录快路径），miss 回退 moon-well。 */
 
+// R46（架构评审 L5）：设置默认值单点在 common.js 的 __magicLensDefaults
+//（本 SW 经 importScripts 引入），新增设置键只改那一处。
+importScripts('common.js', 'rpc.js', 'iciba.js');
+// R55：消费模块公开键名，再别名为路由侧沿用名称——R48 拆分时按内部函数名解构，
+// 实际导出键是 lookupWithStemming，导致 ML_TRANSLATE 每次调用都抛 not a function。
+const { WORD_PATTERN, lookupWithStemming: icibaLookupWithStemming } = __magicLensIciba;
+const MSG = __magicLensRpc.MSG;  // R46：消息类型常量集中（rpc.js）
 const DEFAULT_CFG = {
   // 公网入口（moon-well.haoshenqi.top → fnOS tailscale :8082，见 app-manager traefik-dynamic/moonwell.yml）
-  apiBase: 'https://moon-well.haoshenqi.top',
+  apiBase: __magicLensDefaults.apiBase,
   token: '',        // moon-well JWT（OIDC 登录后自动捕获）
   refreshToken: '',
 };
@@ -51,261 +58,176 @@ async function refreshTokens(refreshToken) {
   return result.accessToken;
 }
 
-async function callApi(path, { method = 'POST', body, timeoutMs = TIMEOUT_MS } = {}, retried = false) {
-  const { apiBase, token, refreshToken } = await getCfg();
-  if (!apiBase) return { ok: false, error: '未配置服务地址', status: 0 };
-  if (!token && !refreshToken) return { ok: false, error: '未登录，请先在设置页登录', status: 0, auth: true };
-
-  let resp;
-  try {
-    resp = await fetch(apiBase.replace(/\/+$/, '') + path, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-  } catch (e) {
-    if (e.name === 'TimeoutError' || e.name === 'AbortError') {
-      return { ok: false, error: `请求超时（${Math.round(timeoutMs / 1000)}s），请稍后重试`, status: 0 };
-    }
-    return { ok: false, error: `网络错误：${e.message}`, status: 0 };
-  }
-
-  // 401：静默刷新一次后重试；刷新真被拒绝才清空令牌强制重登
-  if (resp.status === 401 && !retried && refreshToken) {
-    try {
-      await refreshTokens(refreshToken);
-      return callApi(path, { method, body, timeoutMs }, true);
-    } catch (e) {
-      // Why 超时不清凭据：refresh 慢/断网只说明这一刻连不上，refreshToken 本身仍有效，
-      // 抹掉会把一次网络抖动变成全标签页强制重登（且刚续期成功的并发请求会被连带清掉）。
-      if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
-        return { ok: false, error: `登录续期超时（${Math.round(TIMEOUT_MS / 1000)}s），请稍后重试`, status: 0 };
-      }
-      await chrome.storage.sync.set({ token: '', refreshToken: '' });
-      return { ok: false, error: '登录已失效，请重新登录', status: 401, auth: true };
-    }
-  }
-
-  let payload = null;
-  try {
-    payload = await resp.json();
-  } catch {
-    /* 非 JSON 响应按失败处理 */
-  }
-  // moon-well 统一 Result{success, result, message} 包装
-  if (!resp.ok || !payload || payload.success !== true) {
+/* ---------- moon-well 响应解包（R44） ----------
+ * Why 兼容两种形制：moon-well 的「统一 Result{success,result,message}」是各 controller
+ * 显式返回的，服务端没有任何 ResponseBodyAdvice 兜底——实测 55 个 controller 里 49 个显式
+ * 包装，而 `/ai/agent` 的 8 个面板端点漏包直接返回裸数组/对象。旧判定 `payload.success !== true`
+ * 于是把成功响应判成失败，调用方（chat.js 会话列表）再 `if (!resp.ok) return;` 一吞，
+ * 用户看到的就是「历史记录凭空消失」。现与 magicbook 侧 `ai_chat.js unwrap()` 同口径：
+ * 只有 HTTP 不成功 / 非 JSON / 显式 `success === false` 才算失败，其余取 result，
+ * 裸 payload 原样透出。
+ * How 做成不碰 fetch/storage 的纯函数：本仓无测试框架，纯函数可以直接把源码片段抽出来
+ * 喂给断言跑（见 docs/project/_legacy/feat/chrome-extension/design/lld.md §10 R44 的验证方式）。 */
+function unwrapMoonWellResponse(resp, payload) {
+  if (!resp.ok || !payload || payload.success === false) {
     const msg = (payload && (payload.message || payload.msg)) || `HTTP ${resp.status}`;
     const out = { ok: false, error: msg, status: resp.status };
     if (resp.status === 401 || resp.status === 403) out.auth = true;
     return out;
   }
-  return { ok: true, data: payload.result };
+  return { ok: true, data: payload.result !== undefined ? payload.result : payload };
 }
 
-/* ---------- 金山词霸 suggest 直连（单词划词快路径，R15） ----------
- * Why：单词翻译不再绕行 moon-well（浏览器→Traefik→Tailscale→fnOS 才到金山，两段
- * TLS + 一段隧道），service worker 持 <all_urls> host_permissions 天然豁免 CORS，
- * 直连通常百毫秒级且免登录。口径与后端 IcibaDictClient 完全一致：免费无凭证的
- * suggest 接口、仅接受首条 key 与查询词全等（忽略大小写）的结果、一切异常静默
- * 降级——词典 miss/异常回退 moon-well /vocabulary/reading/translate（ES 缓存、
- * 后端词干还原与 LLM 兜底原样保留），金山接口变动只影响速度，不影响正确性。 */
-
-const ICIBA_URL =
-  'https://dict-mobile.iciba.com/interface/index.php?c=word&m=getsuggest&nums=1&is_need_mean=1&word=';
-// Why 每次直查也必须带超时：接口不可用时不能让单词气泡比走 moon-well 还慢
-const ICIBA_TIMEOUT_MS = 2500;
-// 划词「单词」判定，与后端 ReadingVocabularyService.WORD_PATTERN 一致
-const WORD_PATTERN = /^[A-Za-z][A-Za-z'’-]*$/;
-// session 缓存（含 miss 负缓存）：重复划词零网络。Why 不持久化：权威缓存在
-// moon-well ES（跨设备），本地陈旧词条没必要跨浏览器会话存活
-const ICIBA_CACHE_KEY = 'icibaCache';
-const ICIBA_CACHE_CAP = 512;
-
-// —— Porter 词干化，对齐 moon-well WordStemmer 依赖的 Lucene 8.3.0 EnglishAnalyzer ——
-// Why 是 Lucene 版而非 1980 原始版：后端口径以 Lucene 为准（bli→ble 替代 abli→able、
-// 新增 logi→log；wolves→wolv、agreed→agre 是实测输出，原论文注释只是中间值），
-// 本实现已用 94 向量对照 Lucene 实测逐一验证。即使未来出现偏差，后果仅是金山多
-// miss 一次 → 回退 moon-well（后端权威兜底），不会产生错误翻译。
-const EN_STOPWORDS = new Set(('a an and are as at be but by for if in into is it ' +
-  'no not of on or such that the their then there these they this to was will with').split(' '));
-
-function porterStem(input) {
-  let w = input;
-  if (w.length <= 2) return w;
-  const cons = (i) => {
-    const c = w[i];
-    if (c === 'a' || c === 'e' || c === 'i' || c === 'o' || c === 'u') return false;
-    if (c === 'y') return i === 0 ? true : !cons(i - 1);
-    return true;
-  };
-  // Porter m()：w[0..j] 内 VC 序列个数
-  const measure = (j) => {
-    let n = 0, i = 0;
-    while (true) {
-      if (i > j) return n;
-      if (!cons(i)) break;
-      i++;
-    }
-    i++;
-    while (true) {
-      while (true) {
-        if (i > j) return n;
-        if (cons(i)) break;
-        i++;
-      }
-      i++; n++;
-      while (true) {
-        if (i > j) return n;
-        if (!cons(i)) break;
-        i++;
-      }
-      i++;
-    }
-  };
-  const vowelInStem = (j) => {
-    for (let i = 0; i <= j; i++) if (!cons(i)) return true;
-    return false;
-  };
-  const doubleC = (j) => j >= 1 && w[j] === w[j - 1] && cons(j);
-  // *o：词干以 c v c 结尾且末位非 w/x/y
-  const cvc = (i) => i >= 2 && cons(i) && !cons(i - 1) && cons(i - 2) && w[i] !== 'w' && w[i] !== 'x' && w[i] !== 'y';
-
-  // step1（原 1a+1b）：复数与 -ed/-ing
-  if (w.endsWith('sses')) w = w.slice(0, -2);
-  else if (w.endsWith('ies')) w = w.slice(0, -2);
-  else if (!w.endsWith('ss') && w.endsWith('s')) w = w.slice(0, -1);
-  if (w.endsWith('eed')) {
-    if (measure(w.length - 4) > 0) w = w.slice(0, -1);
-  } else {
-    let stripped = false;
-    if (w.endsWith('ed') && vowelInStem(w.length - 3)) { w = w.slice(0, -2); stripped = true; }
-    else if (w.endsWith('ing') && vowelInStem(w.length - 4)) { w = w.slice(0, -3); stripped = true; }
-    if (stripped) {
-      if (w.endsWith('at') || w.endsWith('bl') || w.endsWith('iz')) w += 'e';
-      else if (doubleC(w.length - 1) && w[w.length - 1] !== 'l' && w[w.length - 1] !== 's' && w[w.length - 1] !== 'z') w = w.slice(0, -1);
-      else if (measure(w.length - 1) === 1 && cvc(w.length - 1)) w += 'e';
-    }
-  }
-  // step2（原 1c）：(*v*) Y→I
-  if (w.endsWith('y') && vowelInStem(w.length - 2)) w = w.slice(0, -1) + 'i';
-  // step3（原 2）：双后缀映射（首条命中即止，m(stem)>0 才替换）
-  const step3 = [['ational', 'ate'], ['tional', 'tion'], ['enci', 'ence'], ['anci', 'ance'],
-    ['izer', 'ize'], ['bli', 'ble'], ['alli', 'al'], ['entli', 'ent'], ['eli', 'e'],
-    ['ousli', 'ous'], ['ization', 'ize'], ['ation', 'ate'], ['ator', 'ate'], ['alism', 'al'],
-    ['iveness', 'ive'], ['fulness', 'ful'], ['ousness', 'ous'], ['aliti', 'al'],
-    ['iviti', 'ive'], ['biliti', 'ble'], ['logi', 'log']];
-  for (const [suf, rep] of step3) {
-    if (w.endsWith(suf)) {
-      const j = w.length - suf.length - 1;
-      if (measure(j) > 0) w = w.slice(0, j + 1) + rep;
-      break;
-    }
-  }
-  // step4（原 3）：-icate/-ative/-alize/-iciti/-ical/-ful/-ness
-  const step4 = [['icate', 'ic'], ['ative', ''], ['alize', 'al'], ['iciti', 'ic'], ['ical', 'ic'], ['ful', ''], ['ness', '']];
-  for (const [suf, rep] of step4) {
-    if (w.endsWith(suf)) {
-      const j = w.length - suf.length - 1;
-      if (measure(j) > 0) w = w.slice(0, j + 1) + rep;
-      break;
-    }
-  }
-  // step5（原 4）：m>1 剥离固定后缀（按倒数第二字符分派，同 Lucene switch 语义）
-  const step5fam = { a: ['al'], c: ['ance', 'ence'], e: ['er'], i: ['ic'], l: ['able', 'ible'],
-    n: ['ant', 'ement', 'ment', 'ent'], o: ['ion', 'ou'], s: ['ism'], t: ['ate', 'iti'],
-    u: ['ous'], v: ['ive'], z: ['ize'] };
-  const fam = step5fam[w[w.length - 2]];
-  if (fam) {
-    for (const suf of fam) {
-      if (!w.endsWith(suf)) continue;
-      if (suf === 'ion') {
-        const j = w.length - 4;
-        if (j >= 0 && (w[j] === 's' || w[j] === 't') && measure(j) > 1) w = w.slice(0, j + 1);
-      } else {
-        const j = w.length - suf.length - 1;
-        if (measure(j) > 1) w = w.slice(0, j + 1);
-      }
-      break;
-    }
-  }
-  // step6（原 5a+5b）：m>1 或 m=1 且非 *o 去 E；m>1 且 LL → 单 L
-  if (w.endsWith('e')) {
-    const a = measure(w.length - 1);
-    if (a > 1 || (a === 1 && !cvc(w.length - 2))) w = w.slice(0, -1);
-  }
-  if (w.endsWith('l') && doubleC(w.length - 1) && measure(w.length - 1) > 1) w = w.slice(0, -1);
-  return w;
-}
-
-// 对齐后端 WordStemmer.stemWord：小写 → 剥所有格 → 纯字母校验 → 停用词过滤 → Porter
-function stemWord(word) {
-  let lower = word.trim().toLowerCase();
-  if (!lower) return null;
-  if (lower.endsWith("'s") || lower.endsWith('’s')) lower = lower.slice(0, -2);
-  // 残留撇号/连字符（don't / mother-in-law）→ 非屈折形态，不还原
-  if (!/^[a-z]+$/.test(lower)) return null;
-  // 停用词（the、of 等）后端被分析器过滤返回 null；直查 miss 后同样不重查
-  if (EN_STOPWORDS.has(lower)) return null;
-  return porterStem(lower);
-}
-
-async function icibaCacheGet(word) {
-  const store = await chrome.storage.session.get(ICIBA_CACHE_KEY);
-  const cache = store[ICIBA_CACHE_KEY];
-  return cache && Object.prototype.hasOwnProperty.call(cache, word) ? cache[word] : undefined;
-}
-
-async function icibaCachePut(word, paraphrase) {
-  const store = await chrome.storage.session.get(ICIBA_CACHE_KEY);
-  const cache = store[ICIBA_CACHE_KEY] || {};
-  cache[word] = paraphrase;
-  // 超容量按插入序淘汰最旧（字符串键保持插入序；命中不刷新位次，与后端
-  // accessOrder LRU 略有差异，512 上限下无实际影响）
-  const keys = Object.keys(cache);
-  for (const k of keys.slice(0, Math.max(0, keys.length - ICIBA_CACHE_CAP))) delete cache[k];
-  await chrome.storage.session.set({ [ICIBA_CACHE_KEY]: cache });
-}
-
-// suggest 会模糊匹配：仅接受首条记录 key 与查询词完全一致（忽略大小写）的结果
-function parseIcibaParaphrase(payload, word) {
-  const first = payload && Array.isArray(payload.message) ? payload.message[0] : null;
-  if (!first || typeof first.key !== 'string') return null;
-  if (first.key.trim().toLowerCase() !== word) return null;
-  const paraphrase = typeof first.paraphrase === 'string' ? first.paraphrase.trim() : '';
-  return paraphrase || null;
-}
-
-// 查询单词释义；miss/异常返回 null（异常同样写负缓存：接口不可用时同一词不再白等超时）
-async function icibaLookup(word) {
-  const key = word.trim().toLowerCase();
-  if (!key) return null;
-  const cached = await icibaCacheGet(key);
-  if (cached !== undefined) return cached || null;
-  let paraphrase = null;
+/* ---------- L4（架构评审）：令牌刷新/清凭据决策单点 ----------
+ * Why 抽出：callApi 的 401 分支与 ml:auth 的「token 空而 refreshToken 有效」
+ * 原先各抄一份超时/清凭据分支（R35 口径靠注释对齐）——漂移即 401 处理不一致。
+ * 返回 {token}（刷新成功）或 {error, status, auth?}（失败，调用方原样透出）。 */
+async function refreshOrClear(refreshToken) {
   try {
-    const resp = await fetch(ICIBA_URL + encodeURIComponent(key), {
-      signal: AbortSignal.timeout(ICIBA_TIMEOUT_MS),
-    });
-    paraphrase = parseIcibaParaphrase(await resp.json(), key);
-  } catch {
-    /* 网络/超时/非 JSON：静默降级，与后端 IcibaDictClient 同哲学 */
+    return { token: await refreshTokens(refreshToken) };
+  } catch (e) {
+    // Why 超时不清凭据：refresh 慢/断网只说明这一刻连不上，refreshToken 本身仍有效，
+    // 抹掉会把一次网络抖动变成全标签页强制重登（且刚续期成功的并发请求会被连带清掉）。
+    if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
+      return { error: `登录续期超时（${Math.round(TIMEOUT_MS / 1000)}s），请稍后重试`, status: 0 };
+    }
+    await chrome.storage.sync.set({ token: '', refreshToken: '' });
+    return { error: '登录已失效，请重新登录', status: 401, auth: true };
   }
-  await icibaCachePut(key, paraphrase || '');
-  return paraphrase;
 }
 
-// 带词形还原的查询：原词 miss 后剥所有格 + Porter 词干重查一次（sidebars→sidebar），
-// 与后端 IcibaDictClient.lookupWithStemming 同构；还原词与原词相同不重查
-async function icibaLookupWithStemming(word) {
-  const direct = await icibaLookup(word);
-  if (direct) return direct;
-  const stem = stemWord(word);
-  if (!stem || stem === word.trim().toLowerCase()) return null;
-  return icibaLookup(stem);
+/* ---------- moon-well 调用低层（R53 抽出）：鉴权 + fetch + 超时 + 401 静默刷新单点 ----------
+ * callApi（JSON/Result）、ASR 转写（multipart）、TTS 朗读（二进制响应）三类请求共用
+ * 这一段。此前 401/超时分支只活在 callApi 里，语音两类若照抄等于把 R35/L4 类漂移
+ * 温床再抄两份。返回 {resp}（HTTP 层已完成，由调用方按各自形制解包）或
+ * {error, status, auth?}（请求未发出 / 刷新失败）。 */
+async function callMoonWellRaw(path, init, timeoutMs = TIMEOUT_MS, retried = false) {
+  const { apiBase, token, refreshToken } = await getCfg();
+  if (!apiBase) return { error: '未配置服务地址', status: 0 };
+  if (!token && !refreshToken) return { error: '未登录，请先在设置页登录', status: 0, auth: true };
+
+  let resp;
+  try {
+    resp = await fetch(apiBase.replace(/\/+$/, '') + path, {
+      ...init,
+      headers: {
+        ...(init.headers || {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (e) {
+    if (e.name === 'TimeoutError' || e.name === 'AbortError') {
+      return { error: `请求超时（${Math.round(timeoutMs / 1000)}s），请稍后重试`, status: 0 };
+    }
+    return { error: `网络错误：${e.message}`, status: 0 };
+  }
+
+  // 401：静默刷新一次后重试；刷新真被拒绝才清空令牌强制重登（L4 单点 refreshOrClear）。
+  // retried 守卫防死循环：刚刷新的 token 再被拒就该停（与原 callApi 口径一致）
+  if (resp.status === 401 && !retried && refreshToken) {
+    const refreshed = await refreshOrClear(refreshToken);
+    if (refreshed.token) return callMoonWellRaw(path, init, timeoutMs, true);
+    return { error: refreshed.error, status: refreshed.status, auth: refreshed.auth };
+  }
+  return { resp };
+}
+
+async function callApi(path, { method = 'POST', body, timeoutMs = TIMEOUT_MS } = {}) {
+  const out = await callMoonWellRaw(path, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  }, timeoutMs);
+  if (out.error) return { ok: false, error: out.error, status: out.status ?? 0, auth: out.auth };
+  let payload = null;
+  try {
+    payload = await out.resp.json();
+  } catch {
+    /* 非 JSON 响应按失败处理 */
+  }
+  return unwrapMoonWellResponse(out.resp, payload);
+}
+
+/* ---------- R53 语音输入：offscreen 录音文档生命周期 ----------
+ * Why offscreen 而非 SW/content script 录音：SW 无 DOM（AudioContext/ScriptProcessor
+ * 采集链路没有语义保证），content script 录音要把麦克风权限对每个宿主站点逐个授权、
+ * http 页更拿不到 getUserMedia；offscreen 属扩展自身 origin，权限一次授权到处可用。
+ * createDocument 在文档已存在时抛错——getContexts 要 Chrome 116，为兼容 manifest 的
+ * min 110，用「试建 + 吞已存在错误」模式；SW 中途挂起再醒来也靠它幂等续命。 */
+async function ensureOffscreen() {
+  try {
+    await chrome.offscreen.createDocument({
+      url: 'offscreen.html',
+      reasons: ['USER_MEDIA'],
+      justification: '伴读抽屉语音输入：把麦克风录音转写成文字',
+    });
+  } catch (e) {
+    if (!/single|exist/i.test(String((e && e.message) || e))) throw e;
+  }
+}
+
+function sendToOffscreen(msg) {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(msg, (resp) => {
+      if (chrome.runtime.lastError) return resolve(null);
+      resolve(resp || null);
+    });
+  });
+}
+
+/* ---------- R53 ASR 转写：multipart 直传 moon-well /learning/asr/transcribe ----------
+ * 为什么不走 callApi：body 是 FormData（Content-Type 边界由浏览器生成，手工设置会坏）。
+ * 上限 10MB/次由 moon-well 校验；响应是 Result 包装，取 result.text。 */
+const ASR_TIMEOUT_MS = 60000;
+
+async function transcribeAudio(audioBase64) {
+  const bytes = __magicLensB64Decode(audioBase64);
+  const form = new FormData();
+  form.append('file', new Blob([bytes], { type: 'audio/wav' }), 'recording.wav');
+  const out = await callMoonWellRaw('/learning/asr/transcribe', { method: 'POST', body: form }, ASR_TIMEOUT_MS);
+  if (out.error) return { ok: false, error: out.error, status: out.status ?? 0, auth: out.auth };
+  let payload = null;
+  try {
+    payload = await out.resp.json();
+  } catch {
+    /* 非 JSON 按 unwrap 的失败分支处理 */
+  }
+  return unwrapMoonWellResponse(out.resp, payload);
+}
+
+/* ---------- R53 回复朗读：/tts/speak（二进制音频，不套 Result 包装） ----------
+ * body 不带 bookName/chapter：moon-well 据此把音频落「AI 临时语音」档（7 天清理），
+ * 不污染书籍段落永久缓存（R227 D3 口径）。听=消费：命中缓存也扣 1 积分/次（R166）。
+ * Why 超时放宽到 180s：fnOS 本地 Qwen3-TTS 长段合成本来就要分钟级（tts.local.timeout-ms 同值）。 */
+const TTS_TIMEOUT_MS = 180000;
+
+async function synthesizeSpeech(text) {
+  const out = await callMoonWellRaw('/tts/speak', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  }, TTS_TIMEOUT_MS);
+  if (out.error) return { ok: false, error: out.error, status: out.status ?? 0, auth: out.auth };
+  const resp = out.resp;
+  const type = (resp.headers.get('Content-Type') || '').toLowerCase();
+  if (resp.ok && (type.startsWith('audio/') || type.startsWith('application/octet-stream'))) {
+    return { ok: true, audioBase64: __magicLensB64Encode(await resp.arrayBuffer()) };
+  }
+  // 失败体是 moon-well 的 Result 信封（HTTP 500 + JSON），典型是「积分不足，无法使用AI功能」。
+  // 不带出 message 的话前端只能拿 JSON 字节去解码，把计费拒绝伪装成「播放器坏了」（R227）。
+  let payload = null;
+  try {
+    payload = await resp.json();
+  } catch {
+    /* 非 JSON 按状态码兜底 */
+  }
+  return {
+    ok: false,
+    error: (payload && (payload.message || payload.msg)) || `HTTP ${resp.status}`,
+    status: resp.status,
+    auth: resp.status === 401 || resp.status === 403,
+  };
 }
 
 // R40 查词补报：会话内去重即可（SW 挂起重置后服务端幂等兜底），遥测失败静默
@@ -322,7 +244,7 @@ function reportLookup(word) {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
     switch (msg && msg.type) {
-      case 'ml:translate': {
+      case MSG.ML_TRANSLATE: {
         // Why 单词先直连金山（R15 快路径，免登录、绕开 moon-well 网络链路）；
         // miss/异常回退 moon-well 全链路（ES 缓存 + 后端词干还原 + LLM 兜底），行为兼容改动前
         const text = String(msg.text || '').slice(0, 2000).trim();
@@ -341,7 +263,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         );
         break;
       }
-      case 'ml:mark': {
+      case MSG.ML_MARK: {
         // known = 标记已认识（移出学习队列）；unknown = 加入生词本
         const action = msg.known ? 'known' : 'unknown';
         sendResponse(
@@ -349,7 +271,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         );
         break;
       }
-      case 'ml:detail':
+      case MSG.ML_DETAIL:
         // 单词详解：moon-well 缓存优先（magicbook-vocabulary 索引），miss 才调 LLM；
         // 划词可能是变体（ran），服务端负责还原词目并返回六板块结构化 JSON
         sendResponse(
@@ -357,7 +279,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             { method: 'GET', timeoutMs: DETAIL_TIMEOUT_MS })
         );
         break;
-      case 'ml:analyze':
+      case MSG.ML_ANALYZE:
         // 生词智能高亮初次扫描（P1）：整页文本走 analyze 判定矩阵（手动标记优先 + 词档兜底），
         // 返回生词列表；顺带进 reading_vocabulary 阅读事件流，与 magicbook 学情互通。
         // bookName/chapter 服务端各截 200 字符；analyze 无 LLM 调用但查词档表与 ES，放宽到 30s
@@ -372,7 +294,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           })
         );
         break;
-      case 'ml:familiar':
+      case MSG.ML_FAMILIAR:
         // 高亮增量判定（SPA 动态内容）：单词本批量查询，无阅读事件副作用，故用于增量
         sendResponse(
           await callApi('/vocabulary/familiar', {
@@ -380,16 +302,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           })
         );
         break;
-      case 'ml:settings':
+      case MSG.ML_SETTINGS:
         sendResponse(await callApi('/vocabulary/reading/settings', { method: 'GET' }));
         break;
-      case 'ml:api': {
+      case MSG.ML_API: {
         // Why 白名单：chat.js 面板端点经此中转，防任意 path 透传
         const ALLOWED = new Set([
           '/ai/agent/conversations', '/ai/agent/history',
           '/ai/agent/conversation/rename', '/ai/agent/conversation/delete',
           '/ai/agent/memory/list', '/ai/agent/memory/save', '/ai/agent/memory/delete',
           '/ai/agent/book-profile',
+          '/buddy/catalog', // R54 修订：悬浮球 buddy 形象（equipped 伙伴头像直链）
         ]);
         if (!ALLOWED.has(msg.path)) {
           sendResponse({ ok: false, error: 'path not allowed', status: 0 });
@@ -398,7 +321,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse(await callApi(msg.path, { body: msg.body || {} }));
         break;
       }
-      case 'ml:auth': {
+      case MSG.ML_HL_TOGGLE: {
+        // R54 修订：悬浮球「生词高亮」气泡——content script 用不了 chrome.tabs，
+        // 经此转发给同 tab 的 highlight.js，与 Alt+U 完全同一链路与语义
+        //（含站点禁用不动全局开关的兜底：highlight.js 侧判定）
+        if (!sender.tab || sender.tab.id == null) {
+          sendResponse({ ok: false });
+          break;
+        }
+        chrome.tabs.sendMessage(sender.tab.id, { type: MSG.ML_HL_TOGGLE }, (resp) => {
+          if (chrome.runtime.lastError || !resp || !resp.ok) {
+            chrome.storage.sync.get(__magicLensDefaults, ({ hlEnabled }) => {
+              chrome.storage.sync.set({ hlEnabled: !hlEnabled });
+            });
+          }
+          sendResponse({ ok: true });
+        });
+        break;
+      }
+      case MSG.ML_AUTH: {
         // 聊天 SSE 直连前的凭据解析（R35）：apiBase/token 只此一处出——设置页自 v0.3
         // 起不写 apiBase，公网域名仅存在于本文件 DEFAULT 兜底，chat.js 曾本地读
         // storage 默认空串导致面板永远「未配置服务地址或 Token」且重新登录无效。
@@ -407,15 +348,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const { apiBase, token, refreshToken } = await getCfg();
         let authToken = token;
         if (!authToken && refreshToken) {
-          try {
-            authToken = await refreshTokens(refreshToken);
-          } catch (e) {
-            if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
-              sendResponse({ ok: false, error: `登录续期超时（${Math.round(TIMEOUT_MS / 1000)}s），请稍后重试`, status: 0 });
-              break;
-            }
-            await chrome.storage.sync.set({ token: '', refreshToken: '' });
-            sendResponse({ ok: false, error: '登录已失效，请重新登录', status: 401, auth: true });
+          // L4：刷新/清凭据决策走单点 refreshOrClear（与 callApi 401 同分支）
+          const refreshed = await refreshOrClear(refreshToken);
+          if (refreshed.token) {
+            authToken = refreshed.token;
+          } else {
+            sendResponse({ ok: false, error: refreshed.error, status: refreshed.status, auth: refreshed.auth });
             break;
           }
         }
@@ -426,7 +364,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok: true, apiBase, token: authToken });
         break;
       }
-      case 'ml:selection': {
+      case MSG.ML_SELECTION: {
         // R36：子文档（iframe）里的选区上报——selection-relay.js 只在非顶层文档运行，
         // 气泡与按钮链路的唯一属主是顶层 content.js，故投回同一 tab 让它呈现。
         // content script 用不了 chrome.tabs，这一跳中转是必须的；不指定 frameId 即投给
@@ -437,36 +375,78 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           break;
         }
         chrome.tabs.sendMessage(sender.tab.id,
-          { type: 'ml:openSelection', text: msg.text, rect: msg.rect },
+          { type: MSG.ML_OPENSELECTION, text: msg.text, rect: msg.rect },
           () => { void chrome.runtime.lastError; }); // 顶层未装载（站点禁用/扩展刚更新）时无人接收
         sendResponse({ ok: true });
         break;
       }
-      case 'ml:login':
+      case MSG.ML_LOGIN:
         // 打开 moon-well 的 Authentik 登录页（与 magicbook 同一登录入口）；
         // 成功后 callback 页由 content.js 自动捕获令牌
         chrome.tabs.create({ url: (await getCfg()).apiBase + LOGIN_PATH });
         sendResponse({ ok: true });
         break;
-      case 'ml:register':
+      case MSG.ML_REGISTER:
         // 邀请制注册（Authentik invitation-enrollment 流程，注册完回到登录页正常登录）
         chrome.tabs.create({ url: ENROLLMENT_URL });
         sendResponse({ ok: true });
         break;
-      case 'ml:logout':
+      case MSG.ML_LOGOUT:
         await chrome.storage.sync.set({ token: '', refreshToken: '' });
         sendResponse({ ok: true });
         break;
-      case 'ml:login-ok':
+      case MSG.ML_LOGIN_OK:
         // 登录成功：callback 标签页展示 2.5s 成功横幅后由 background 关闭
         if (sender && sender.tab && sender.tab.id != null) {
           setTimeout(() => { chrome.tabs.remove(sender.tab.id).catch(() => { /* 已关则忽略 */ }); }, 2500);
         }
         sendResponse({ ok: true });
         break;
-      case 'ml:openOptions':
+      case MSG.ML_OPENOPTIONS:
         chrome.runtime.openOptionsPage();
         sendResponse({ ok: true });
+        break;
+      case MSG.ML_REC_START: {
+        // 录音开始：惰性建 offscreen 文档并转发 ML_REC_GO。
+        // Why GO/DONE 与 START/STOP 两套类型：content 的 runtime.sendMessage 会广播
+        // 到全部扩展上下文（含 offscreen），offscreen 只认 GO/DONE/CANCEL 且对其余
+        // 类型不回话，避免抢占 SW 的响应通道（rpc.js MSG 表注释同口径）。
+        try {
+          await ensureOffscreen();
+          const rec = await sendToOffscreen({ type: MSG.ML_REC_GO });
+          sendResponse(rec || { ok: false, error: '录音模块无响应，请重试' });
+        } catch (e) {
+          sendResponse({ ok: false, error: (e && e.message) || '录音启动失败' });
+        }
+        break;
+      }
+      case MSG.ML_REC_STOP: {
+        // 取音频 → 关文档 → 转写。文档先关：ASR 慢（最长 60s），offscreen 文档
+        // 没必要陪等；ASR 失败也不影响录音已正常收尾。
+        try {
+          await ensureOffscreen();
+          const rec = await sendToOffscreen({ type: MSG.ML_REC_DONE });
+          chrome.offscreen.closeDocument().catch(() => { /* 已关/不存在则忽略 */ });
+          if (!rec || !rec.ok) {
+            sendResponse({ ok: false, error: (rec && rec.error) || '录音模块无响应，请重试' });
+            break;
+          }
+          sendResponse(await transcribeAudio(rec.audioBase64));
+        } catch (e) {
+          sendResponse({ ok: false, error: (e && e.message) || '转写失败' });
+        }
+        break;
+      }
+      case MSG.ML_REC_CANCEL:
+        // 关抽屉等场景放弃录音：丢弃音频、不转写不计费
+        await sendToOffscreen({ type: MSG.ML_REC_CANCEL });
+        chrome.offscreen.closeDocument().catch(() => { /* 已关/不存在则忽略 */ });
+        sendResponse({ ok: true });
+        break;
+      case MSG.ML_TTS_SPEAK:
+        // 朗读合成：SW 取二进制音频转 base64 回传（content 里 Web Audio 解码播放，
+        // 与宿主页 CSP 无涉——字节经消息通道进来，连 connect-src 都不占用）
+        sendResponse(await synthesizeSpeech(String(msg.text || '').slice(0, 2000)));
         break;
       default:
         sendResponse({ ok: false, error: 'unknown message type' });
@@ -487,9 +467,9 @@ chrome.commands.onCommand.addListener((command) => {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tab = tabs && tabs[0];
     if (!tab || tab.id == null) return;
-    chrome.tabs.sendMessage(tab.id, { type: 'ml:hl-toggle' }, (resp) => {
+    chrome.tabs.sendMessage(tab.id, { type: MSG.ML_HL_TOGGLE }, (resp) => {
       if (chrome.runtime.lastError || !resp || !resp.ok) {
-        chrome.storage.sync.get({ hlEnabled: true }, ({ hlEnabled }) => {
+        chrome.storage.sync.get(__magicLensDefaults, ({ hlEnabled }) => {
           chrome.storage.sync.set({ hlEnabled: !hlEnabled });
         });
       }

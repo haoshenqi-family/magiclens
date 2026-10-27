@@ -44,8 +44,8 @@ moon-well 认证三通道：
 ## 5. 分期
 
 - **P0（已交付）**：划词翻译 + 认识/生词标记 + 本地朗读 + 设置页（US1/US2）。
-- **P0.5（已交付）**：AI 伴读聊天抽屉（R119 评估并入当前批次，与划词共享全部基建）+ moon-well 侧两改动（web prompt 分支 + skipMemoryExtract），设计见 `docs/feat/chrome-extension/design/lld.md`。
-- **P1（部分交付）**：生词智能高亮已交付（v0.5.0，2026-10-06，借鉴「明畅·个人词库」机制：CSS Custom Highlight API 渲染 + analyze 判定矩阵 + 视口懒渲染 + MutationObserver 增量，设计见 `docs/feat/vocab-highlight/design/lld.md`）；v0.7.2（2026-10-07，R24）补多文档（iframe）支持——magicbook 阅读器正文在 epub.js 同源 iframe 里且阅读页标题为中文书名，引擎按文档多实例化 + 文档绑定早于首扫 + 逐文档正文采样门控（lld.md §6）；剩段落整页翻译（translate-batch）与 OIDC/JWT 相关收尾。
+- **P0.5（已交付）**：AI 伴读聊天抽屉（R119 评估并入当前批次，与划词共享全部基建）+ moon-well 侧两改动（web prompt 分支 + skipMemoryExtract），设计见 `docs/project/_legacy/feat/chrome-extension/design/lld.md`。
+- **P1（部分交付）**：生词智能高亮已交付（v0.5.0，2026-10-06，借鉴「明畅·个人词库」机制：CSS Custom Highlight API 渲染 + analyze 判定矩阵 + 视口懒渲染 + MutationObserver 增量，设计见 `docs/project/_legacy/feat/vocab-highlight/design/lld.md`）；v0.7.2（2026-10-07，R24）补多文档（iframe）支持——magicbook 阅读器正文在 epub.js 同源 iframe 里且阅读页标题为中文书名，引擎按文档多实例化 + 文档绑定早于首扫 + 逐文档正文采样门控（lld.md §6）；剩段落整页翻译（translate-batch）与 OIDC/JWT 相关收尾。
 - **P2**：moon-well TTS 朗读（/tts/speak 音频播放状态机 + speechSynthesis 降级）。
 - **储备**：chrome.sidePanel 兜底方案、Readability 深度正文抽取、右键菜单「问 AI」。
 
@@ -54,12 +54,17 @@ moon-well 认证三通道：
 仓库已转 **public**。版本号两段式，发布全自动：
 
 - **测试版 `X.Y.Z-YYYYMMDDHHmm`**：每次修改完成即递增（`version` 语义化 +1，时间戳写进 `version_name`），供 `chrome://extensions` 重载验证，**不触发发布**。
-- **正式版 `X.Y.Z`**：**用户确认**可发布后，清理 `version_name` 时间戳推送到 `develop`，再由 AI merge `develop` 到 `release` 分支——push 到 `release` 才触发 [.github/workflows/release.yml](./.github/workflows/release.yml)（R18 起，原 develop 触发已废除；`release` 分支随 R18 自 develop HEAD 建立）：打 `vX.Y.Z` tag、创建 GitHub Release、附 `extension/` 打包 zip；测试后缀或 Release 已存在均跳过。
-- **分发渠道（2026-10-07，R23 决策）**：**仅通过 GitHub Releases 分发，不上架 Chrome Web Store**——避免注册费、`<all_urls>` 广泛权限深度审核与后续每次更新的审核维护成本；用户经开发者模式加载 zip 自装。商店上架材料已备好备用：[docs/webstore/listing.md](./webstore/listing.md)（listing 文案/权限理由/截图规格）与 [PRIVACY.md](../PRIVACY.md)（隐私政策），未来决定上架时直接可用。注意 GitHub 分发的固有限制：扩展更新需手动重新下载 zip 并在 `chrome://extensions` 重载（无自动更新通道）。
+- **正式版 `X.Y.Z`**：**用户确认**可发布后，清理 `version_name` 时间戳推送到 `develop`，再由 AI merge `develop` 到 `release` 分支——push 到 `release` 才触发 [.github/workflows/release.yml](../../.github/workflows/release.yml)（R18 起，原 develop 触发已废除；`release` 分支随 R18 自 develop HEAD 建立）：打 `vX.Y.Z` tag、创建 GitHub Release、附 `extension/` 打包 zip；测试后缀或 Release 已存在均跳过。
+- **分发渠道（2026-10-07，R23 决策）**：**仅通过 GitHub Releases 分发，不上架 Chrome Web Store**——避免注册费、`<all_urls>` 广泛权限深度审核与后续每次更新的审核维护成本；用户经开发者模式加载 zip 自装。商店上架材料已备好备用：[listing.md](webstore/listing.md)（listing 文案/权限理由/截图规格）与 [PRIVACY.md](../../PRIVACY.md)（隐私政策），未来决定上架时直接可用。注意 GitHub 分发的固有限制：扩展更新需手动重新下载 zip 并在 `chrome://extensions` 重载（无自动更新通道）。
 
 ## 7. 金山词霸直连快路径（2026-10-07，R15，v0.6.0）
 
 **决策**：单词划词由 background service worker 直连金山词霸 suggest 接口（`dict-mobile.iciba.com`，免费无凭证，与 moon-well `IcibaDictClient` 同一端点同一解析口径），miss/异常静默回退 moon-well `/vocabulary/reading/translate`。moon-well 零改动，magicbook 不受影响。
+
+> **更新（2026-10-27，R48/R55）**：直连域已从 `background.js` 拆到 `extension/iciba.js`，
+> service worker 只消费模块公开键。R48 拆分时曾因按内部函数名解构导致划词运行时报错，
+> R55 已修复并由 `scripts/check-extension-modules.js` 锁住跨文件导出契约；实现与边界见
+> [`features/iciba-direct.md`](features/iciba-direct.md)。
 
 - **动机**：原链路单词查询要绕行 浏览器→Traefik(Server 2)→Tailscale→fnOS→出网查金山（两段 TLS + 一段隧道）；R122 曾观测到浏览器→moon-well 入口间 ~5.9s 未解释盲区。直连一跳通常百毫秒级，且免登录（未登录用户单词翻译也可用）。
 - **权限**：manifest 本就 `host_permissions: ["<all_urls>"]`，无新增权限。
@@ -78,7 +83,7 @@ moon-well 认证三通道：
 
 ## 9. 域名管理：按域名禁用插件（2026-10-07，R25，v0.8.0）
 
-**决策**：`chrome.storage.sync` 新增 `disabledDomains: string[]`，条目为归一化 hostname，匹配语义「该域 + 全部子域」（无精确/仅子域两种模式——域名禁用的直觉语义就是整站别管，多一种模式多一份理解成本）；门控放 content script 注入层（content.js 主引擎与 highlight.js boot 各自判定，`common.js` 提供共享的归一化/匹配助手），禁用站零 UI、零 DOM 监听、零请求（highlight.js 保留判定所需的 chrome.runtime/storage 内部监听，页面 DOM 监听为零）。UI：options 名单管理 + popup 本站一键禁用/恢复。设计细节见 `docs/feat/domain-management/design/lld.md`。
+**决策**：`chrome.storage.sync` 新增 `disabledDomains: string[]`，条目为归一化 hostname，匹配语义「该域 + 全部子域」（无精确/仅子域两种模式——域名禁用的直觉语义就是整站别管，多一种模式多一份理解成本）；门控放 content script 注入层（content.js 主引擎与 highlight.js boot 各自判定，`common.js` 提供共享的归一化/匹配助手），禁用站零 UI、零 DOM 监听、零请求（highlight.js 保留判定所需的 chrome.runtime/storage 内部监听，页面 DOM 监听为零）。UI：options 名单管理 + popup 本站一键禁用/恢复。设计细节见 `docs/project/_legacy/feat/domain-management/design/lld.md`。
 
 - **生效语义（统一）**：名单只决定新加载页面，变更后刷新生效。Why 不做运行中即时拆装：content.js 的 UI 与监听是顶层一次性装配，可逆化需把装配重写为 init/retire 对称结构，风险与收益不成比例（低频配置动作）。
 - **highlight.js 的坑**：它有 storage.onChanged / Alt+U 等现成「重开路径」，只挡 boot 的话禁用站会被后续全局开关变化复活引擎；因此启动时把判定结果固化进 `siteDisabled` 并入 `shouldEngineRun()`，所有路径统一封死。
@@ -96,7 +101,7 @@ moon-well 认证三通道：
 
 **背景**：magicbook R141/R143 把阅读器内置划词气泡下线，口径是「只隐藏 magiclens 已经实现的部分」。
 但 R24 的多文档引擎只把**生词高亮**与**hover 生词 / 点高亮词弹气泡**两条交互搬进了同源 iframe，
-「拖选→翻译」这条链路一直留在顶层文档——该缺口当年就写在 `docs/feat/vocab-highlight/design/lld.md`
+「拖选→翻译」这条链路一直留在顶层文档——该缺口当年就写在 `docs/project/_legacy/feat/vocab-highlight/design/lld.md`
 §6.5「已知边界（R25 候选）」里，并被判为「阅读场景影响小」。内置气泡下线后，这个"影响小"的缺口
 变成用户可感知的故障：阅读器里选中单词毫无反应，而波浪线照常出现。
 
@@ -185,3 +190,54 @@ v0.8.5 之前的实例就是代价：扩展装着、iframe 拖选不通，阅读
 内置那份，也不留空声明。
 
 **边界**：标记只表示「正在接管」，不表示「接管成功」（如 analyze 请求失败的词自然没线）；宿主据此做的让位判断是尽力而为，扩展未装载时宿主保留自己那份，功能不因检测而缺失。
+
+## 14. 面板端点解包容错与失败可见（2026-10-14，R44，v0.8.11；同源 moon-well R173）
+
+## 15. 架构评审任务拆分（2026-10-15，R45）
+
+家族根 2026-10-14 架构评审对本仓的待办已拆分建档至 [`docs/project/_legacy/feat/arch-review-2026-10/design/overview.md`](../project/_legacy/feat/arch-review-2026-10/design/overview.md)。本轮仅建档登记，未改任何 `extension/` 代码。
+
+## 16. 统一 RPC 门面 rpc.js（2026-10-15，R46，v0.8.12；架构评审 L1/L4/L5/L6）
+
+**决策**：消息传输与失效分类收编 `rpc.js`（window/globalThis 双环境挂载）——send 同一失效分类器（同步抛/lastError 两路）、onInvalidated 退役钩子（content=retireOrphan、highlight=teardown，各自保留副作用）、MSG 消息类型表 16 键集中（发送端与 background case 同表，禁止裸字符串扩散）。三份薄包装（content {ok,error} / highlight 吞错返 null / chat Promise）保留各自契约不迁就——统一在传输层而非契约层，调用点零迁移。
+
+**同批落地**：L4 令牌刷新/清凭据单点 `refreshOrClear`（callApi 401 与 ml:auth 同分支，R35 口径从注释对齐变代码单点）；L5 设置默认值单点 `__magicLensDefaults`（common.js 冻结表，五处内联默认与 DEFAULT_CFG 全部引用）；L6 失败可见（highlight analyze 失败 console.warn + storage.local 上报 + popup 常驻失败原因行；chat memory save/delete 补失败提示——降级逻辑不变，只消除「接口故障伪装成无生词/静默丢失」）。
+
+**Why**：三份消息封装语义各异（{ok,error} / 吞错 null / Promise），R16/R24 类漂移靠注释对齐；X1 三端合围的 magiclens 侧（moon-well M4 包装兑底 + magicbook B5 统一解包已落地）。任务明细见 `docs/project/_legacy/feat/arch-review-2026-10/design/refactor-items.md` L1/L4/L5/L6。
+
+**起因**：用户报告「伴读抽屉打开后，同一网站之前的记录都没了」。排查链：R43（朗读引擎）→ 顺带查面板数据链路 → 定位到 moon-well `/ai/agent` 的 8 个面板端点返回**裸 VO/数组**，而本仓 `background.js callApi` 按「统一 Result 包装」判定 `payload.success !== true`，于是成功响应被误判为失败；`chat.js refreshConversations()` 又写作 `if (!resp.ok) return;`，误判被静默吞掉。三者叠加的用户可见结果＝「历史凭空消失」，且界面上与「真的没有历史」完全同形。
+
+**两条决策**：
+
+1. **解包容错，与 magicbook 同口径**。`callApi` 的判定抽成纯函数 `unwrapMoonWellResponse(resp, payload)`：只有 HTTP 不成功 / 非 JSON / 显式 `success === false` 才算失败，其余取 `result`，裸 payload 原样透出——与 magicbook 侧 `ai_chat.js unwrap()` 完全一致（它早就容错，所以同一后端 magicbook 面板一直正常）。做成纯函数不碰 `fetch`/`storage`，是为了能把源码片段直接抽出来喂断言跑（本仓无测试框架，见 §14 验证）。
+2. **失败必须在界面上说话**。会话列表拉取失败时，下拉里显示「⚠ 会话列表加载失败：<原因>」而不是留一个只有「＋ 新会话」的空列表；历史/记忆/学情三块原本已有错误态。**静默降级是排查成本最高的失败形态**——它把接口故障伪装成数据不存在，用户报上来的永远是「我的东西丢了」。
+
+**容错不等于纵容**：权威形制仍是统一 `Result` 包装，后端那 8 个端点已在 moon-well R173 补齐并由两条形制断言锁住；本仓容错只是护栏，防止后端再漂移时又演变成「数据消失」。
+
+**验证**：抽出 `background.js` 里真实的 `unwrapMoonWellResponse` 源码，node 跑 12 条断言全过——包装/裸数组/裸对象/空数组/`result:null` 五类成功形制都判成功；`success:false`、非 JSON、HTTP 500、401/403（带 `auth` 标记）四类失败形制都判失败；控制组用旧判定跑同一批 payload，裸数组与裸对象确实「判失败」，证明断言有鉴别力而非自证。
+
+## 17. 宿主悬浮球优先：magicbook 站内扩展球让位（2026-10-27，R56，v0.8.20）
+
+**决策**：`magicbook.haoshenqi.top` 及其全部子域由宿主 magicbook 保留站内悬浮球，
+MagicLens 扩展悬浮球在这些域自动隐藏；其他网站继续按用户开关显示扩展球。
+
+**为什么不让宿主探测扩展后隐藏**：
+
+- magicbook 的 buddy 球通过全站 `layout.html` / 阅读器模板注入，承载读书上下文与站内快捷动作；
+  扩展球是通用网页入口，能力更窄，冲突时应由能力更完整、上下文更准确的一方留任。
+- 网页无法可靠枚举已安装扩展，未打包扩展 ID 还会随安装路径变化。让宿主反向探测会重复
+  R37 能力握手已规避的不稳定前提。
+- 域名让位是静态产品约束，不需要 DOM 轮询或跨端消息，也不会把「扩展是否加载成功」变成
+  宿主球能否工作的前置条件。
+
+**契约**：`common.js` 的 `__magicLensBallVisible(cfg, host, isTop)` 在原有
+「主开关 × `ballEnabled` × 顶层文档 × 用户禁用名单」基础上增加冻结的
+`__magicLensBallYieldDomains`。匹配复用 `__magicLensIsDisabledHost`，因此让位域同时覆盖
+子域，但不会命中 `notmagicbook.haoshenqi.top` 这类相似域名。
+
+**边界**：
+
+- 只影响悬浮球，不影响 magicbook 站内的划词、高亮、标记与伴读抽屉。
+- 不开放为用户配置：同一页面不能让两个常驻入口并存；用户若想关闭宿主球，应使用 magicbook
+  自身设置。
+- 旧域 `magicbook.haoyuhang.top` 已 301 到现域，让位名单无需重复登记。

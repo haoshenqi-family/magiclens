@@ -31,9 +31,10 @@ flowchart LR
 | 划词朗读 | ✅ | **单个英文单词走有道 dictvoice 词库真人音频**（免 key、type=2 美式，v0.8.10 起，与 magicbook 阅读器划词发音同构）；短语/句子以及外链被页面 CSP 挡住/断网时回退浏览器 speechSynthesis；不走后端、零积分消耗 |
 | 域名管理（v0.8.0） | ✅ | 在设置页维护「禁用 MagicLens 的域名」名单（匹配该域名及其全部子域，输入完整网址/带端口/带 `*.` 前缀均可，自动归一化）；扩展弹窗可一键禁用/恢复当前站点。名单随浏览器账号同步，变更对已打开页面**刷新后生效** |
 | 设置页 | ✅ | 登录化（v0.3.0）：Authentik OIDC 登录 + 回调自动捕获令牌 + 401 静默刷新；无手动配置项。单词难度等级、词汇量测试等详细设置在 magicbook「阅读设置」页管理，设置页提供直达链接（v0.6.1） |
-| AI 伴读聊天抽屉 | ✅（v0.2.0） | `POST /ai/agent/chat` SSE 直连 content script；会话/记忆/学情面板；划词「问 AI」联动；moon-well 前置（web prompt + skipMemoryExtract）已上线 |
+| 常驻入口悬浮球（v0.8.17；v0.8.18 对齐 magicbook R223 形态；v0.8.20 站内去重） | ✅ | 设置页开关「常驻入口」：开启后除 **magicbook 站内**（保留站点自带悬浮球）外的网页右下角显示扩展悬浮球——**与 magicbook 伴读悬浮球同形态**：显示你装备的 buddy 伙伴形象（透明头像球，未装备回落蓝色「AI」底；来自 moon-well 伙伴目录），**hover 弹出径向快捷气泡**（类 iPhone AssistiveTouch：💬 对话开伴读抽屉〔恒第一位〕、〰 生词高亮开关〔同 Alt+U〕、🎓 每日学习 / 📚 书库 / 👤 我的新标签打开 magicbook）；可拖拽、松手吸附左右边缘并记住位置（按站点）；气泡 350ms 延迟关闭、展开方向自适应屏幕边缘。已打开页面**实时生效**（无需刷新），magicbook 站内、域名管理名单站点、主开关关闭时不显示；**首次安装会自动打开设置页并引导选择是否开启**（默认关闭，存量用户升级后不突现） |
+| AI 伴读聊天抽屉 | ✅（v0.2.0；v0.8.11 修好会话列表；v0.8.15 对齐 magicbook R232/R233；v0.8.16 对齐 R227 语音双向） | `POST /ai/agent/chat` SSE 直连 content script；会话/记忆/学情面板；划词「问 AI」联动；moon-well 前置（web prompt + skipMemoryExtract）已上线。**打开抽屉默认起新会话**，续聊从左上角下拉里选（网页会话带「[通用]」前缀）；列表拉不动时下拉会直接显示失败原因，不再静默空着。**回复不再显示 token 用量**（v0.8.15，与 magicbook R232 同口径，用量只在 magicbook 设置·积分查）；回复与历史里的本站链接（`/me`、`/credits`、`/book/N` 等）安全渲染为可点链接，固定新窗口打开（v0.8.15，与 magicbook R233 同口径；外链与代码块不转链接）。**语音双向**（v0.8.16，与 magicbook R227 同口径）：🎤 点击开始/停止录音（offscreen 文档采集，麦克风权限归扩展、逐站点免授权），转写文字追加进输入框可编辑后发送、不自动发送；每条助手回复带「🔊 朗读本条」（手动点击、`/tts/speak` 1 积分/次、长回复 ≤1800 字分段顺序播并显示进度），再点停止，关抽屉/切会话即停 |
 | 段落整页翻译 | 规划 P1 | `translate-batch` |
-| moon-well 声音朗读（DashScope） | 规划 P2 | `POST /tts/speak` |
+| moon-well 声音朗读（AI TTS） | 部分接入（v0.8.16） | `POST /tts/speak`——伴读抽屉「朗读本条」已接（1 积分/次，听=消费；不带书籍上下文落 7 天临时档）；划词朗读仍走有道词典真人音频 + 浏览器语音，不经后端 |
 
 ## 安装（开发者模式）
 
@@ -60,12 +61,13 @@ flowchart LR
 | `/vocabulary/known/{word}` · `/unknown/{word}` | GET | — | 标记认识 / 入生词本 |
 | `/vocabulary/detail/{word}` | GET | — | 单词详解（v0.4.0）：六板块结构化 JSON；变体入参自动还原词目，缓存按词目落档 |
 | `/vocabulary/reading/settings` | GET | — | 阅读偏好（也用作连接测试） |
-| `/tts/speak` | POST | `{text}`（1..2000，65s 超时） | 音频二进制（P2 接入） |
+| `/tts/speak` | POST | `{text}`（1..2000） | 伴读回复朗读（v0.8.16）：音频二进制（不套 Result，失败时为 Result 信封 JSON）；不带 bookName/chapter → 7 天临时缓存档；听=消费，命中缓存也扣 1 积分/次 |
+| `/learning/asr/transcribe` | POST | multipart `file`（wav，≤10MB） | 语音转写（v0.8.16）：伴读抽屉麦克风输入 → `{text}`；直传不落存储 |
 | `/learning/strands/lookup` | POST | `{word}`（≤64） | 金山直连查词补报四股台账（v0.8.8）：fire-and-forget，服务端同词同日幂等 |
 
 ## 关联文档
 
-- 可行性评估与决策记录：`docs/design.md`（源自 magicbook 仓库 `response.md` R118/R119）
+- 可行性评估与决策记录：`docs/product/design.md`（源自 magicbook 仓库 `response.md` R118/R119）
 - 上游项目：[magicbook](https://github.com/haoshenqi-family/magicbook)（阅读器，逻辑移植来源）、[moon-well](https://github.com/haoshenqi-family/moon-well)（后端 API）
 
 ## 待办（启动前置）

@@ -1,3 +1,5 @@
+const MSG = __magicLensRpc.MSG;  // R46：消息类型常量集中（rpc.js）
+
 /* MagicLens 弹窗：总开关 + 生词高亮开关 + 配置状态入口。配置细节在 options 页维护。 */
 const $enabled = document.getElementById('enabled');
 const $hl = document.getElementById('hl');
@@ -14,7 +16,18 @@ let siteDisabled = null; // null = 非 http(s) 页或状态未就绪
 const mlManifest = chrome.runtime.getManifest();
 $ver.textContent = `v${mlManifest.version_name || mlManifest.version}`;
 
-chrome.storage.sync.get({ enabled: true, hlEnabled: true }, (c) => {
+// L6（架构评审）：生词判定失败的常驻原因行——高亮页失败不再纯静默（highlight.js
+// 经 storage.local 上报），popup 打开即可见「为什么没有生词」的真实原因。
+chrome.storage.local.get({ analyzeLastError: null }, ({ analyzeLastError }) => {
+  if (!analyzeLastError || !analyzeLastError.reason) return;
+  const line = document.createElement('div');
+  line.style.cssText = 'margin:6px 0;padding:6px 8px;border-radius:6px;background:#fff4e5;color:#8a5300;font-size:12px;line-height:1.4;';
+  line.textContent = `生词判定上次失败：${analyzeLastError.reason}`;
+  const box = document.getElementById('status') || document.body;
+  box.prepend(line);
+});
+
+chrome.storage.sync.get(__magicLensDefaults, (c) => {  // L5：默认值单点
   $enabled.checked = c.enabled;
   $hl.checked = c.hlEnabled;
 });
@@ -40,7 +53,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   siteHost = window.__magicLensNormDomain(url.hostname) || url.hostname;
   $siteHost.textContent = siteHost;
   $siteRow.hidden = false;
-  chrome.storage.sync.get({ disabledDomains: [] }, ({ disabledDomains }) => {
+  chrome.storage.sync.get(__magicLensDefaults, ({ disabledDomains }) => {
     siteDisabled = window.__magicLensIsDisabledHost(siteHost, disabledDomains);
     $site.checked = !siteDisabled;
   });
@@ -48,7 +61,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 
 $site.addEventListener('change', () => {
   if (!siteHost) return;
-  chrome.storage.sync.get({ disabledDomains: [] }, ({ disabledDomains }) => {
+  chrome.storage.sync.get(__magicLensDefaults, ({ disabledDomains }) => {
     const next = $site.checked
       ? disabledDomains.filter((d) => {
         const n = window.__magicLensNormDomain(d);
@@ -70,7 +83,7 @@ document.getElementById('rescan').addEventListener('click', () => {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tab = tabs && tabs[0];
     if (!tab || tab.id == null) return showStatus(false, '找不到当前标签页');
-    chrome.tabs.sendMessage(tab.id, { type: 'ml:hl-rescan' }, (resp) => {
+    chrome.tabs.sendMessage(tab.id, { type: MSG.ML_HL_RESCAN }, (resp) => {
       if (chrome.runtime.lastError) return showStatus(false, '本页不支持扫描（浏览器内置页等）');
       if (resp && resp.ok) return showStatus(true, '✓ 已重新扫描生词');
       showStatus(false, (resp && resp.error) || '扫描失败');
@@ -83,7 +96,7 @@ function showStatus(ok, text) {
   $status.textContent = text;
 }
 
-chrome.storage.sync.get({ token: '' }, ({ token }) => {
+chrome.storage.sync.get(__magicLensDefaults, ({ token }) => {
   if (token) {
     $status.textContent = '已登录，划词即可翻译';
   } else {

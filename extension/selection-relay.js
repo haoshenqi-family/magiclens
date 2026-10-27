@@ -11,6 +11,7 @@
  * 顶层文档直接退出：那里的选区已由 content.js 的 mouseup 处理，两处同开会双气泡、双发
  * 翻译请求。 */
 (() => {
+  const MSG = __magicLensRpc.MSG;
   if (window === window.top) return; // 顶层交给 content.js
   if (window.__magicLensRelayLoaded) return; // 同文档重复注入保护
   window.__magicLensRelayLoaded = true;
@@ -55,7 +56,7 @@
     const mapped = toTopViewport(rect);
     if (!mapped) return;
     try {
-      chrome.runtime.sendMessage({ type: 'ml:selection', text, rect: mapped }, () => {
+      chrome.runtime.sendMessage({ type: MSG.ML_SELECTION, text, rect: mapped }, () => {
         void chrome.runtime.lastError; // 顶层尚未装载（站点禁用/刚重载）时无人接收，静默即可
       });
     } catch {

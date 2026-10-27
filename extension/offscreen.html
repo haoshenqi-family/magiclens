@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<!-- R53 伴读语音输入的录音宿主文档（chrome.offscreen，manifest 权限 "offscreen"）。
+     由 background 按 ML_REC_START 惰性创建、ML_REC_STOP 取完音频后关闭；
+     offscreen 文档没有任何可见 UI，只承载 getUserMedia + WebAudio 采集链路。 -->
+<html lang="zh">
+<head><meta charset="utf-8"><title>MagicLens 录音</title></head>
+<body>
+<script src="common.js"></script>
+<script src="rpc.js"></script>
+<script src="offscreen.js"></script>
+</body>
+</html>

@@ -2,11 +2,12 @@
   "manifest_version": 3,
   "name": "MagicLens 词镜",
   "description": "把 magicbook 的阅读能力带到整个 Web：划词翻译、单词详解、生词高亮、认识/生词标记、词汇表与朗读，直连 moon-well。",
-  "version": "0.8.10",
-  "version_name": "0.8.10",
+  "version": "0.8.20",
+  "version_name": "0.8.20",
   "minimum_chrome_version": "110",
   "permissions": [
-    "storage"
+    "storage",
+    "offscreen"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -17,15 +18,10 @@
   "content_scripts": [
     {
       "matches": [
-        "http://*/*",
-        "https://*/*"
+        "https://moon-well.haoshenqi.top/*"
       ],
       "js": [
-        "common.js",
-        "page-extract.js",
-        "highlight.js",
-        "content.js",
-        "chat.js"
+        "oidc-callback.js"
       ],
       "run_at": "document_idle"
     },
@@ -35,6 +31,23 @@
         "https://*/*"
       ],
       "js": [
+        "common.js",
+        "rpc.js",
+        "page-extract.js",
+        "highlight.js",
+        "content.js",
+        "chat.js",
+        "ball.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "rpc.js",
         "selection-relay.js"
       ],
       "run_at": "document_idle",

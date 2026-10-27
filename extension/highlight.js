@@ -463,24 +463,13 @@
     return chunks.join('\n');
   }
 
+  // R46（架构评审 L1）：传输与失效分类迁 __magicLensRpc——失效 teardown 经
+  // onInvalidated 钩子注册；本薄包装保留「吞错返 null」的调用方契约（高亮域
+  // 全部调用点按 null 判定，改契约要动几十处，收益为零）。
+  __magicLensRpc.onInvalidated(() => teardown());
+
   function askBackground(msg, onResult) {
-    // 扩展被重载后旧副本上下文失效：摘掉自己的样式与注册（对齐 content.js「失效即退役」），
-    // 否则冻结的高亮会一直残留在页面上。Why 无条件 teardown：!active 时同样安全且
-    // 能把预绑定的观察者一并拆除（审查 P2-3）
-    try {
-      if (!chrome.runtime || !chrome.runtime.id) { teardown(); return onResult(null); }
-      chrome.runtime.sendMessage(msg, (resp) => {
-        const err = chrome.runtime.lastError;
-        if (err) {
-          if (/invalidated|disposed/i.test(String(err.message || err))) teardown();
-          return onResult(null);
-        }
-        onResult(resp || null);
-      });
-    } catch (e) {
-      if (e && /invalidated|disposed/i.test(String(e.message || e))) teardown();
-      onResult(null);
-    }
+    __magicLensRpc.send(msg, (resp) => onResult(resp));
   }
 
   // Why 记录最近一次尝试：onSyncTick 由 mutation 驱动，gate 判否页每次 DOM 变化都会
@@ -524,7 +513,7 @@
     let chapter = location.pathname;
     try { chapter = decodeURIComponent(location.pathname); } catch { /* 原样使用 */ }
     askBackground({
-      type: 'ml:analyze',
+      type: MSG.ML_ANALYZE,
       pageText,
       bookName: location.hostname.slice(0, 200),
       chapter: chapter.slice(0, 200),
@@ -532,7 +521,13 @@
       scanning = false;
       if (!resp || !resp.ok || !Array.isArray(resp.data)) {
         failedKeys.add(pageKey()); // 增量降级 familiar；popup 重扫可 force
-        return; // 静默降级：不打扰阅读
+        // L6（架构评审）：失败不再纯静默——console 留痕 + 记入本地状态供 popup 常驻
+        // 展示原因（高亮页本身不打扰阅读：不弹 UI，波浪线消失≠无生词，用户可从
+        // popup 的失败行看到「为什么没有生词」）。
+        const reason = (resp && resp.error) || `HTTP ${(resp && resp.status) || '?'}`;
+        console.warn('[MagicLens] 生词判定失败（本页保持无高亮）：', reason);
+        try { chrome.storage.local.set({ analyzeLastError: { reason: String(reason).slice(0, 200), at: Date.now() } }); } catch { /* SW 不可用时忽略 */ }
+        return;
       }
       if (!shouldEngineRun()) return; // 在途期间被关闭/登出（teardown 已清场，不得复活）
       unknownSet.clear();
@@ -625,7 +620,7 @@
     const words = [...candidateWords].slice(0, FAMILIAR_BATCH);
     const apply = () => rescanNodes([...texts]);
     if (!words.length) return apply();
-    askBackground({ type: 'ml:familiar', words }, (resp) => {
+    askBackground({ type: MSG.ML_FAMILIAR, words }, (resp) => {
       if (!active) return; // 在途期间引擎被关停（teardown 已清场）
       if (resp && resp.ok && Array.isArray(resp.data)) {
         for (const w of resp.data) if (w) unknownSet.add(normWord(w));
@@ -822,7 +817,7 @@
       // fallback 是「收不到 ok 就代翻 storage」，回 false 反而会触发那次翻转
       if (siteDisabled) return sendResponse({ ok: true, siteDisabled: true });
       // Why 现读现翻：用缓存的 cfg 取反可能在 storage 回填前覆盖真实设置
-      chrome.storage.sync.get({ hlEnabled: true }, ({ hlEnabled }) => {
+      chrome.storage.sync.get(__magicLensDefaults, ({ hlEnabled }) => {
         chrome.storage.sync.set({ hlEnabled: !hlEnabled });
         sendResponse({ ok: true, hlEnabled: !hlEnabled });
       });
@@ -854,8 +849,9 @@
     markTakenOver(); // 引擎已就位——此时才声明「这条能力归我」，宿主据此关掉内置
     maybeScan(false);
   }
+  const MSG = __magicLensRpc.MSG;  // R46：消息类型常量集中
   // Why boot 在 storage 回调内：cfg 异步回填前 token 为空，同步调 boot 永远扫不了（R14 P0 修复）
-  chrome.storage.sync.get({ enabled: true, hlEnabled: true, token: '', disabledDomains: [] }, (c) => {
+  chrome.storage.sync.get(__magicLensDefaults, (c) => {
     // R25 域名管理：禁用站不启动引擎。Why 写进 siteDisabled 而非仅跳过 boot：
     // 本文件有 storage.onChanged/Alt+U 等现成「重开路径」，只挡 boot 的话，
     // 禁用站上后续翻转全局开关会把引擎复活
