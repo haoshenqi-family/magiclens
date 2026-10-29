@@ -129,6 +129,7 @@
 - **行为**：单个英文单词继续自动翻译；短语、句子、含中文文本不再自动请求翻译。气泡突出「AI」主按钮，隐藏对普通文本无效的「详/认识/生词」，「译」保留为手动操作。
 - **交付（worktree `../magiclens-r57-ai-selection`，分支 `feat/r57-ai-selection`，版本 0.8.21-202610291724 测试版）**：`common.js` 新增 `__magicLensSelectionAction` 统一去向判定与 `__magicLensSelectionWord` 统一取词；`content.js openBubble()` 按判定门控自动翻译、先配置按钮再定位，并在 `translate()` 统一守住 2000 字上限；迟到翻译响应按当前文本作废；`chat.js` 把选区原文直接写入伴读输入框（去掉 `「」` 包装），光标置末尾且不自动发送。
 - **验证**：`node --check` 三个改动文件与守卫脚本全过；`scripts/check-selection-ai.js` 覆盖单词、撇号/连字符词、短语、中文、英中混排、数字、标点与空文本，并锁住 `don’t` 的完整取词；R55/R56 守卫继续通过；`git diff --check` 干净。另用本机 Chrome headless 加载真实三份脚本并以 stub 中转层计数——单词只发 1 次 `ml:translate`，短语/中文不新增请求，手动「译」可新增，模式切换后按钮复位，旧翻译迟到响应不覆盖新 AI 提示，2001 字以上手动「译」被拦截，中文 AI 入框值为 `你好世界`（无引号）。真机清单待用户：单词自动译文、短语/中文不发翻译、AI 入框原文一致、iframe 行为一致。
+- **交叉审查修正**：补齐 P1「AI 模式手动译绕过 2000 字上限」；修正 P2「弯撇号单词只截出 don」并抽共享取词函数；调整为先配置按钮再测量定位，避免 AI→单词切换按旧宽度裁边；迟到翻译响应增加当前文本校验，禁止覆盖新 AI 气泡。
 - **文档四问**：用户可见能力变化 → README；产品决策 → design.md §18；实现边界 → `features/selection-routing.md`；本次实现 → `r57-selection-ai/lld.md`，并登记 plan MAGICLENS-11。
 - **台账**：requests.md 占号 R57（claim.sh `992a624`）；PingCode idea [ML-54 / Mr7EGN8B](https://haoshenqi.pingcode.com/ship/ideas/Mr7EGN8B)（In progress，待验收）；worktree merge 后驻留待真机验收。窗口轮转：最旧的 R42 原样搬至 `response-archive/response-R42.md` 并登记索引。
 - **总结**：response.md 本条；冲突记录：无。
