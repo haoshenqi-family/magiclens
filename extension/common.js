@@ -70,6 +70,17 @@
       && !g.__magicLensIsDisabledHost(host, cfg.disabledDomains)
       && !g.__magicLensIsDisabledHost(host, g.__magicLensBallYieldDomains));
 
+  /** R57 划词去向：只有单个英文单词走即时翻译；短语、句子、含中文的选区
+   * 一律交给伴读 AI。Why 不在 content.js 内联判断：这是用户可见的行为口径，
+   * 抽成 common.js 纯函数后可由 Node 守卫锁住，避免后续按钮/iframe 路径漂移。 */
+  g.__magicLensSelectionAction = (text) => {
+    const value = String(text || '').trim();
+    if (!value) return 'none';
+    const singleEnglishWord = /^[A-Za-z](?:[A-Za-z'’-]*[A-Za-z])?$/.test(value);
+    const containsChinese = /[\u3400-\u9fff\uf900-\ufaff]/.test(value);
+    return singleEnglishWord && !containsChinese ? 'translate' : 'ai';
+  };
+
   /** 上游错误详情不进 UI（R32 用户反馈：报错详情用户看不懂也不想了解）：
    * 疑似技术细节（URL/内部 IP/英文异常/网关标识）归一为通用文案，原文进
    * console 供排查；干净的业务文案（未登录/积分不足/选区过长等）原样放行。

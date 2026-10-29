@@ -199,7 +199,11 @@
       welcome();
       refreshConversations();
     }
-    if (text) state.els.input.value = `「${text}」`;
+    // R57：划词 AI 入口按字面复制选区，不加引用符号；光标放末尾方便继续补问题。
+    if (text) {
+      state.els.input.value = text;
+      try { state.els.input.setSelectionRange(text.length, text.length); } catch (e) { /* 类型不符时忽略 */ }
+    }
     switchView('chat');
     state.els.input.focus();
   }

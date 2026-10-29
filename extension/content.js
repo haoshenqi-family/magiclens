@@ -68,6 +68,8 @@ function startMainEngine() {
       }
       .actions button:hover { background: #e0e7ff; }
       .actions button.done { color: #059669; background: #d1fae5; cursor: default; }
+      .actions button.primary { color: #fff; background: #4f46e5; }
+      .actions button.primary:hover { background: #4338ca; }
       .actions .gap { flex: 1; }
       .cfg-link { color: #4f46e5; cursor: pointer; text-decoration: underline; }
       /* 单词详解面板（v0.4）：与划词气泡同 shadow，选中态独立展示 */
@@ -155,6 +157,8 @@ function startMainEngine() {
   const elMsg = shadow.querySelector('.msg');
   const btnKnown = shadow.querySelector('[data-act=known]');
   const btnUnknown = shadow.querySelector('[data-act=unknown]');
+  const btnDetail = shadow.querySelector('[data-act=detail]');
+  const btnAsk = shadow.querySelector('[data-act=ask]');
   // 单词详解面板（v0.4）
   const detail = shadow.querySelector('.detail');
   const elDWord = shadow.querySelector('.d-word');
@@ -268,6 +272,18 @@ function startMainEngine() {
     btnUnknown.classList.remove('done');
   }
 
+  function configureActions(action) {
+    // 单词专属动作在长选区/中文选区上没有意义；译保留为显式手动操作，AI 升为主按钮。
+    const wordOnly = action === 'translate';
+    btnDetail.hidden = !wordOnly;
+    btnKnown.hidden = !wordOnly;
+    btnUnknown.hidden = !wordOnly;
+    btnAsk.classList.toggle('primary', !wordOnly);
+    btnAsk.title = wordOnly
+      ? '把选中内容发给伴读 AI'
+      : '把选中内容填入伴读 AI 输入框';
+  }
+
   // Why 去重：点高亮词会两路触发本函数——mouseup 的 60ms 定时器 + highlight.js 的
   // click 处理器（程序化选中单词后立即调用）。同一选区 500ms 内只处理一次，
   // 避免重开气泡并重复发翻译请求
@@ -287,12 +303,24 @@ function startMainEngine() {
     elSrc.textContent = text.length > 120 ? `${text.slice(0, 120)}…` : text;
     show({ left: rect.left, top: rect.top, bottom: rect.bottom });
 
-    if (text.length > MAX_LEN) {
+    const action = window.__magicLensSelectionAction(text);
+    current = { text, word: action === 'translate' ? word : null };
+    configureActions(action);
+
+    if (action === 'translate' && text.length > MAX_LEN) {
       current = null;
       setError(`选区过长（超过 ${MAX_LEN} 字符），请缩小选区`);
       return;
     }
-    current = { text, word };
+
+    // R57：非单个英文单词（含中文）不自动发翻译请求——这类内容更适合先交给 AI；
+    // 用户仍可点「译」显式调用原翻译接口。
+    if (action === 'ai') {
+      setLoading('已选中，点「AI」带入伴读，或点「译」手动翻译');
+      elSpin.hidden = true;
+      return;
+    }
+
     if (cfg.autoTranslate) {
       translate();
     } else {
@@ -591,6 +619,7 @@ function startMainEngine() {
   window.__magicLensShowWordBubble = (word, anchor, source = 'hover') => {
     if (!cfg.enabled || !word || !anchor) return;
     resetButtons();
+    configureActions('translate');
     elSrc.textContent = word;
     show(anchor, source);
     current = { text: word, word };

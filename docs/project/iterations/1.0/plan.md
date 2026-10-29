@@ -23,6 +23,7 @@
 | MAGICLENS-8 R54 常驻入口悬浮球（设置开关 + 首次安装引导） | 用户故事 | [idea G8snk5AS](https://haoshenqi.pingcode.com/ship/ideas/G8snk5AS)（ML-53，In progress） | [r54-ball/](./r54-ball/)（LLD） | 已 merge 本地 develop（0.8.17 测试版，同树续作），待真机验收（2026-10-27） |
 | MAGICLENS-9 R55 修复 R48 金山直连模块导出契约回归 | 缺陷 | （无 PJM，台账承载） | [r55-iciba-export/](./r55-iciba-export/)（LLD） | 已 merge 本地 develop（0.8.19 测试版），待真机验收（2026-10-27） |
 | MAGICLENS-10 R56 magicbook 站内悬浮球去重 | 缺陷 | （无 PJM，台账承载） | [r56-ball-yield/](./r56-ball-yield/)（LLD） | 已 merge 本地 develop（0.8.20 测试版，同树续作），待真机验收（2026-10-27） |
+| MAGICLENS-11 R57 划词仅单词直译，其余交给 AI | 用户故事 | [idea Mr7EGN8B](https://haoshenqi.pingcode.com/ship/ideas/Mr7EGN8B)（ML-54，In progress） | [r57-selection-ai/](./r57-selection-ai/)（LLD） | 开发完成（0.8.21 测试版），待真机验收（2026-10-29） |
 
 ## 备注
 
