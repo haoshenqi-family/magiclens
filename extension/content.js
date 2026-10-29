@@ -261,8 +261,8 @@ function startMainEngine() {
     const text = sel.toString().trim();
     if (!text) return null;
     const rect = sel.getRangeAt(0).getBoundingClientRect();
-    const m = text.match(/^[A-Za-z][A-Za-z'\-]{0,40}/); // 生词标记只针对英文词
-    return { text, rect, word: m ? m[0] : null };
+    // 生词标记只针对英文词；词形口径由 common.js 统一，确保弯撇号等边界一致。
+    return { text, rect, word: window.__magicLensSelectionWord(text) };
   }
 
   function resetButtons() {
@@ -300,12 +300,14 @@ function startMainEngine() {
   function openBubble(text, word, rect) {
     translateInflight = null; // 新一轮气泡 = 新的一次翻译机会（换词/重开都要能再发）
     resetButtons();
-    elSrc.textContent = text.length > 120 ? `${text.slice(0, 120)}…` : text;
-    show({ left: rect.left, top: rect.top, bottom: rect.bottom });
-
     const action = window.__magicLensSelectionAction(text);
+    if (action === 'none') return;
     current = { text, word: action === 'translate' ? word : null };
     configureActions(action);
+    elSrc.textContent = text.length > 120 ? `${text.slice(0, 120)}…` : text;
+    // Why 先配置按钮再测量：AI 模式隐藏过单词按钮，若不先恢复，card 会按旧宽度定位，
+    // 从 AI 选区切回单词时靠近视口右缘会被裁掉右侧动作。
+    show({ left: rect.left, top: rect.top, bottom: rect.bottom });
 
     if (action === 'translate' && text.length > MAX_LEN) {
       current = null;
@@ -347,12 +349,18 @@ function startMainEngine() {
   function translate() {
     if (!current) return;
     const text = current.text;
+    // MAX_LEN 是 translate 接口约束，自动与手动入口都必须遵守。
+    if (text.length > MAX_LEN) {
+      setError(`选区过长（超过 ${MAX_LEN} 字符），请缩小选区`);
+      return;
+    }
     if (translateInflight === text) return;
     translateInflight = text;
     setLoading('翻译中…');
     askBackground({ type: MSG.ML_TRANSLATE, text }, (resp) => {
       if (translateInflight === text) translateInflight = null;
-      if (!current) return; // 气泡已关闭
+      // 气泡关闭或已换成别的选区时，旧请求的迟到响应必须作废。
+      if (!current || current.text !== text) return;
       if (!resp.ok) return setError(window.__magicLensUserFacingError(resp.error, '翻译失败，请稍后重试'), resp.status);
       const data = resp.data || {};
       setResult(data.translation || '（空结果）', data.source);
@@ -642,8 +650,7 @@ function startMainEngine() {
     if (!cfg.enabled || !text || !rect) return;
     if (!claimSelection(`${text}|${Math.round(rect.left)},${Math.round(rect.top)}`)) return;
     // 词形口径与顶层 selectionInfo 保持一致（前缀匹配，命中才允许标记生词）
-    const m = text.match(/^[A-Za-z][A-Za-z'\-]{0,40}/);
-    openBubble(text, m ? m[0] : null, rect);
+    openBubble(text, window.__magicLensSelectionWord(text), rect);
   }
 
   // Why 具名函数声明：retireOrphan() 要能 removeListener 摘掉它（匿名箭头摘不掉），

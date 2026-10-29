@@ -81,6 +81,13 @@
     return singleEnglishWord && !containsChinese ? 'translate' : 'ai';
   };
 
+  /** R57 划词词形：取选区开头的英文词，供标记/详解按钮使用。与去向判定共用
+   * 同一撇号口径（直/弯），避免 don’t 被判为单词、实际却只截出 don。 */
+  g.__magicLensSelectionWord = (text) => {
+    const match = String(text || '').match(/^[A-Za-z][A-Za-z'’\-]{0,40}/);
+    return match ? match[0] : null;
+  };
+
   /** 上游错误详情不进 UI（R32 用户反馈：报错详情用户看不懂也不想了解）：
    * 疑似技术细节（URL/内部 IP/英文异常/网关标识）归一为通用文案，原文进
    * console 供排查；干净的业务文案（未登录/积分不足/选区过长等）原样放行。

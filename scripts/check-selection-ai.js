@@ -24,7 +24,9 @@ vm.runInContext(
 );
 
 const action = context.__magicLensSelectionAction;
+const selectionWord = context.__magicLensSelectionWord;
 assert.equal(typeof action, 'function', 'common.js 必须公开 __magicLensSelectionAction');
+assert.equal(typeof selectionWord, 'function', 'common.js 必须公开 __magicLensSelectionWord');
 
 for (const word of ['hello', '  hello  ', "don't", 'don’t', 'well-known']) {
   assert.equal(action(word), 'translate', `单个英文单词应直接翻译：${word}`);
@@ -44,5 +46,10 @@ for (const text of [
 for (const text of ['', '   ']) {
   assert.equal(action(text), 'none', '空选区不应启动任何动作');
 }
+
+assert.equal(selectionWord('hello world'), 'hello');
+assert.equal(selectionWord("don’t stop"), 'don’t');
+assert.equal(selectionWord("don't stop"), "don't");
+assert.equal(selectionWord('你好'), null);
 
 console.log('PASS selection action: single English word -> translate, otherwise -> AI');
