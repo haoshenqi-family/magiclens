@@ -101,6 +101,7 @@
 - **目标路径**：`docs/project/iterations/<ITER>/<工作项>/ac/<USER_STORY>-ac.md`（若存在）
 - **执行要求**：
     - 本项目无自动化测试框架，验收 = **手工清单**逐条实测：加载扩展 → 划词 → 翻译展示 → 认识/生词标记 → 朗读 → 设置页保存与测试连接（涉及哪条验哪条）。
+    - **集成/E2E 用例跟着产品走（2026-11-07 R185 增补）**：新增 / 修改 / 下线扩展特性（消息、气泡、面板、设置项等），必须在**同一任务内**同步家族集成套件 `../ops/tools/integration-suite/`——手改 `matrix/magiclens.csv` 对应行并补/改 `browser/run.js` 的 feature 用例（mock fixture 同步），`python3 guard.py` 对账全绿。细则见 `../ops/AGENTS.md` 执行准则 B-4。
     - 所有验证点必须全部验证，不可以跳过。条件不足（如无 moon-well 内网环境）则请求用户提供更多信息。
     - 重点关注**请求经 background 中转、Result 包装解析、Shadow DOM 隔离**这三条硬性约定是否被破坏。
     - 验收完成后，输出详细验证报告（含每条 AC 结果与截图/console 佐证），最后回复 `✅ 所有 AC 已覆盖验证`。
