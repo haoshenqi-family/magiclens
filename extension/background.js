@@ -305,6 +305,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       case MSG.ML_SETTINGS:
         sendResponse(await callApi('/vocabulary/reading/settings', { method: 'GET' }));
         break;
+      case MSG.ML_REVIEW_QUEUE:
+        // R59 滚动复习（对齐 magicbook R285）：SRS 到期队列（due_at<=now 含积压）。
+        // 不透传 limit——上游默认 20，与 magicbook 代理口径一致（20 词前端洗牌）。
+        sendResponse(await callApi('/learning/srs/queue', { method: 'GET' }));
+        break;
+      case MSG.ML_REVIEW_DETAIL_BATCH: {
+        // R289 对齐：批量取「已缓存详解」（moon-well R248 只读缓存端点，miss 词不出现）。
+        // Why 绝不改调 /vocabulary/detail/{word}：那个端点 miss 即现场生成（计费 + 15~30s），
+        // 滚动复习是无人操作的被动轮播，翻页不许变成隐藏下单——计费红线与 magicbook 同源。
+        const words = Array.isArray(msg.words) ? msg.words.filter((w) => typeof w === 'string') : [];
+        sendResponse(await callApi('/vocabulary/detail/cached-batch', { body: { words } }));
+        break;
+      }
       case MSG.ML_API: {
         // Why 白名单：chat.js 面板端点经此中转，防任意 path 透传
         const ALLOWED = new Set([
