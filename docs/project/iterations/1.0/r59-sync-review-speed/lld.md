@@ -1,6 +1,6 @@
 # LLD — R59 同步 magicbook 近期功能：悬浮球 SRS 滚动复习轮播 + 回复朗读语速三档
 
-> 状态：**开发中**（2026-11-08，worktree `magiclens-r59-buddy-review-speed` / 分支 `feat/r59-buddy-review-speed`）
+> 状态：**已 merge 本地 develop，待真机验收**（2026-11-08，0.8.22-202611082233 测试版）
 > 关联需求：magiclens R59（PingCode ML-55）；对端 magicbook R285/R289（滚动复习）与 R263（朗读速度三档）。
 > 范围裁决（用户 2026-11-08 拍板）：R261 行内 gloss **不做**。
 
@@ -127,6 +127,15 @@ loading / failed / inFlight / paused / collapsed / 队列空 / **页面不可见
   - `ml-chat-speed`：开抽屉→头部语速按钮存在→点击循环 1.0x→0.75x→0.5x→1.0x→
     storage 断言 `magiclens.ttsSpeed` 持久化（mock 音频不可解码，不点「朗读本条」）。
 - `guard.py` 三向对账全绿。
+
+> 落地实况与踩坑（2026-11-08）：① harness 默认装**主检出** `magiclens/extension`，验 worktree
+> 必须显式 `--ext ../magiclens-r59-buddy-review-speed/extension`——首轮 ml-chat-speed「初始档位
+> null」即旧扩展无语速按钮所致；② 品牌版 Chrome 136+ 忽略 `--load-extension`，需 CfT
+> （`npx @puppeteer/browsers install chrome@stable`）；③ mock 层 `/vocabulary/detail/` 前缀
+> 规则抢在 `/vocabulary/detail/cached-batch` 精确匹配之前，把批量端点接到单词 fixture——
+> 前端全量 miss 全部静默回退简卡（详情失败不可见的口径反而掩盖了 mock 配错），**精确规则
+> 必须排在前缀之前**，此坑已写进 run.js 注释；④ 悬浮球默认关闭（R54），用例须显式
+> `sSet ballEnabled:true`。终验：CfT chrome@157 全量 14/14 pass、静态守卫 3/3、guard 全绿。
 
 ## 6. 版本与文档
 
