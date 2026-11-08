@@ -131,6 +131,7 @@
       <aside class="drawer">
         <div class="head">
           <select class="conv-sel"><option value="">＋ 新会话</option></select>
+          <button class="ic speed" data-act="speed" title="朗读语速（对齐 magicbook R263：常速→慢→更慢循环）">1.0x</button>
           <button class="ic" data-act="rename" title="重命名当前会话">✎</button>
           <button class="ic" data-act="del" title="删除当前会话">🗑</button>
           <button class="ic tab" data-view="memory" title="长期记忆">🧠</button>
@@ -161,6 +162,7 @@
       input: shadow.querySelector('.input'),
       sendBtn: shadow.querySelector('.send'),
       mic: shadow.querySelector('.mic'),
+      speed: shadow.querySelector('.ic.speed'),
       voiceStatus: shadow.querySelector('.voice-status'),
     };
 
@@ -171,6 +173,7 @@
       if (!btn) return;
       const act = btn.dataset.act, view = btn.dataset.view;
       if (act === 'close') close();
+      else if (act === 'speed') cycleSpeed();
       else if (act === 'rename') renameConversation();
       else if (act === 'del') deleteConversation();
       else if (view) switchView(view);
@@ -184,6 +187,8 @@
       send(state.els.input.value);
     });
     state.els.mic.addEventListener('click', () => { toggleMic(); });
+    // R59：语速档位异步回填（storage 读取前按钮先显示 1.0x 默认档）
+    loadSpeed().then((v) => { speech.speed = v; applySpeedButton(); });
     state.els.input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!state.running) send(state.els.input.value); }
     });
@@ -194,6 +199,9 @@
     build();
     state.open = true;
     state.els.wrap.classList.add('on');
+    // R59：向 window 广播开合态——悬浮球滚动复习卡要暂停/恢复轮播，而抽屉是
+    // closed shadow，球侧无法查询内部状态，事件是唯一感知通道。
+    try { window.dispatchEvent(new CustomEvent('magiclens-chat', { detail: { open: true } })); } catch (e) { /* 旧环境无 CustomEvent 时忽略 */ }
     if (!state.bootstrapped) {
       state.bootstrapped = true;
       welcome();
@@ -211,6 +219,7 @@
   function close() {
     state.open = false;
     state.els.wrap.classList.remove('on');
+    try { window.dispatchEvent(new CustomEvent('magiclens-chat', { detail: { open: false } })); } catch (e) { /* 同上 */ }
     if (state.running && state.abort) state.abort.abort(); // P0 不做关抽屉续跑（LLD 非目标）
     stopSpeech();       // R227 口径：关抽屉立即停朗读，不留「念着但找不到停止入口」
     cancelRecording();  // 录音直接放弃（不转写不计费）
@@ -516,7 +525,38 @@
   }
 
   /* ---------- R53 回复朗读（/tts/speak 1 积分/次，听=消费；长回复分段顺序播） ---------- */
-  const speech = { ctx: null, source: null, btn: null, token: 0 };
+  /* ---------- R59 语速三档（对齐 magicbook R263）：1.0/0.75/0.5 循环 ----------
+   * Why 档位存 chrome.storage.local 而非 sync：朗读速度是设备/场景相关体验，
+   * 与悬浮球位置（fabPos）同级，不进 sync 的用户设置域。
+   * Why 服务端不变速（R263 同款）：缓存键=段落原文哈希，变速落服务端要么同文
+   * 双份缓存要么击穿永久缓存设计；客户端 playbackRate + preservesPitch 即时零成本。 */
+  const SPEED_KEY = 'magiclens.ttsSpeed';
+  const SPEED_STEPS = [1, 0.75, 0.5]; // 循环顺序与 magicbook R263 一致：常速→慢→更慢→回常速
+  const speech = { ctx: null, source: null, audio: null, btn: null, token: 0, speed: 1 };
+
+  function speedLabel(v) { return v === 1 ? '1.0x' : v + 'x'; }
+
+  function applySpeedButton() {
+    if (state.els.speed) state.els.speed.textContent = speedLabel(speech.speed);
+  }
+
+  function loadSpeed() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get({ [SPEED_KEY]: 1 }, (store) => {
+        if (chrome.runtime.lastError) return resolve(1);
+        const v = Number(store[SPEED_KEY]);
+        resolve(SPEED_STEPS.indexOf(v) >= 0 ? v : 1);
+      });
+    });
+  }
+
+  function cycleSpeed() {
+    // 换档不打断当前段：只改档位值，正在播的段按旧档播完，下一段起生效（低惊讶原则）
+    speech.speed = SPEED_STEPS[(SPEED_STEPS.indexOf(speech.speed) + 1) % SPEED_STEPS.length];
+    applySpeedButton();
+    chrome.storage.local.set({ [SPEED_KEY]: speech.speed }, () => void chrome.runtime.lastError);
+    setVoiceStatus(`朗读语速 ${speedLabel(speech.speed)}`);
+  }
 
   function speechContext() {
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -541,6 +581,13 @@
       try { speech.source.onended = null; speech.source.stop(); } catch (e) { /* 已结束 */ }
       speech.source = null;
     }
+    // R59：<audio> 变速链路的停止；置空 src 会触发 error 事件，onerror 里的
+    // token 守卫会把这次中止当成「用户已停止」而不是回退重播
+    if (speech.audio) {
+      const audio = speech.audio;
+      speech.audio = null;
+      try { audio.onended = null; audio.pause(); audio.src = ''; } catch (e) { /* 已结束 */ }
+    }
     if (speech.btn) { markSpeakButton(speech.btn, false); speech.btn = null; }
   }
 
@@ -549,6 +596,62 @@
     return new Promise((resolve, reject) => {
       const maybe = ctx.decodeAudioData(bytes, resolve, reject);
       if (maybe && typeof maybe.then === 'function') maybe.then(resolve, reject);
+    });
+  }
+
+  /* R59：变速播放的 <audio> 链路（preservesPitch 变速不变调）。Why 不用 BufferSource：
+   * AudioBufferSourceNode 只有重采样（变速必变调），preservesPitch 是 HTMLMediaElement
+   * 专属——0.5x 变调对语言学习不可用（magicbook R263 同款取舍）。
+   * Why 仍保留 BufferSource 回退：blob: 媒体源在严格 CSP 页面（media-src 不含 blob:）
+   * 会被拦（error 事件），此时回退 BufferSource 套 playbackRate——有声但变调，好过无声。
+   * Promise 在一段播完（onended→onEnded()）或回退失败时落定；播放中止由外层 token 守卫。 */
+  function playMediaElement(ctx, bytes, token, onEnded) {
+    return new Promise((resolve, reject) => {
+      const done = () => resolve();
+      let blobUrl = '';
+      try {
+        blobUrl = URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }));
+      } catch (e) { return fallback(); }
+      const cleanup = () => { try { URL.revokeObjectURL(blobUrl); } catch (e) { /* 已回收 */ } };
+      const audio = new Audio(blobUrl);
+      speech.audio = audio;
+      audio.preservesPitch = true;
+      try { audio.mozPreservesPitch = true; } catch (e) { /* 非 Firefox 无此属性 */ }
+      audio.webkitPreservesPitch = true; // Safari 旧名（R263 同款三连钉）
+      audio.playbackRate = speech.speed;
+      audio.onended = () => {
+        cleanup();
+        if (token !== speech.token) return done();
+        if (speech.audio === audio) speech.audio = null;
+        onEnded();
+        done();
+      };
+      audio.onerror = () => { cleanup(); if (token !== speech.token) return done(); fallback(); };
+      audio.play().catch(() => { cleanup(); if (token !== speech.token) return done(); fallback(); });
+
+      // CSP/播放被拦的降级：decode → BufferSource，playbackRate 直接套当前档位（变调）
+      function fallback() {
+        decodeSpeech(ctx, bytes).then((buffer) => {
+          if (!buffer || token !== speech.token) return done();
+          if (ctx.state === 'suspended') {
+            stopSpeech();
+            setVoiceStatus('⚠ 浏览器拦截了音频播放，请先与页面交互后重试');
+            return done();
+          }
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.playbackRate.value = speech.speed;
+          source.connect(ctx.destination);
+          speech.source = source;
+          source.onended = () => {
+            if (token !== speech.token) return done();
+            if (speech.source === source) speech.source = null;
+            onEnded();
+            done();
+          };
+          source.start(0);
+        }).catch(reject);
+      }
     });
   }
 
@@ -570,20 +673,26 @@
       bg({ type: MSG.ML_TTS_SPEAK, text: segments[index] }).then((resp) => {
         if (token !== speech.token) return null;
         if (!resp || !resp.ok) throw new Error((resp && resp.error) || '朗读音频不可用');
-        return decodeSpeech(ctx, window.__magicLensB64Decode(resp.audioBase64));
-      }).then((buffer) => {
-        if (!buffer || token !== speech.token) return;
-        if (ctx.state === 'suspended') {
-          stopSpeech();
-          setVoiceStatus('⚠ 浏览器拦截了音频播放，请先与页面交互后重试');
-          return;
-        }
-        const source = ctx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(ctx.destination);
-        speech.source = source;
-        source.onended = () => playAt(index + 1);
-        source.start(0);
+        return window.__magicLensB64Decode(resp.audioBase64);
+      }).then((bytes) => {
+        if (!bytes || token !== speech.token) return;
+        // R59 分叉：1.0x 恒走原 BufferSource 链路（已验证路径零回归）；
+        // 非 1.0x 走 <audio> preservesPitch（变速不变调），被 CSP 拦再回退 BufferSource
+        if (speech.speed !== 1) return playMediaElement(ctx, bytes, token, () => playAt(index + 1));
+        return decodeSpeech(ctx, bytes).then((buffer) => {
+          if (!buffer || token !== speech.token) return;
+          if (ctx.state === 'suspended') {
+            stopSpeech();
+            setVoiceStatus('⚠ 浏览器拦截了音频播放，请先与页面交互后重试');
+            return;
+          }
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(ctx.destination);
+          speech.source = source;
+          source.onended = () => playAt(index + 1);
+          source.start(0);
+        });
       }).catch((err) => {
         if (token !== speech.token) return;
         stopSpeech();
