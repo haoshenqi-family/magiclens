@@ -88,6 +88,7 @@ flowchart LR
 | `/learning/srs/queue` | GET | — | 滚动复习：SRS 到期队列（due_at≤now 含积压，默认 20 条）→ 词卡轮播数据源（只读） |
 | `/vocabulary/detail/cached-batch` | POST | `{words[≤50]}` | 滚动复习详情分页：批量取「已缓存详解」（只读缓存，miss 词不出现、绝不触发生成——对端 moon-well R248/magicbook R289） |
 | `/learning/strands/lookup` | POST | `{word}`（≤64） | 金山直连查词补报四股台账：fire-and-forget，服务端同词同日幂等 |
+| `/auth/enrollment-invite` | GET | —（匿名，无需登录） | 注册邀请链接下发：`{inviteUrl}`；链接唯一真值源在 moon-well Nacos（轮换改后端一处即生效，R61 起扩展不再内置） |
 
 ## 隐私
 
