@@ -27,9 +27,11 @@ const TIMEOUT_MS = 20000;
 const DETAIL_TIMEOUT_MS = 120000;
 // Authentik 邀请制注册链接（与 magicbook 登录页注册入口同源：fnOS magicbook/.env 的
 // AUTHENTIK_ENROLLMENT_INVITE_URL）。Why 内置：注册是打开邀请流程页而非 OAuth 端点；
-// 注意邀请令牌轮换时需同步更新本常量并发版。
+// 邀请令牌会过期（R60：旧令牌 2026-10-30 到期，10-23 轮换时漏同步本常量致注册死链），
+// 轮换后须查 Authentik 现役邀请并同步更新本常量发测试版。域名用现役 account.haoshenqi.top，
+// 免 authentik.haoshenqi.top 的 301 跳转。
 const ENROLLMENT_URL =
-  'https://authentik.haoshenqi.top/if/flow/invitation-enrollment/?itoken=5566492c-5d73-49dd-abe0-8dc9d48c14d8';
+  'https://account.haoshenqi.top/if/flow/invitation-enrollment/?itoken=1572b336-26ac-40ab-b835-2bfa5f6ea2fc';
 
 async function getCfg() {
   const cfg = await chrome.storage.sync.get(DEFAULT_CFG);
