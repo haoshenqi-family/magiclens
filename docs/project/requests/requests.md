@@ -78,3 +78,5 @@
 59. **同步 magicbook 近期功能：悬浮球 SRS 滚动复习轮播（R285/R289 对齐）+ 回复朗读语速三档（R263 对齐）**（占号 2026-11-08；2026-11-08 开发完成已 merge 本地 develop 待验收）：A=球旁常驻 SRS 到期词轮播卡（/learning/srs/queue 20 词洗牌 8s、认识→/vocabulary/known 毕业）+ 详情分页（POST /vocabulary/detail/cached-batch 只读缓存零计费，每词≤4 页 line-clamp 3，无缓存/端点未发生产回退简卡，计费红线=绝不调逐词详解）；B=抽屉头部语速 1.0/0.75/0.5x 循环（preservesPitch 变速不变调，1.0x 原链路零回归）；R261 行内 gloss 用户拍板不做。0.8.22-202611082233 测试版；集成套件 +2 用例 guard 全绿、CfT 全量 14/14 pass；PingCode ML-55；worktree 驻留待验收。
 
 60. **注册链接指向已过期邀请令牌（10-23 轮换未同步扩展常量），更新为新邀请并发测试版**（占号 2026-11-11，待回填）
+
+61. **注册按钮改为从 moon-well /auth/enrollment-invite 动态获取邀请链接，删除内置常量**（占号 2026-11-11，待回填）
