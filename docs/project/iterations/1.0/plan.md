@@ -24,6 +24,7 @@
 | MAGICLENS-9 R55 修复 R48 金山直连模块导出契约回归 | 缺陷 | （无 PJM，台账承载） | [r55-iciba-export/](./r55-iciba-export/)（LLD） | 已 merge 本地 develop（0.8.19 测试版），待真机验收（2026-10-27） |
 | MAGICLENS-10 R56 magicbook 站内悬浮球去重 | 缺陷 | （无 PJM，台账承载） | [r56-ball-yield/](./r56-ball-yield/)（LLD） | 已 merge 本地 develop（0.8.20 测试版，同树续作），待真机验收（2026-10-27） |
 | MAGICLENS-11 R57 划词仅单词直译，其余交给 AI | 用户故事 | [idea Mr7EGN8B](https://haoshenqi.pingcode.com/ship/ideas/Mr7EGN8B)（ML-54，In progress） | [r57-selection-ai/](./r57-selection-ai/)（LLD） | 开发完成（0.8.21 测试版），待真机验收（2026-10-29） |
+| MAGICLENS-12 R63 滚动复习词卡 unknown message type（SW 版本漂移） | 缺陷 | （无 PJM，台账承载） | [r63-review-sw-skew/](./r63-review-sw-skew/)（LLD） | 已 merge 本地 develop（0.8.25-202611131705 测试版），待真机验收（2026-11-13） |
 
 ## 备注
 

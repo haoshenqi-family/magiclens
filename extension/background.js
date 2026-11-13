@@ -494,7 +494,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse(await synthesizeSpeech(String(msg.text || '').slice(0, 2000)));
         break;
       default:
-        sendResponse({ ok: false, error: 'unknown message type' });
+        // R63：把不认识的类型本身带回去——版本漂移（旧 SW 跑着旧消息表、新 content script
+        // 发新类型）时在 console 一眼能定位；错误串前缀保持不变，content 侧按前缀翻话术
+        sendResponse({ ok: false, error: 'unknown message type', type: (msg && msg.type) || null });
     }
   })();
   return true; // 保持通道开启，等待异步 sendResponse

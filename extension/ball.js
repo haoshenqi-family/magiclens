@@ -584,6 +584,25 @@
     root.style.top = `${Math.round(top)}px`;
   }
 
+  /* R63：协议漂移的错误话术。
+   * Why：MV3 解包扩展改了消息表后，service worker 只有在 chrome://extensions 点「重新加载」
+   * （或扩展更新）才会重新注册——Chrome 的 SW 脚本缓存还会把旧 background.js/rpc.js 一并
+   * 留住跑下去。此时页面里是新版 content script（有滚动复习卡），SW 却还是旧构建，
+   * 新消息类型落到旧代码的 default 分支，回来的就是裸的 'unknown message type'。
+   * 用户看到英文内部错误无从下手，点「重试」也只是同样失败（SW 不会自愈）。
+   * How：只把这两类「环境/生命周期」错误翻成可执行的中文指引；后端业务错误原样透出
+   *（失败必须在界面上可见，静默降级会把接口故障伪装成空数据——家族口径）。 */
+  function reviewErrorText(error) {
+    const raw = String(error || '');
+    if (/unknown message type/i.test(raw)) {
+      return '扩展版本未同步：请在 chrome://extensions 重新加载扩展，再刷新本页';
+    }
+    if (/invalidated|disposed/i.test(raw)) {
+      return '扩展已更新，请刷新本页后重试';
+    }
+    return raw || '复习词拉取失败';
+  }
+
   function reviewShowError(message) {
     review.failed = true;
     reviewSet('errorText', message);
@@ -705,7 +724,8 @@
         reviewRender();
         return;
       }
-      if (!resp.ok) throw new Error(resp.error || '复习词拉取失败');
+      // R63：走 reviewErrorText——版本漂移/上下文失效翻成可执行指引，业务错误原样透出
+      if (!resp.ok) throw new Error(reviewErrorText(resp.error));
       const data = resp.data;
       if (!Array.isArray(data)) throw new Error('复习词拉取失败');
       review.items = reviewShuffled(data.filter((it) => it && typeof it.word === 'string' && it.word.trim()))
