@@ -1,52 +1,6 @@
 # response.md — 对话回应记录（仅保留最近 10 个 request 的回应）
 
-> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移） · [response-R29.md](response-archive/response-R29.md)（2026-10-11 R40 写入触发轮转搬移） · [response-R30-R31.md](response-archive/response-R30-R31.md)（2026-10-11 R41 集成时窗口超限搬移） · [response-R32.md](response-archive/response-R32.md)（2026-10-13 R43 写入触发轮转搬移） · [response-R33.md](response-archive/response-R33.md)（2026-10-14 R44 写入触发轮转搬移） · [response-R34.md](response-archive/response-R34.md)（2026-10-15 R45 写入触发轮转搬移） · [response-R35-R38.md](response-archive/response-R35-R38.md)（2026-10-16 R50 写入触发轮转搬移，窗口回 10 条 request 内） · [response-R41.md](response-archive/response-R41.md)（2026-10-27 R56 写入触发轮转搬移） · [response-R45.md](response-archive/response-R45.md)（2026-10-21 R51 写入触发轮转搬移） · [response-R39.md](response-archive/response-R39.md)（2026-10-27 R52 写入触发轮转搬移） · [response-R46.md](response-archive/response-R46.md)（2026-10-27 R53 写入触发轮转搬移） · [response-R40.md](response-archive/response-R40.md)（2026-10-27 R54 写入触发轮转搬移） · [response-R47.md](response-archive/response-R47.md)（2026-10-27 R55 写入触发轮转搬移）
-
-## 2026-10-11（R40：金山直连查词补报四股台账）
-
-### R42（bug 修复：详解面板滚动时丢失 ✕）
-
-- **根因**：`.detail` 面板自身是滚动容器（`max-height: min(70vh, 560px)` + `overflow-y: auto`），词名与 ✕ 位于滚动内容之内的 `.d-head`，滚到底时头部整体移出可视区；面板关闭路径只有 ✕ 与 Esc，于是「看到最后没法关」。
-- **修复**：`.d-head` 改 `position: sticky; top: 0` 吸顶，白底铺满整行内宽。**两个坑都靠实测纠出**：① sticky 的吸顶边界是「滚动容器 padding 内缩后的区域」，第一版用 `margin-top: -12px` 把头部顶进面板那 12px 上内边距被约束回弹（头部仍停在 133px），那 12px 反成头部上方一条漏字的缝——改为把 `.detail` 的 `padding-top` 移交 `.d-head`（面板 `padding: 0 14px 12px`）；② 交叉审查指出头部的 8px 下内边距若再用 `margin-bottom: -8px` 收回（本想换取未滚动时逐像素不变），带 z-index 的白底板会压住下一行——变体说明行只有 2px 上边距，`elementFromPoint` 在变体行 top+2 处返回的是头部（gap −6px），故最终不收回负 margin，下方各行下移 8px 换零遮挡。
-- **验证**（本仓无自动化框架）：用**真实影子模板 + 真实 reader.css** 搭同源复刻页，headless Chrome 154 跑三态对照（控制组 develop 未修版 / 初版 `-8px` / 最终版）——① 滚到底时 ✕ 的 `elementFromPoint` 判定 `clickable=true` 且 `X.top` 与未滚动时相同（控制组 false，✕ 落在 −1389px）；② 未滚动时 `head.bottom` 与变体行 `top` 的 gap：控制组 +2、初版 −6（被盖）、最终 +2；③ 盒模型量（词目/✕ 的 top 两态相等）与截图确认头部常驻、内容干净穿过、圆角未被白底方角破坏。真机验收仍待用户在 `chrome://extensions` 加载本 worktree 目录实测。
-- **版本**：0.8.8 → **0.8.9-202610122121**（测试版，带时间戳不触发发布）。
-- **文档**：`docs/feat/word-detail/design/lld.md` 交互细节补吸顶一条（两个坑都记）。
-- **交付**：用户批准「merge + push（等于上线）」后，主检出（工作区干净、develop==origin/develop ec9ae45）`git merge --ff-only fix/r42-sticky-detail-head`，push `ec9ae45..0499029`；带时间戳后缀不触发商店发布，正式发布仍走 §0.2 两段式待用户确认。**worktree 驻留待验收**：`chrome://extensions` 重载 `../magiclens-sticky-detail-head` 后划词→「详」→滚到底应仍见词目与 ✕。
-- **同源**：magicbook R165 用同一修法改其 `.reading-word-detail` / `.wd-head`，两仓详解面板保持同构。
-- **总结**：requests.md 占号 R42；本条为回应；冲突记录：无。窗口 R32–R42 共 10 个 request，未超限不搬移。
-
-### R43（排查并补齐朗读引擎：单词发音应有词典真人音频）
-
-- **用户诉求**：「朗读引擎选了 AI，最近又变成本地」，且「理论上还应该有个词典发音，默认应该是词典」。
-- **排查结论（三层，都不是配置被改）**：
-  1. 本仓 `content.js` 的 `speak()` 从来只有浏览器 `speechSynthesis` 一条路（`git log -S ml:tts` / `-S dictvoice` 全仓零命中，moon-well 声音朗读是 README/design.md 里的**规划 P2**，未实现）；
-  2. 用户看到的「朗读引擎 = AI/browser」下拉在 **magicbook 阅读器**（`epub.js:1093 getTtsEngine()`，`read.html:145-148` 只有 ai/browser 两项），它只管**段落朗读与整本连播**，管不到划词气泡的 🔊；
-  3. 「最近」的成因是划词让位落地：magicbook R141→R143→**R146（2026-10-10）**把让位改成运行时探测本扩展 v0.8.6 在正文帧上留的 `data-magiclens-selection` 标记，标记一通，阅读器里的划词气泡就换成扩展这份——magicbook 那份气泡里**单个英文单词走有道 dictvoice 真人词库音频**（`epub.js:477-505`），扩展没有这一层，于是发音退化成机械音。
-- **交付**：按 magicbook `speakSelection` 成例给 `speak()` 补词典分支——`SINGLE_WORD_RE` 命中的单词走 `https://dict.youdao.com/dictvoice?type=2&audio=`（type=2 美式，与 magicbook 同一条正则、同一个源），`onerror` 与 `play()` reject 都回退浏览器合成且**只回退一次**（`dictAudio` 引用判重，防旧词迟到兜底音盖在新词上）；短语/句子仍走浏览器合成；新增 `stopSpeak()`，`hide()` 与再次朗读统一先停旧音。气泡按钮 title 同步改写。**AI 声音（US6/P2）本条不做**，词典音频是零成本一层、不替代 P2。
-- **验证**（本仓无自动化框架）：
-  - 前提实测：`curl dictvoice?type=2&audio=example` → 200 / `audio/mpeg` / 11949 字节真 MP3（`file` 判为 MPEG layer III 64kbps 单声道），`ran`/`hello`/`chiaroscuro` 同样有音频；本机大陆网络直连可用，0.37s。
-  - 行为实测：用脚本从 `extension/content.js` **抽出真实的朗读代码段**（47 行）注入 stub（`Audio`/`speechSynthesis`/`SpeechSynthesisUtterance`/`window`），headless Chrome 154 跑 17 条断言**全 PASS**——单词走 dictvoice 且不调合成音、短语只走合成音、`onerror` 与 `play()` reject 各回退一次、换词先 `pause()` 旧音、旧词迟到回调不覆盖新词、`stopSpeak()` 同时 pause+cancel、`don’t`/`well-known` 判定为单词、中文走 `zh-CN`、无选区与无 `speechSynthesis` 均不抛错。
-  - `node --check extension/content.js` 通过。
-- **版本**：0.8.9 → **0.8.10-202610131011**（测试版，带时间戳不触发发布）。
-- **文档**：L1 `README.md` 功能表「本地朗读」行改写为「划词朗读（词典优先 + 浏览器兜底）」；L2 `docs/design.md` §4.3 追加更新注记；L3 `docs/feat/chrome-extension/design/lld.md` US2 状态行 + §10 变更记录（含跨仓成因链）。
-- **worktree 台账**：复用 R42 那棵树 `../magiclens-sticky-detail-head`（家族纪律第 7 条「一次会话一个 worktree」，目录名沿用 R42 的 slug 未改，因为用户可能已把它加载进 `chrome://extensions` 验收 R42——移动目录会让扩展失联），新分支 `fix/r43-dictvoice` 基于 origin/develop 826f6b0（R42 已合入，behind=0）。
-- **交付（用户选 merge + push develop）**：主检出工作区干净、`behind=0`，`git merge --ff-only fix/r43-dictvoice` 后 push `826f6b0..0bac2f0`；版本带时间戳后缀，**不触发商店发布**（正式发布仍等用户确认去后缀 + merge release）。worktree 原样驻留等真机验收，验收通过后按闸门 `git worktree remove` + `git branch -d`（R42/R43 两条分支同树，需一并清）。
-- **待用户真机验收**：`chrome://extensions` 重载该目录 → 任意网页划一个单词点 🔊，应听到真人词库音频；划一个短语点 🔊，仍是浏览器合成音；在 magicbook 阅读器里划词点 🔊，应与未装扩展时一致。
-- **正式发布（2026-10-13，用户指令「release」并确认已真机走过 §3 手工清单）**：`version_name` 去时间戳后缀 → `0.8.10` 推 develop（`4eea63c`）；`release` 分支在临时 worktree `../magiclens-release-0810` 内 `merge --no-ff origin/develop` 成 `23833cd` 后 push（推前实测 `git diff origin/develop -- extension` 为空，打包内容与 develop 一致）→ workflow run 38356015482 10 秒 success，GitHub Release `v0.8.10` 已建（zip 17 文件、manifest 0.8.10）。本次发布覆盖自 v0.8.5 以来的六笔功能面：R37 握手标记、R39 选区两修、R40 直连查词补报、R42 详解面板吸顶、R43 词典发音。**遗留口径**：workflow 用 `gh release create` 未带 `--target`，tag 落在默认分支（develop 的 `4eea63c`）而非 release 分支的 merge commit——与 v0.8.5 当时的表现一致，属既有 workflow 行为，本次未改。发布 worktree 已即时 `git worktree remove`（无独有产物，验收物即 Release 本身）。
-- **总结**：requests.md 占号 R43；本条为回应；冲突记录：无。窗口轮转：写入前含 R32–R42 共 10 个 request（另有 R36 补记一节），本条写入达 11，按纪律把最旧的 R32 原样搬至 `response-archive/response-R32.md`，窗口回到 R33–R43 共 10 个。
-
-### R44（面板端点解包容错 + 失败可见，同源 moon-well R173）
-
-- **根因链（三层）**：① moon-well `/ai/agent` 的 8 个面板端点返回裸 VO，而本仓 `callApi` 按统一 `Result{success,...}` 判定 `payload.success !== true` → 成功响应被判失败；② `chat.js refreshConversations()` 写的是 `if (!resp.ok) return;` → 误判被静默吞掉；③ 抽屉本身每次都以「＋ 新会话」开场（`conversationId` 是页面级内存状态、无持久化）。三者叠加，用户报告＝「同一网站之前的记录没有了」，而界面与「真的没有历史」完全同形。
-- **交付**：① 解包抽成纯函数 `unwrapMoonWellResponse(resp, payload)`（只有 HTTP 不成功 / 非 JSON / 显式 `success === false` 才算失败，其余取 `result`、裸 payload 原样透出），与 magicbook `ai_chat.js unwrap()` 同口径；② 会话列表失败时下拉显示「⚠ 会话列表加载失败：<原因>」且该项 disabled，不再静默空列表（历史/记忆/学情三块原本已有错误态）；③ 契约表 §6.1 按统一 Result 形制逐端点更正（旧表把「裸 VO 列表」和「Result」混着记，记的就是漂移本身）。
-- **验证**（本仓无测试框架）：把 `background.js` 里**真实的** `unwrapMoonWellResponse` 源码抽出来在 node 跑 12 条断言全过——包装列表/对象/`result:null`、裸数组/空数组/裸对象六类都判成功；`success:false`、非 JSON、HTTP 500、401/403（带 `auth`）四类都判失败；另加一条「裸 payload 无 success 字段」回归断言。**控制组**用旧判定跑同一批 payload：裸数组与裸对象确实「判失败」，证明断言有鉴别力。首跑 2 条 FAIL 是探针 stub 漏给 `status` 默认值（`ok()` → `HTTP undefined`），修探针后全绿，不是被测代码问题。`node --check` 全 9 个 JS 通过。
-- **版本**：0.8.10 → **0.8.11-202610141053**（测试版，带时间戳不触发发布）。
-- **复查修正（交叉审查后）**：错误态下拉原本只留一条禁用的「⚠ 加载失败」，会把「＋ 新会话」这个可用出口一起抹掉，且当前正在追问的会话在界面上被谎称成新会话。现按状态分叉：无当前会话 → 保留可选的「＋ 新会话」+ 禁用原因行；有当前会话 → 显示「当前会话 #id（列表加载失败，暂无法切换）」（禁用但仍为选中值，DOM 允许禁用项作当前值）+ 原因行，`state.conversationId` 不动，所以继续发送/重命名/删除都照旧。**两条探针自身的假故障也记一笔**（避免下次误判被测代码）：① 首轮 2 条 FAIL 是 stub `ok()` 没给 `status` 默认值，产出 `HTTP undefined`；② 次轮 1 条 FAIL 是 fake `<select>` 用 `===` 比 `option.value`（真实 DOM 读出必为字符串，number 7 对不上 '7'）——两处都是修探针而不是改代码，修完 11 条断言全过。
-
-- **文档**：L1 README 伴读行补「默认起新会话、续聊从下拉选、失败显示原因」；L2 `docs/design.md` 新增 §14 决策记录；L3 `docs/feat/chrome-extension/design/lld.md` §6.1 契约表更正 + §10 变更记录。
-- **交付（用户选「两仓都 merge + push develop」）**：主检出工作区干净、`behind=0`，`git merge --ff-only fix/r44-agent-result-tolerant` 后 push `6cdc08d..3ea50bd`；版本带时间戳后缀不触发商店发布（正式发布仍等用户确认）。worktree 原样驻留等真机验收。
-- **待用户真机验收**：重载扩展 → 打开伴读抽屉，左上角下拉应列出既有会话（网页会话带 `[通用]` 前缀）；🧠 记忆面板不再显示 `HTTP 200` 之类假错误。注意：**后端那半（moon-well R173）未上线前，本仓容错已足以让列表恢复**——上线顺序不敏感。
-- **总结**：requests.md 占号 R44；本条为回应；冲突记录：无。窗口轮转：写入前含 R33–R43 共 10 个 request（另有 R36 补记一节），本条写入达 11，按纪律把最旧的 R33 原样搬至 `response-archive/response-R33.md` 并登记索引，窗口回到 R34–R44 共 10 个。
+> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移） · [response-R29.md](response-archive/response-R29.md)（2026-10-11 R40 写入触发轮转搬移） · [response-R30-R31.md](response-archive/response-R30-R31.md)（2026-10-11 R41 集成时窗口超限搬移） · [response-R32.md](response-archive/response-R32.md)（2026-10-13 R43 写入触发轮转搬移） · [response-R33.md](response-archive/response-R33.md)（2026-10-14 R44 写入触发轮转搬移） · [response-R34.md](response-archive/response-R34.md)（2026-10-15 R45 写入触发轮转搬移） · [response-R35-R38.md](response-archive/response-R35-R38.md)（2026-10-16 R50 写入触发轮转搬移，窗口回 10 条 request 内） · [response-R41.md](response-archive/response-R41.md)（2026-10-27 R56 写入触发轮转搬移） · [response-R45.md](response-archive/response-R45.md)（2026-10-21 R51 写入触发轮转搬移） · [response-R39.md](response-archive/response-R39.md)（2026-10-27 R52 写入触发轮转搬移） · [response-R46.md](response-archive/response-R46.md)（2026-10-27 R53 写入触发轮转搬移） · [response-R40.md](response-archive/response-R40.md)（2026-10-27 R54 写入触发轮转搬移） · [response-R47.md](response-archive/response-R47.md)（2026-10-27 R55 写入触发轮转搬移） · [response-R42.md](response-archive/response-R42.md)（2026-10-29 R57 写入触发轮转搬移） · [response-R43.md](response-archive/response-R43.md)（2026-11-02 R58 写入触发轮转搬移） · [response-R44.md](response-archive/response-R44.md)（2026-11-08 R59 写入触发轮转搬移）
 
 ## 2026-10-16（R50：docs v2 迁移——单模块退化形态）
 
@@ -132,4 +86,59 @@
 - **验证（诚实）**：`node --check extension/*.js scripts/*.js` 全过；新增 `scripts/check-ball-visibility.js` 加载真实 `common.js`，主域、子域、相似域名、其他网站、iframe、主开关、球开关、用户禁用名单与冻结名单断言全过；`scripts/check-extension-modules.js` 继续通过；`git diff --check` 干净。**真机手工清单待用户**：① magicbook 首页/阅读器只看到宿主球；② 其他网站扩展球正常；③ magicbook 站内划词、高亮、标记与伴读不受影响。
 - **文档四问**：用户可见能力变化（站内不再显示扩展球）→ L1 `README.md`；产品/架构决策 → L2 `docs/product/design.md` §17；实现与边界 → 新增 L3 `docs/product/features/ball.md`；本次怎么实现 → LLD `iterations/1.0/r56-ball-yield/lld.md`，并登记 plan MAGICLENS-10。
 - **台账**：`requests.md` 占号 R56（claim.sh `9922456`）；worktree `../magiclens-r52-buddy-parity`（分支 `feat/r52-buddy-parity`）merge 后驻留待验收（与 R52/R53/R54/R55 同树）；未 push（正式发布需用户确认后去时间戳 merge release）。窗口轮转：最旧的 R41 原样搬至 `response-archive/response-R41.md` 并登记索引，写入后窗口 10 条。
+- **正式发布（2026-10-27，用户指令「发一个 release」）**：测试版 `0.8.20-202610272114` 去后缀为纯 `0.8.20`（commit `750d8f6`），推送 `develop` 后，在临时 worktree `../magiclens-release-0820` 内 `merge --no-ff origin/develop` 成 `2202000` 并 push `release`。Workflow run [40511249301](https://github.com/haoshenqi-family/magiclens/actions/runs/40511249301) 两步均 success；GitHub Release [v0.8.20](https://github.com/haoshenqi-family/magiclens/releases/tag/v0.8.20) 已创建，附件 `magiclens-extension-v0.8.20.zip`（94,859 B，23 个条目）实测可下载且包含 `ball.js` / `iciba.js` / `rpc.js` / `offscreen.js`，manifest 为纯 `0.8.20`。本次正式版覆盖 R52 伴读面板对齐、R53 语音双向、R54 常驻悬浮球、R55 金山模块导出修复、R56 magicbook 站内双球去重。workflow 既有行为未改：tag `v0.8.20` 指向 `develop` 的 `750d8f6`，不是 `release` 的 merge commit。
 - **总结**：response.md 本条；冲突记录：无。
+
+### R57（划词仅单词直译，非单词/含中文改为 AI 入框）
+
+- **行为**：单个英文单词继续自动翻译；短语、句子、含中文文本不再自动请求翻译。气泡突出「AI」主按钮，隐藏对普通文本无效的「详/认识/生词」，「译」保留为手动操作。
+- **交付（worktree `../magiclens-r57-ai-selection`，分支 `feat/r57-ai-selection`，版本 0.8.21-202610291724 测试版）**：`common.js` 新增 `__magicLensSelectionAction` 统一去向判定与 `__magicLensSelectionWord` 统一取词；`content.js openBubble()` 按判定门控自动翻译、先配置按钮再定位，并在 `translate()` 统一守住 2000 字上限；迟到翻译响应按当前文本作废；`chat.js` 把选区原文直接写入伴读输入框（去掉 `「」` 包装），光标置末尾且不自动发送。
+- **验证**：`node --check` 三个改动文件与守卫脚本全过；`scripts/check-selection-ai.js` 覆盖单词、撇号/连字符词、短语、中文、英中混排、数字、标点与空文本，并锁住 `don’t` 的完整取词；R55/R56 守卫继续通过；`git diff --check` 干净。另用本机 Chrome headless 加载真实三份脚本并以 stub 中转层计数——单词只发 1 次 `ml:translate`，短语/中文不新增请求，手动「译」可新增，模式切换后按钮复位，旧翻译迟到响应不覆盖新 AI 提示，2001 字以上手动「译」被拦截，中文 AI 入框值为 `你好世界`（无引号）。真机清单待用户：单词自动译文、短语/中文不发翻译、AI 入框原文一致、iframe 行为一致。
+- **交叉审查修正**：补齐 P1「AI 模式手动译绕过 2000 字上限」；修正 P2「弯撇号单词只截出 don」并抽共享取词函数；调整为先配置按钮再测量定位，避免 AI→单词切换按旧宽度裁边；迟到翻译响应增加当前文本校验，禁止覆盖新 AI 气泡。
+- **文档四问**：用户可见能力变化 → README；产品决策 → design.md §18；实现边界 → `features/selection-routing.md`；本次实现 → `r57-selection-ai/lld.md`，并登记 plan MAGICLENS-11。
+- **台账**：requests.md 占号 R57（claim.sh `992a624`）；PingCode idea [ML-54 / Mr7EGN8B](https://haoshenqi.pingcode.com/ship/ideas/Mr7EGN8B)（In progress，待验收）；worktree merge 后驻留待真机验收。窗口轮转：最旧的 R42 原样搬至 `response-archive/response-R42.md` 并登记索引。
+- **总结**：response.md 本条；冲突记录：无。
+
+
+### R58（用户：「修改一下 github magicbook 和magiclens的 readme。把核心功能 入门用法讲明白」）
+
+- **做了什么**：根 `README.md` 整体重写为「核心功能 + 入门」导向：功能按 划词即查 / 生词管理 / AI 伴读 / 常驻入口 四组表格（吸收 R57 单词直译与 AI 入框新口径，不再按 P0 版本演进流水账）；安装收成五步上手（下载 zip → 开发者模式加载 → Authentik 登录 → 划词试 → 开高亮/悬浮球）；保留 架构图与两条硬约定、API 契约速查表（9 端点）、分发与更新（两段式版本/不上架商店）、隐私（`chrome.storage.sync`）与关联项目。原「当前状态 P0」表的版本考古信息由 LLD/归档承载，README 回归 L1「只讲功能与安装」。
+- **口径**：纯文档、无能力变化 → **manifest 版本不递增**（对照 R51 纯文档 push 先例）；0.8.21-202610291724 仍为测试版待真机验收。
+- **push 决策（用户拍板）**：README 随本地 r57 的 3 个未 push 提交一起 push `develop`——develop 是默认分支 README 立即生效；不触发 Release（发布闸门在 `release` 分支），且避免远端 README 描述领先于远端代码。
+- **上线**：`282236f..8f9f0c2` push `origin/develop`（r57 三提交 + 本次 README + 台账 merge）。
+- **台账**：requests.md 占号 R58（claim.sh `282236f`）；merge origin 时 requests.md 冲突按并集解决（本地 57 完成条 + 远端 58 占号行）。magicbook 同题任务见 magicbook 仓 response.md R267（那边连 R262/R264/R265 十个提交一起 push 上线并修了一个预存测试破损）。
+- **总结**：requests.md 条目 58 已回填；R43 回应子节按 R42 先例原样搬至 `response-archive/response-R43.md`（父级日期头留在原地包住 R44）并登记索引，本条写入后窗口 10。冲突记录：无。
+
+
+## 2026-11-08（R59：同步 magicbook 近期功能——悬浮球滚动复习 + 语速三档）
+
+### R59（同步 magicbook R285/R289/R263：悬浮球 SRS 滚动复习轮播 + 回复朗读语速三档）
+
+- **做了什么**：对齐 magicbook 上次同步点（10-27 R52-R54）之后的两个用户可见能力——**A 滚动复习**（R285 词卡轮播 + R289 详情分页）与 **B 语速三档**（R263）；R261 行内 gloss 用户拍板不做（涉及任意网页排版、改动大，且 magicbook 站内已接受「扩展接管高亮时该开关不生效」）。
+- **A 交付（`ball.js` + `rpc.js` + `background.js` + `chat.js` 抽屉事件）**：球 shadow root 内 `wrap` 兄弟节点常驻词卡（不进 wrap——径向气泡与拖拽命中区冲突，R285 同源教训）；`ML_REVIEW_QUEUE`→`GET /learning/srs/queue` 20 词洗牌 8s 轮播、「认识」复用 `ML_MARK`→`GET /vocabulary/known/{word}` 按点击瞬间下标删词；`ML_REVIEW_DETAIL_BATCH`→`POST /vocabulary/detail/cached-batch`（moon-well R248 只读缓存零计费）详情分页：每词基本意思前 2 义项 + 随机 1 模块 ≤4 页、line-clamp 3 硬钳、同词连翻、无缓存/端点未发生产/失败三路静默回退简卡；**计费红线**：绝不调 `/vocabulary/detail/{word}`（miss 现场生成计费）；暂停矩阵对齐 R285（页面不可见/气泡展开/抽屉打开/inFlight…），抽屉开合经 chat.js 派发的 `magiclens-chat` 事件感知（closed shadow 唯一通道）；paused/collapsed 走 `chrome.storage.local`（禁污染宿主 localStorage——magicbook 用页面 localStorage 是站内特权不能照抄）；未登录静默隐藏、登录成功（token 落库）自动补拉。
+- **B 交付（`chat.js`）**：抽屉头部语速按钮 1.0/0.75/0.5x 循环（R263 顺序），档位 `chrome.storage.local` `magiclens.ttsSpeed`（设备相关体验，不进 sync）；播放分叉：1.0x 恒走原 BufferSource 链路零回归，非 1.0x 走 `<audio>` + `preservesPitch`/`webkit`/`moz` 三连钉变速不变调（Why：BufferSource 只有重采样必变调，`preservesPitch` 是 HTMLMediaElement 专属），blob 被页面 CSP `media-src` 拦时回退 BufferSource 套 `playbackRate`（变调降级好过无声）；换档不打断当前段、下一段生效。
+- **⚠ 发版时序**：`cached-batch` 在 moon-well develop（dev 环境），生产 release 尚未携带（2026-11-08 release 落后 develop 22 提交）——扩展直连生产 moon-well，该端点 404 期间详情分页自动回退简卡（与「无缓存词」同一降级路径），moon-well R248 发生产后详情自动生效，扩展无需再发版。
+- **集成套件（R185 门禁）**：`matrix/magiclens.csv` +2 行（`ml-ball-review`/`ml-chat-speed`）、`e2e_bridge.py` FEATURES 同步、run.js mock 层补 `/learning/srs/queue` 与 `cached-batch`（fixture：队列两词、批量表 apple 命中/terrible 有意 miss 验简卡分叉）；**坑**：`/vocabulary/detail/` 前缀规则抢配批量端点致前端全量 miss（详情失败不可见口径反而掩盖 mock 配错）——精确规则必须排在前缀之前（已写进 run.js 注释）；悬浮球默认关闭须显式 `sSet ballEnabled:true`；harness 默认装主检出，验 worktree 必须 `--ext`。**实测**：CfT chrome@157 全量 **14/14 pass**（worktree 扩展）、静态守卫 3/3、`guard.py` 三向对账全绿；套件变更已 push ops main（303de4f）。
+- **版本**：0.8.21 → **0.8.22-202611082233**（测试版，带时间戳不触发发布）。
+- **文档四问**：能力变了吗 → README 功能表 3 处（悬浮球行补滚动复习、语音双向行补语速、契约速查 +2 端点）；实现/边界 → 本 LLD `r59-sync-review-speed/lld.md`（含 4 条踩坑）；本次怎么实现 → 同文件；契约速查以 moon-well 现行代码为准（`LearningController.srs/queue`、`VocabularyController.detail/cached-batch` 均已核对源码）。
+- **台账**：requests.md 占号 R59（claim.sh `f18f602`，push 即占）；PingCode idea **ML-55**（J5QST1pL）已建 → In progress；worktree `../magiclens-r59-buddy-review-speed` / 分支 `feat/r59-buddy-review-speed` merge 后**驻留待真机验收**。窗口轮转：写入前含 R44/R50–R58 共 10 条，本条写入达 11，最旧的 R44 原样搬至 `response-archive/response-R44.md` 并登记索引，窗口回 10。
+- **总结**：requests.md 条目 59 已回填；本条为回应；冲突记录：无。
+
+
+## 2026-11-11（R60 注册死链修复 + R61 邀请链接改后端动态获取）
+
+### R60（用户：「检查magiclens 的注册链接是不是失效的那个」→「改」）
+
+- **排查**：`background.js` 的 `ENROLLMENT_URL` 常量（v0.3.1 引入后从未更新）仍指 2026-10-30 过期且已从 Authentik 库删除的旧邀请 `5566492c`——10-23 邀请轮换（新邀请 `1572b336`、过期 2027-01-21、single_use=false）只同步了 magicbook `.env`，扩展侧所有已发布版本（商店 zip 手动装、无自动更新）注册按钮自 10-30 起全是死链。域名 `authentik.haoshenqi.top` 301→`account.haoshenqi.top` 保留 query，域名无罪。
+- **修复**：常量换现役邀请 + 域名改 `account.haoshenqi.top` 免 301；manifest 0.8.23-202611111026 测试版（`447eebf` push develop，worktree `magiclens-r60-enroll-url-refresh`）。
+- **教训沉淀**：邀请轮换是「magicbook .env + 扩展常量发版」双落点——此教训随即被 R61 从根上消除（见下）。
+- **总结**：requests.md 占号 R60（`445febc`）；本条为回应；冲突记录：无。
+
+### R61（用户：「邀请链接改为从后端获取，避免两端不一致。注意这个后端接口要开发白名单，不登录也可以获取」）
+
+- **做了什么**：`ML_REGISTER` 从「硬编码常量」改为运行时获取 moon-well 匿名端点 `GET /auth/enrollment-invite`（对端 moon-well R250：Nacos `app.auth.enrollment-invite-url` 真值源，热重绑，轮换改后端一处即全端生效）；**删除 `ENROLLMENT_URL` 内置常量**——保留即残留漂移面，违背真值收敛初衷；失败不静默（options 结果区 `showResult` 明示原因）。Why 匿名直连不走 callApi：其「无 token 即拒」闸门与注册按钮场景（未登录态）冲突，也不透传本地令牌避免无谓 401/静默刷新链。
+- **测试**：本项目无自动化测试框架——`node --check` 双文件语法过、旧 token 全仓零残留、manifest JSON 合法；集成套件侧语义用例落在 moon-well R250 的 `mw-get-auth-enrollment-invite`（dev 12/12 全绿），magiclens 矩阵 14 行无 ML_REGISTER 独立行（消息行为=开浏览器标签，非 API 契约，无需增行）。
+- **验收（用户真机）**：`chrome://extensions` 加载 `magiclens-r60-enroll-url-refresh/extension/` → 设置页点「注册」→ 应打开邀请流程页进入表单；断网/后端不可达时应看到 `✗` 错误文案而非无反应。
+- **部署**：`b43ad2f..f709a89` push `origin/develop`；0.8.24-202611111044 测试版（不触发发布）；正式版待用户验收后去时间戳 merge `release`。
+- **运维口径**：邀请轮换从此=Nacos 键（热重绑）+ magicbook `.env`（登录页）两处同步——扩展侧零动作。
+- **总结**：requests.md 占号 R61（`b43ad2f`）；本条为回应；冲突记录：无（与 R60 同树续作，一次会话一树）。

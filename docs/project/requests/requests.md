@@ -1,7 +1,7 @@
 # requests.md — 对话需求记录
 
 > 仅记录每一次对话用户的需求，除此之外不做任何事情。
-> 2026-10-08 起引入归档：已确认完成且过时的条目按编号区间原样搬移至 `requests-archive/`；未完成与有经验教训价值的条目保留于此。编号永不回改、归档不释放编号，新任务按全史最大编号 +1 递增（当前最大 R40）。
+> 2026-10-08 起引入归档：已确认完成且过时的条目按编号区间原样搬移至 `requests-archive/`；未完成与有经验教训价值的条目保留于此。编号永不回改、归档不释放编号，新任务按全史最大编号 +1 递增（当前最大 R57）。
 
 ## 归档索引
 
@@ -70,3 +70,15 @@
 55. **缺陷：R48 金山直连模块化回归（icibaLookupWithStemming 未导出）**：用户在 `magiclens-r52-buddy-parity` worktree 重载扩展后，划词触发 `Uncaught (in promise) TypeError: icibaLookupWithStemming is not a function`（`background.js:249`）。R48 把金山直连域迁 `iciba.js` 时公开键为 `lookupWithStemming`，`background.js` 却按内部函数名解构；要求修复导出契约、补回归守卫并回填测试版。关联需求：R48 金山直连域迁 `iciba.js`（原台账缺条，保持原样不重写）。
 
 56. **缺陷：magicbook 站内悬浮球与 MagicLens 悬浮球重复显示**：开启 MagicLens「常驻入口」后，magicbook 全站自带的 buddy 悬浮球与扩展悬浮球同时出现在同一位置。产品口径为宿主站内优先：magicbook 主域及子域保留原生入口，扩展球自动让位；其他网站继续显示扩展球。同时确认 MagicLens 悬浮球的 buddy 形象、hover 径向快捷气泡、拖拽吸附与位置记忆已对齐 magicbook R223，刻意差异仅在头像通道、动作集配置性、位置存储与网页场景动作语义。
+
+57. **划词翻译仅单词直译，长选区/中文改为 AI 入框**：划词翻译遇到非单个单词或包含中文时，不要直接翻译；选中后提供 AI 按钮，点击后把选中的原文复制到 AI 伴读输入框中。
+
+58. **重写 GitHub README：核心功能与入门用法**（2026-11-02 完成已 push）：根 README 重写为核心功能四组表格 + 五步上手，保留架构/API 契约/隐私/分发说明，回归 L1「只讲功能与安装」；纯文档版本不递增；随 r57 三个提交一起 push develop（282236f..8f9f0c2，不触发 Release）。R43 回应归档轮转。
+
+59. **同步 magicbook 近期功能：悬浮球 SRS 滚动复习轮播（R285/R289 对齐）+ 回复朗读语速三档（R263 对齐）**（占号 2026-11-08；2026-11-08 开发完成已 merge 本地 develop 待验收）：A=球旁常驻 SRS 到期词轮播卡（/learning/srs/queue 20 词洗牌 8s、认识→/vocabulary/known 毕业）+ 详情分页（POST /vocabulary/detail/cached-batch 只读缓存零计费，每词≤4 页 line-clamp 3，无缓存/端点未发生产回退简卡，计费红线=绝不调逐词详解）；B=抽屉头部语速 1.0/0.75/0.5x 循环（preservesPitch 变速不变调，1.0x 原链路零回归）；R261 行内 gloss 用户拍板不做。0.8.22-202611082233 测试版；集成套件 +2 用例 guard 全绿、CfT 全量 14/14 pass；PingCode ML-55；worktree 驻留待验收。
+
+60. **注册链接指向已过期邀请令牌（10-23 轮换未同步扩展常量），更新为新邀请并发测试版**（占号 2026-11-11，待回填）
+
+61. **注册按钮改为从 moon-well /auth/enrollment-invite 动态获取邀请链接，删除内置常量**（占号 2026-11-11，待回填）
+
+62. **发布正式版 v0.8.24：R59 悬浮球滚动复习/详情分页/语速三档 + R60 注册链接修复 + R61 邀请链接动态获取（去时间戳 merge release）**（占号 2026-11-13，待回填）

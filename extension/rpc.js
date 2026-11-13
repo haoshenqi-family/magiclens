@@ -69,6 +69,11 @@
     ML_REC_START: 'ml:rec-start',
     ML_REC_STOP: 'ml:rec-stop',
     ML_REGISTER: 'ml:register',
+    // R59 滚动复习（对齐 magicbook R285/R289）：队列=SRS 到期词、详情批量=只读缓存。
+    // Why 专设两条而不是走 ML_API 白名单：ML_API 只收 POST 且面向 chat 面板域，
+    // 复习队列是 GET、详情批量语义独立——各自一条消息，与 ML_MARK/ML_DETAIL 同构。
+    ML_REVIEW_QUEUE: 'ml:review-queue',
+    ML_REVIEW_DETAIL_BATCH: 'ml:review-detail-batch',
     ML_SELECTION: 'ml:selection',
     ML_SETTINGS: 'ml:settings',
     ML_TRANSLATE: 'ml:translate',

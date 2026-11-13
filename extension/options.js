@@ -54,8 +54,14 @@ $loginBtn.addEventListener('click', () => {
 });
 
 document.getElementById('registerBtn').addEventListener('click', () => {
-  // 邀请制注册（Authentik invitation-enrollment），注册完回来登录
-  chrome.runtime.sendMessage({ type: MSG.ML_REGISTER });
+  // 邀请制注册（Authentik invitation-enrollment），注册完回来登录。
+  // R61：链接由 background 从 moon-well 匿名端点动态获取，失败在结果区明示
+  //（服务不可达/后端未配置时用户能看到原因，而不是「点了没反应」）。
+  chrome.runtime.sendMessage({ type: MSG.ML_REGISTER }, (resp) => {
+    if (chrome.runtime.lastError) return showResult(false, chrome.runtime.lastError.message);
+    if (resp && resp.ok) return showResult(true, '已打开邀请注册页');
+    showResult(false, `✗ ${(resp && resp.error) || '获取注册链接失败'}`);
+  });
 });
 
 $logoutBtn.addEventListener('click', () => {

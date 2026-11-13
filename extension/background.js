@@ -25,11 +25,9 @@ const LOGIN_PATH = '/auth/oidc/login';
 // （R13 卡死——用户只能刷新页面脱困）。交互调用 20s 足够；详解冷词要整段 LLM 生成，单独放宽。
 const TIMEOUT_MS = 20000;
 const DETAIL_TIMEOUT_MS = 120000;
-// Authentik 邀请制注册链接（与 magicbook 登录页注册入口同源：fnOS magicbook/.env 的
-// AUTHENTIK_ENROLLMENT_INVITE_URL）。Why 内置：注册是打开邀请流程页而非 OAuth 端点；
-// 注意邀请令牌轮换时需同步更新本常量并发版。
-const ENROLLMENT_URL =
-  'https://authentik.haoshenqi.top/if/flow/invitation-enrollment/?itoken=5566492c-5d73-49dd-abe0-8dc9d48c14d8';
+// R61：注册邀请链接不再内置（R60 教训——常量与 Authentik 邀请轮换天然漂移，10-23 轮换
+// 漏同步扩展致死链），唯一真值源 = moon-well 匿名端点 /auth/enrollment-invite
+// （Nacos app.auth.enrollment-invite-url，热重绑；轮换改后端一处即全端生效）。
 
 async function getCfg() {
   const cfg = await chrome.storage.sync.get(DEFAULT_CFG);
@@ -147,6 +145,36 @@ async function callApi(path, { method = 'POST', body, timeoutMs = TIMEOUT_MS } =
     /* 非 JSON 响应按失败处理 */
   }
   return unwrapMoonWellResponse(out.resp, payload);
+}
+
+/* ---------- R61 注册邀请链接（匿名获取） ----------
+ * Why 不走 callMoonWellRaw/callApi：其「无 token 即拒」闸门与注册按钮的使用场景
+ * （用户恰恰是未登录态）冲突；本端点在服务端白名单匿名放行，直连即可，也不透传
+ * 本地令牌（避免把过期 token 带进匿名请求触发无谓的 401/静默刷新链）。 */
+async function fetchEnrollmentInvite() {
+  const { apiBase } = await getCfg();
+  if (!apiBase) return { ok: false, error: '未配置服务地址' };
+  let resp;
+  try {
+    resp = await fetch(apiBase.replace(/\/+$/, '') + '/auth/enrollment-invite', {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (e) {
+    if (e.name === 'TimeoutError' || e.name === 'AbortError') {
+      return { ok: false, error: '请求超时，请稍后重试' };
+    }
+    return { ok: false, error: `网络错误：${e.message}` };
+  }
+  let payload = null;
+  try {
+    payload = await resp.json();
+  } catch {
+    /* 非 JSON 按失败处理 */
+  }
+  const url = payload && payload.success && payload.result ? payload.result.inviteUrl : '';
+  if (url) return { ok: true, url };
+  return { ok: false, error: (payload && payload.message) || `服务异常（HTTP ${resp.status}）` };
 }
 
 /* ---------- R53 语音输入：offscreen 录音文档生命周期 ----------
@@ -305,6 +333,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       case MSG.ML_SETTINGS:
         sendResponse(await callApi('/vocabulary/reading/settings', { method: 'GET' }));
         break;
+      case MSG.ML_REVIEW_QUEUE:
+        // R59 滚动复习（对齐 magicbook R285）：SRS 到期队列（due_at<=now 含积压）。
+        // 不透传 limit——上游默认 20，与 magicbook 代理口径一致（20 词前端洗牌）。
+        sendResponse(await callApi('/learning/srs/queue', { method: 'GET' }));
+        break;
+      case MSG.ML_REVIEW_DETAIL_BATCH: {
+        // R289 对齐：批量取「已缓存详解」（moon-well R248 只读缓存端点，miss 词不出现）。
+        // Why 绝不改调 /vocabulary/detail/{word}：那个端点 miss 即现场生成（计费 + 15~30s），
+        // 滚动复习是无人操作的被动轮播，翻页不许变成隐藏下单——计费红线与 magicbook 同源。
+        const words = Array.isArray(msg.words) ? msg.words.filter((w) => typeof w === 'string') : [];
+        sendResponse(await callApi('/vocabulary/detail/cached-batch', { body: { words } }));
+        break;
+      }
       case MSG.ML_API: {
         // Why 白名单：chat.js 面板端点经此中转，防任意 path 透传
         const ALLOWED = new Set([
@@ -386,11 +427,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         chrome.tabs.create({ url: (await getCfg()).apiBase + LOGIN_PATH });
         sendResponse({ ok: true });
         break;
-      case MSG.ML_REGISTER:
-        // 邀请制注册（Authentik invitation-enrollment 流程，注册完回到登录页正常登录）
-        chrome.tabs.create({ url: ENROLLMENT_URL });
-        sendResponse({ ok: true });
+      case MSG.ML_REGISTER: {
+        // 邀请制注册（Authentik invitation-enrollment 流程，注册完回到登录页正常登录）。
+        // R61 起链接从 moon-well 匿名端点运行时获取（见 fetchEnrollmentInvite 注释）；
+        // 失败不静默——options 页经 showResult 明示，避免「点了没反应」被当成扩展坏了。
+        const invite = await fetchEnrollmentInvite();
+        if (invite.ok) chrome.tabs.create({ url: invite.url });
+        sendResponse(invite.ok ? { ok: true } : { ok: false, error: invite.error });
         break;
+      }
       case MSG.ML_LOGOUT:
         await chrome.storage.sync.set({ token: '', refreshToken: '' });
         sendResponse({ ok: true });
