@@ -454,6 +454,33 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         );
         break;
       }
+      case MSG.ML_TRANSLATE_BATCH: {
+        // R67 段落整页翻译：批量端点 moon-well /vocabulary/reading/translate-batch。
+        // 契约（服务端 ReadingTranslationBatchRequest）：paragraphs ≤20 且每段 ≤2000 字符，
+        // 返回 Result<List<String>> 顺序数组、""=该段失败（可重试、未写缓存）。
+        // 计费 = 1 积分/次 LLM 调用（miss 段服务端合并为一次调用）+ 1 积分/缓存命中段。
+        // Why 60s：一次调用要 LLM 译完最多 20 段，20s 交互超时不够（服务端同步无流式）
+        const paragraphs = (Array.isArray(msg.paragraphs) ? msg.paragraphs : [])
+          .map((p) => String(p || '').replace(/\s+/g, ' ').trim())
+          .filter(Boolean)
+          .slice(0, 20)
+          .map((p) => p.slice(0, 2000));
+        if (!paragraphs.length) {
+          sendResponse({ ok: false, error: '没有可翻译的段落', status: 0 });
+          break;
+        }
+        sendResponse(
+          await callApi('/vocabulary/reading/translate-batch', {
+            body: {
+              paragraphs,
+              bookName: String(msg.bookName || '').slice(0, 200),
+              chapter: String(msg.chapter || '').slice(0, 200),
+            },
+            timeoutMs: 60000,
+          })
+        );
+        break;
+      }
       case MSG.ML_MARK: {
         // known = 标记已认识（移出学习队列）；unknown = 加入生词本
         const action = msg.known ? 'known' : 'unknown';
@@ -540,6 +567,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             });
           }
           sendResponse({ ok: true });
+        });
+        break;
+      }
+      case MSG.ML_PT_TOGGLE: {
+        // R67 段落整页翻译开关：悬浮球（content script 用不了 chrome.tabs）经此转发给
+        // 同 tab 的 page-translate.js。popup 直发 tabs.sendMessage 不走此 case（sender 无 tab）。
+        // Why 不做 storage 兜底翻转（与 ML_HL_TOGGLE 不同）：段落翻译是按页临时态、无全局设置键，
+        // 旧页面收不到就如实回错——话术给可行动指引（R63 教训：unknown message type 不进 UI）
+        if (!sender.tab || sender.tab.id == null) {
+          sendResponse({ ok: false, error: '找不到当前标签页' });
+          break;
+        }
+        chrome.tabs.sendMessage(sender.tab.id, { type: MSG.ML_PT_TOGGLE }, (resp) => {
+          if (chrome.runtime.lastError) {
+            sendResponse({ ok: false, error: '本页尚未加载段落翻译，请刷新页面后重试' });
+            return;
+          }
+          sendResponse(resp || { ok: false, error: '本页尚未加载段落翻译，请刷新页面后重试' });
         });
         break;
       }

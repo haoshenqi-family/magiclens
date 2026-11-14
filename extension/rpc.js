@@ -63,6 +63,8 @@
     ML_MARK: 'ml:mark',
     ML_OPENSELECTION: 'ml:openSelection',
     ML_OPENOPTIONS: 'ml:openOptions',
+    // R67 段落整页翻译：popup→tab 的开/关切换（悬浮球直调 window 钩子不走此消息）
+    ML_PT_TOGGLE: 'ml:pt-toggle',
     // R53 伴读语音：START/STOP/CANCEL 是 content→SW；GO/DONE 是 SW→offscreen 文档的
     // 内部转发。Why 分两套：content 的 runtime.sendMessage 会广播到全部扩展上下文
     //（含 offscreen），offscreen 只认自己那两个类型、其余不回话，避免抢占响应通道。
@@ -80,6 +82,11 @@
     ML_SELECTION: 'ml:selection',
     ML_SETTINGS: 'ml:settings',
     ML_TRANSLATE: 'ml:translate',
+    // R67 段落整页翻译：批量段落翻译端点（moon-well /vocabulary/reading/translate-batch，
+    // Result<List<String>> 顺序数组、""=该段失败）。Why 专设消息不走 ML_API 白名单：
+    // 白名单是 chat 面板域的 POST 代理，批量翻译语义独立且超时口径不同（60s），
+    // 与 ML_REVIEW_QUEUE 同构——各自一条消息
+    ML_TRANSLATE_BATCH: 'ml:translate-batch',
     ML_TTS_SPEAK: 'ml:tts-speak',
   });
 

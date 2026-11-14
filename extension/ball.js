@@ -38,6 +38,11 @@
       // 经 background 转发给本页 highlight.js（与 Alt+U 完全同一链路与语义）
       __magicLensRpc.send({ type: MSG.ML_HL_TOGGLE }, () => void chrome.runtime.lastError);
     } },
+    { id: 'page-translate', icon: '🌐', label: '整页翻译', run: () => {
+      // R67 段落整页翻译：经 SW 转发给本页 page-translate.js（与高亮气泡同构，Why 不直调
+      // window 钩子：扩展重载后的旧页面上钩子缺失，SW 转发能回「请刷新页面」类可行动文案）
+      __magicLensRpc.send({ type: MSG.ML_PT_TOGGLE }, () => void chrome.runtime.lastError);
+    } },
     { id: 'learning', icon: '🎓', label: '每日学习', run: () => window.open(`${SITE}/learning`, '_blank', 'noopener') },
     { id: 'library', icon: '📚', label: '书库', run: () => window.open(`${SITE}/`, '_blank', 'noopener') },
     { id: 'me', icon: '👤', label: '我的', run: () => window.open(`${SITE}/me`, '_blank', 'noopener') },

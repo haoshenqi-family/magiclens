@@ -256,13 +256,20 @@ async function main() {
     direct: { status: 200, contentType: 'audio/mpeg', body: mp3Bytes, fail: false },
     proxy: { status: 200, contentType: 'audio/mpeg', body: mp3Bytes, fail: false },
   };
+  // R67：批量翻译端点的响应与请求体捕获（JSON Result 信封，与 R66 的二进制路由分开）
+  let batchResponse = { success: true, result: [] };
+  const batchCalls = [];
   function HeadersImpl(entries) {
     const map = new Map(entries.map(([k, v]) => [k.toLowerCase(), v]));
     return { get: (k) => map.get(String(k).toLowerCase()) || null };
   }
-  context.fetch = async (input) => {
+  context.fetch = async (input, init) => {
     const url = String(input);
     fetchLog.push(url);
+    if (url.includes('/vocabulary/reading/translate-batch')) {
+      batchCalls.push({ url, body: init && init.body ? JSON.parse(String(init.body)) : null });
+      return { ok: true, status: 200, json: async () => batchResponse };
+    }
     const route = url.includes('dict.youdao.com') ? fetchRoutes.direct
       : url.includes('/tts/dict-voice') ? fetchRoutes.proxy : null;
     if (!route || route.fail) throw new TypeError('network down');
@@ -325,6 +332,74 @@ async function main() {
   assert.equal(fetchLog.length, 0, '形状闸拦截不得出网');
 
   console.log('PASS extension module contract: background.js ML_DICT_SPEAK four-tier dict voice chain');
+
+  // ---- R67 段落整页翻译契约：批量端点形制 + manifest 注入位 ----
+  // 锁三件事：①ML_TRANSLATE_BATCH 的「归一/过滤/截断→envelope 解包→顺序数组透传」——
+  // page-translate.js 只认 {ok, data:[...]} 形制；②空段落护栏（不发网）；③manifest 必须把
+  // page-translate.js 注入主内容脚本清单且不得进 all_frames 条目（引擎只在顶层文档跑）。
+  assert.equal(context.__magicLensRpc.MSG.ML_TRANSLATE_BATCH, 'ml:translate-batch', 'MSG 表必须有 ML_TRANSLATE_BATCH');
+  assert.equal(context.__magicLensRpc.MSG.ML_PT_TOGGLE, 'ml:pt-toggle', 'MSG 表必须有 ML_PT_TOGGLE');
+
+  const mainEntry = manifest.content_scripts.find((entry) => entry.js.includes('page-translate.js'));
+  assert.ok(mainEntry, 'manifest 必须把 page-translate.js 注入主内容脚本清单');
+  assert.ok(mainEntry.js.indexOf('rpc.js') < mainEntry.js.indexOf('page-translate.js'),
+    'page-translate.js 必须晚于 rpc.js 注入（依赖 __magicLensRpc.MSG）');
+  assert.ok(!manifest.content_scripts.some((entry) => entry.all_frames && entry.js.includes('page-translate.js')),
+    'page-translate.js 不得进 all_frames 条目（多文档由引擎自行经 contentDocument 伸手）');
+
+  const askBatch = (payload) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('ML_TRANSLATE_BATCH 冒烟超时')), 2000);
+    messageListener({ type: context.__magicLensRpc.MSG.ML_TRANSLATE_BATCH, ...payload }, {}, (value) => {
+      clearTimeout(timer);
+      resolve(JSON.parse(JSON.stringify(value)));
+    });
+  });
+
+  // ① 归一/过滤/截断 + 信封解包：空白段剔除、\s+ 归一、2000 截断，服务端顺序数组原样透传
+  batchCalls.length = 0;
+  batchResponse = { success: true, result: ['你好世界', '第二个译文'] };
+  const long = 'x'.repeat(2500);
+  const batchResp = await askBatch({
+    paragraphs: ['  Hello   world  ', long, '', '   '],
+    bookName: 'example.com',
+    chapter: '/a/b?c=1',
+  });
+  assert.equal(batchResp.ok, true, '批量翻译必须 ok');
+  assert.deepEqual(batchResp.data, ['你好世界', '第二个译文'], '结果必须是服务端顺序数组');
+  assert.equal(batchCalls.length, 1, '有效段落必须恰好发出一次批量请求');
+  assert.ok(batchCalls[0].url.includes('/vocabulary/reading/translate-batch'), '端点必须正确');
+  assert.deepEqual(batchCalls[0].body.paragraphs,
+    ['Hello world', 'x'.repeat(2000)], '段落必须归一+截断且空白段被剔除');
+  assert.equal(batchCalls[0].body.bookName, 'example.com');
+  assert.equal(batchCalls[0].body.chapter, '/a/b?c=1');
+
+  // ② 服务端截断为空串的段：前端按失败丢弃（""=该段失败，可重试、未缓存）
+  batchCalls.length = 0;
+  batchResponse = { success: true, result: ['好的', ''] };
+  const partialResp = await askBatch({ paragraphs: ['first paragraph text', 'second paragraph text'] });
+  assert.equal(partialResp.ok, true);
+  assert.deepEqual(partialResp.data, ['好的', ''], '"" 段必须原样透传（丢弃语义在 page-translate 侧）');
+
+  // ③ >20 段：SW 侧截到服务端上限 20（@Size(max=20)，超发必 400）
+  batchCalls.length = 0;
+  batchResponse = { success: true, result: [] };
+  await askBatch({ paragraphs: Array.from({ length: 25 }, (_, i) => `paragraph ${i} with enough text`) });
+  assert.equal(batchCalls[0].body.paragraphs.length, 20, '超过 20 段必须在 SW 侧截断');
+
+  // ④ 空段落：护栏直接拒，不出网
+  batchCalls.length = 0;
+  const emptyResp = await askBatch({ paragraphs: ['', '   '] });
+  assert.deepEqual(emptyResp, { ok: false, error: '没有可翻译的段落', status: 0 }, '空段落必须明确拒绝');
+  assert.equal(batchCalls.length, 0, '护栏拦截不得出网');
+
+  // ⑤ 积分不足（服务端 code 1101）：信封失败按原样透出，干净业务文案进 UI
+  batchCalls.length = 0;
+  batchResponse = { success: false, code: 1101, message: '积分不足，无法使用AI功能' };
+  const poorResp = await askBatch({ paragraphs: ['some paragraph'] });
+  assert.equal(poorResp.ok, false, '积分不足必须失败');
+  assert.equal(poorResp.error, '积分不足，无法使用AI功能', '业务文案必须原样透传（R32 不做技术化改写）');
+
+  console.log('PASS extension module contract: background.js ML_TRANSLATE_BATCH batch translate contract');
 }
 
 main().catch((error) => {
