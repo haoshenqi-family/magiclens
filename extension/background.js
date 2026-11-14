@@ -258,6 +258,169 @@ async function synthesizeSpeech(text) {
   };
 }
 
+/* ---------- R66 划词发音：四级链路（IndexedDB 缓存 → 词典直连 → moon-well 词典代理） ----------
+ * 单个英文单词的真人词库音统一由 SW 取字节回传（content 用 Web Audio 解码播放，与宿主
+ * 页 CSP 无涉——此前 content 直接 new Audio(词典外链)，在 media-src 严格的站点会被页面
+ * CSP 打回机械音）。浏览器 speechSynthesis 机械声退居最终兜底，由 content 在四级全空时
+ * 自行降级。缓存键与 moon-well DictVoiceService 同口径：trim + 弯撇号归一 + 小写。
+ * Why SW 缓存不用 chrome.storage：local 默认 ~10MB 只装得下 ~800 词（R43 实测 ~12KB/词），
+ * IndexedDB 无此配额墙且跨 SW 挂起持久；软上限 LRU 防无界增长。 */
+const DICT_VOICE_URL = 'https://dict.youdao.com/dictvoice?type=2&audio='; // type=2 美式（1 英式）
+// 与 moon-well DictVoiceService.SINGLE_WORD_RE 同口径（客户端已 trim + 归一）
+const DICT_WORD_RE = /^[a-z](?:[a-z'-]*[a-z])?$/;
+const DICT_CACHE_DB = 'magiclens';
+const DICT_CACHE_STORE = 'dictvoice';
+const DICT_CACHE_MAX = 3000; // 3000 词 ≈ 36MB，超限按 ts LRU 剪最旧
+const DICT_FETCH_TIMEOUT_MS = 5000;   // 词典直连：小文件（~12KB/词），5s 足够
+const DICT_PROXY_TIMEOUT_MS = 10000;  // 后端代理：跨公网到 fnOS，放宽一点
+
+let dictCachePromise = null;
+
+/** IndexedDB 单例：库/表首次打开时创建，ts 索引供 LRU 剪枝按时间序遍历。 */
+function dictCache() {
+  if (!dictCachePromise) {
+    dictCachePromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(DICT_CACHE_DB, 1);
+      req.onupgradeneeded = () => {
+        const store = req.result.createObjectStore(DICT_CACHE_STORE, { keyPath: 'word' });
+        store.createIndex('ts', 'ts');
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error || new Error('indexeddb open failed'));
+    });
+  }
+  return dictCachePromise;
+}
+
+async function dictCacheGet(word) {
+  try {
+    const db = await dictCache();
+    return await new Promise((resolve, reject) => {
+      const req = db.transaction(DICT_CACHE_STORE).objectStore(DICT_CACHE_STORE).get(word);
+      req.onsuccess = () => resolve(req.result ? req.result.audio : null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) {
+    // 缓存读失败按 miss 降级（缓存是加速器不是依赖），本次照走四级链路后半程
+    console.warn('[MagicLens] 词音缓存读失败，按 miss 处理', e);
+    return null;
+  }
+}
+
+async function dictCachePut(word, audio) {
+  try {
+    const db = await dictCache();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(DICT_CACHE_STORE, 'readwrite');
+      tx.objectStore(DICT_CACHE_STORE).put({ word, audio, ts: Date.now() });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    await dictCacheTrim(db);
+  } catch (e) {
+    // 写失败不拦播放：本次字节已在手，下次 miss 自愈重拉
+    console.warn('[MagicLens] 词音缓存写失败（不影响本次播放）', e);
+  }
+}
+
+/** 软上限剪枝：超过 DICT_CACHE_MAX 时按 ts 索引从最旧开始删。 */
+async function dictCacheTrim(db) {
+  const tx = db.transaction(DICT_CACHE_STORE, 'readwrite');
+  const store = tx.objectStore(DICT_CACHE_STORE);
+  const count = await new Promise((resolve, reject) => {
+    const req = store.count();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  if (count <= DICT_CACHE_MAX) return;
+  const index = store.index('ts');
+  let excess = count - DICT_CACHE_MAX;
+  await new Promise((resolve, reject) => {
+    const req = index.openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor || excess <= 0) return resolve();
+      cursor.delete();
+      excess -= 1;
+      cursor.continue();
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/** 词典直连：SW fetch 吃 host_permissions 豁免（无 CORS 顾虑）。形制校验同服务端——
+ * 非 200 / 非 audio/* / 空体都视为无词典音，绝不把错误页字节当音频回传。 */
+async function dictDirectVoice(word) {
+  try {
+    const resp = await fetch(DICT_VOICE_URL + encodeURIComponent(word), {
+      signal: AbortSignal.timeout(DICT_FETCH_TIMEOUT_MS),
+    });
+    const type = (resp.headers.get('Content-Type') || '').toLowerCase();
+    if (!resp.ok || !type.startsWith('audio/')) return null;
+    const buf = await resp.arrayBuffer();
+    return buf.byteLength > 0 ? __magicLensB64Encode(buf) : null;
+  } catch (e) {
+    console.warn('[MagicLens] 词典直连失败，转后端代理', e && e.message);
+    return null;
+  }
+}
+
+/** 后端代理：moon-well /tts/dict-voice（R259，词典真人音非 TTS 合成；MinIO 永久缓存
+ * write-through——多设备共享，且哪天词典源变质，服务端存量词音仍在）。404/断网/未登录
+ * 都返回 null，由 content 落到机器合成兜底；错误详情不外露（用户无需感知失败原因）。 */
+async function dictProxyVoice(word) {
+  try {
+    const out = await callMoonWellRaw('/tts/dict-voice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word }),
+    }, DICT_PROXY_TIMEOUT_MS);
+    if (out.error || !out.resp) return null;
+    const resp = out.resp;
+    const type = (resp.headers.get('Content-Type') || '').toLowerCase();
+    if (!resp.ok || !(type.startsWith('audio/') || type.startsWith('application/octet-stream'))) return null;
+    const buf = await resp.arrayBuffer();
+    return buf.byteLength > 0 ? __magicLensB64Encode(buf) : null;
+  } catch (e) {
+    console.warn('[MagicLens] 后端词典代理失败', e && e.message);
+    return null;
+  }
+}
+
+// single-flight：同词并发请求共享一次四级链路（R39 在途守卫同思路，防连点叠请求）
+const dictInflight = new Map();
+
+async function speakWord(rawWord) {
+  // 归一与 moon-well 同口径：trim + 弯撇号归一 + 小写（don’t 与 don't 共享一条缓存）
+  const word = String(rawWord || '').trim().replace(/’/g, "'").toLowerCase();
+  if (!DICT_WORD_RE.test(word)) return { ok: false, error: 'not-a-word' };
+  if (dictInflight.has(word)) return dictInflight.get(word);
+  const job = (async () => {
+    try {
+      const cached = await dictCacheGet(word);
+      if (cached) {
+        dictCachePut(word, cached); // LRU touch：命中也刷新 ts（写失败无碍）
+        return { ok: true, audioBase64: cached, source: 'cache' };
+      }
+      const direct = await dictDirectVoice(word);
+      if (direct) {
+        dictCachePut(word, direct);
+        return { ok: true, audioBase64: direct, source: 'dict' };
+      }
+      const proxied = await dictProxyVoice(word);
+      if (proxied) {
+        dictCachePut(word, proxied); // 后端音同样入客户端缓存：下次零网络
+        return { ok: true, audioBase64: proxied, source: 'proxy' };
+      }
+      return { ok: false, error: 'no dict voice' };
+    } finally {
+      dictInflight.delete(word);
+    }
+  })();
+  dictInflight.set(word, job);
+  return job;
+}
+
 // R40 查词补报：会话内去重即可（SW 挂起重置后服务端幂等兜底），遥测失败静默
 const reportedLookups = new Set();
 
@@ -492,6 +655,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // 朗读合成：SW 取二进制音频转 base64 回传（content 里 Web Audio 解码播放，
         // 与宿主页 CSP 无涉——字节经消息通道进来，连 connect-src 都不占用）
         sendResponse(await synthesizeSpeech(String(msg.text || '').slice(0, 2000)));
+        break;
+      case MSG.ML_DICT_SPEAK:
+        // R66 划词发音：单词真人词库音四级链路（IndexedDB 缓存 → 词典直连 → moon-well
+        // 词典代理），字节回传后 content 用 Web Audio 解码；四级全空由 content 落机器合成
+        sendResponse(await speakWord(msg.word));
         break;
       default:
         // R63：把不认识的类型本身带回去——版本漂移（旧 SW 跑着旧消息表、新 content script

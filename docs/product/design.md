@@ -268,3 +268,31 @@ MagicLens 扩展悬浮球在这些域自动隐藏；其他网站继续按用户�
   交给 AI 时由伴读发送侧既有的 4000 字上限截断，不在气泡阶段误报「选区过长」。
 - 中文判定覆盖 BMP 与扩展 A 区汉字；单个英文单词仍沿用与朗读一致的撇号/连字符口径。
 - 数字、URL、代码、英中混排均归入 `ai`，不尝试猜测用户想翻译还是提问。
+
+## 19. 划词发音四级链路：真人词音缓存与页面 CSP 解耦（2026-11-14，R66，v0.8.27；服务端 moon-well R259）
+
+**背景**：R43 起单词发音走有道 dictvoice，但 content script 直接 `new Audio(词典外链)`：
+零缓存、受宿主页 `media-src` CSP 管（严格站点被页面 CSP 打回机械音）、词典源单点。
+用户拍板：缓存每个单词的真人发音；词典直连失效走后端（后端给的也必须是词典真人音，
+不是 TTS 合成），后端也失效才机器合成；不预取。
+
+**决策**：
+
+- 四级的第 1~3 级全部收进 background SW（新消息 `ML_DICT_SPEAK`，rpc.js 注册表）：
+  ① IndexedDB 词音缓存（库 `magiclens`/store `dictvoice`，软上限 3000 词 LRU，键=
+  trim+弯撇号归一+小写，与 moon-well 服务端同口径）；② 有道 dictvoice 直连（SW fetch
+  吃 host_permissions 豁免）；③ moon-well `POST /tts/dict-voice`（R259：服务端拉词典
+  真人音落 MinIO 永久缓存 write-through，多设备共享、词典源变质时的存量保底）。
+- content 收 base64 字节后走 Web Audio（`decodeAudioData` + BufferSource）播放，与
+  宿主页 CSP 完全无涉；浏览器 speechSynthesis 机械声退居最终兜底（四级全空 / 短语
+  句子 / 解码或自动播放策略拦截）。迟到响应与迟到回退经 `speakSeq` + `current.text`
+  双闸作废。
+- 全链路零积分零 key（R53 `/tts/speak` 与 SRS `word-audio` 都是 TTS 机械音，语义不同
+  不复用）。
+
+**边界**：
+
+- 不预取：发音仍点 🔊 才取；缓存只加速重复播放与离线复播。
+- 音色固定美音（type=2），英音（type=1）未开口径；词形不做屈折还原（trains 与 train
+  词典音不同）。
+- 集成套件 ml-speak 行升级为四级口径（SW 直连 fail-fast → 代理命中双断言）。

@@ -391,19 +391,26 @@ function startMainEngine() {
 
   /* ---------- 朗读 ---------- */
   // Why 词典音频优先：与 magicbook 划词发音同构（其 epub.js `speakSelection` 成例）——
-  // 有道 dictvoice 免费免 key、是真人词库录音，单个英文单词用它；浏览器
-  // speechSynthesis 的机械声退居兜底（短语/句子，以及外链被页面 CSP 挡住或断网时）。
-  // type=2 美式发音（1 为英式）。
-  const DICT_VOICE_URL = 'https://dict.youdao.com/dictvoice?type=2&audio=';
+  // 单个英文单词要的是真人词库示范音，浏览器 speechSynthesis 的机械声退居最终兜底。
+  // R66 起四级链路：background（IndexedDB 缓存 → 词典直连 → moon-well 词典代理，见
+  // background.js）统一取字节回传，这里 Web Audio 解码播放——字节经消息通道进来，
+  // 对宿主页 CSP 免疫（此前直接 new Audio(词典外链)，media-src 严格的站点会被页面
+  // CSP 打回机械音）。机器合成覆盖三种情形：四级全空、短语/句子（词库没有整句音频）、
+  // 解码或播放被拦。type=2 美音由 background 直连 URL 与 moon-well 服务端共同钉住。
   // 与 magicbook 同一条单词正则：首尾须为字母，词内的撇号/连字符算单词的一部分，
   // 短语与句子不匹配（它们交给浏览器合成，词库也没有整句音频）
   const SINGLE_WORD_RE = /^\s*[A-Za-z](?:[A-Za-z'’-]*[A-Za-z])?\s*$/;
-  let dictAudio = null; // 正在播的词典音频：再朗读/关气泡都先停掉，避免两声叠播
+  // 播放序号：stopSpeak（关气泡/再朗读）时 +1，让迟到响应与迟到回退作废——否则旧词的
+  // 兜底机械音会盖在新词上（R43 dictAudio 判重的同款问题，消息化后用序号更省心）
+  let speakSeq = 0;
+  let dictPlayback = null; // 正在播的词典音播放柄：再朗读/关气泡都先停，避免两声叠播
+  let dictAudioContext = null; // AudioContext 每页复用一个（反复 new 会撞浏览器实例上限）
 
   function stopSpeak() {
-    if (dictAudio) {
-      dictAudio.pause();
-      dictAudio = null;
+    speakSeq += 1;
+    if (dictPlayback) {
+      dictPlayback.stop();
+      dictPlayback = null;
     }
     if ('speechSynthesis' in window) speechSynthesis.cancel();
   }
@@ -415,26 +422,57 @@ function startMainEngine() {
     speechSynthesis.speak(u);
   }
 
+  // 老 Safari 只有回调形态的 decodeAudioData，Promise 形态会被当成 undefined（chat.js 同款兼容）
+  function decodeDictAudio(ctx, bytes) {
+    return new Promise((resolve, reject) => {
+      const maybe = ctx.decodeAudioData(bytes, resolve, reject);
+      if (maybe && typeof maybe.then === 'function') maybe.then(resolve, reject);
+    });
+  }
+
+  function playDictAudio(b64, onFail) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) { onFail(); return; }
+    try {
+      const ctx = dictAudioContext || (dictAudioContext = new Ctx());
+      decodeDictAudio(ctx, window.__magicLensB64Decode(b64)).then((buffer) => {
+        // 自动播放策略拦住（ctx 悬挂）或解不出缓冲：退机器合成，不静音收场
+        if (!buffer || ctx.state === 'suspended') { onFail(); return; }
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        const handle = { stop: () => { try { source.stop(); } catch (e) { /* 已结束 */ } }, source };
+        dictPlayback = handle;
+        source.onended = () => { if (dictPlayback === handle) dictPlayback = null; };
+        source.start(0);
+      }).catch(onFail);
+    } catch (e) {
+      onFail();
+    }
+  }
+
   function speak() {
     if (!current) return;
     const text = current.text;
     stopSpeak();
+    const seq = speakSeq;
     if (!SINGLE_WORD_RE.test(text)) {
       speakWithBrowser(text);
       return;
     }
-    const audio = new Audio(DICT_VOICE_URL + encodeURIComponent(text.trim()));
-    dictAudio = audio;
-    // Why 用 dictAudio 判重：onerror 与 play() 的 reject 可能都触发，只回退一次；
-    // 且期间用户若已改读别的词或关掉了气泡（dictAudio 被换掉/清空），这段的迟到回调
-    // 必须作废，否则旧词的兜底机械音会盖在新词上。
-    const fallback = () => {
-      if (dictAudio !== audio) return;
-      dictAudio = null;
-      speakWithBrowser(text);
-    };
-    audio.onerror = fallback;
-    audio.play().catch(fallback);
+    // 四级链路前三级都在 background（同词并发 single-flight 去重）；失败只回退一次，
+    // 迟到的响应与回退经 seq + current.text 双闸作废（同 translate 的口径）
+    askBackground({ type: MSG.ML_DICT_SPEAK, word: text.trim() }, (resp) => {
+      if (seq !== speakSeq || !current || current.text !== text) return;
+      if (!resp || !resp.ok || !resp.audioBase64) {
+        speakWithBrowser(text);
+        return;
+      }
+      playDictAudio(resp.audioBase64, () => {
+        if (seq !== speakSeq || !current || current.text !== text) return;
+        speakWithBrowser(text);
+      });
+    });
   }
 
   /* ---------- 单词详解（v0.4，六板块：意思/词源/搭配/变体/同反义词/俚语冷知识） ---------- */

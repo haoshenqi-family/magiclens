@@ -12,7 +12,7 @@
 | --- | --- |
 | 划词翻译 | **单个英文单词**自动直连金山词霸词典（免登录、百毫秒级），未命中回退 moon-well 翻译；**短语、句子及含中文的选区不自动翻译**——气泡突出「AI」按钮，点击把原文带入 AI 伴读输入框，「译」按钮保留为手动翻译；`iframe` 内（含 magicbook 阅读器 epub.js 正文）同样可用 |
 | 单词详解 | 六板块结构化详解：基本意思 / 词源 / 搭配·用法·习语 / 变体与衍生词 / 同反义词 / 俚语冷知识；划词 `ran` 自动还原词目 `run`；服务端缓存，重复查询不重复计费 |
-| 划词朗读 | 单词播有道词典真人美式音频；短语/句子或被页面 CSP 拦截时回退浏览器语音合成；不经后端、零积分 |
+| 划词朗读 | 单词播真人词典美式音频，四级链路：**IndexedDB 本地缓存**（重复播放零网络零延迟）→ 有道词典直连 → moon-well 词典代理（跨设备共享缓存）→ 浏览器语音合成兜底；短语/句子直接合成；全程零积分 |
 | 问 AI | 选区一键进 AI 伴读输入框，就着上下文继续问 |
 
 ### 生词管理
@@ -84,6 +84,7 @@ flowchart LR
 | `/vocabulary/detail/{word}` | GET | — | 单词详解：六板块结构化 JSON；变体入参自动还原词目 |
 | `/vocabulary/reading/settings` | GET | — | 阅读偏好（也用作连接测试） |
 | `/tts/speak` | POST | `{text}`（1..2000） | 伴读回复朗读：音频二进制（失败时为 Result 信封 JSON）；不带书上下文落 7 天临时缓存档 |
+| `/tts/dict-voice` | POST | `{word}`（单个英文单词） | 划词发音四级链路第 3 级：词典真人音二进制（有道 dictvoice，非 TTS 合成；404=无词典音）；服务端 MinIO 永久缓存（moon-well R259） |
 | `/learning/asr/transcribe` | POST | multipart `file`（wav，≤10MB） | 语音转写：伴读抽屉麦克风输入 → `{text}`；直传不落存储 |
 | `/learning/srs/queue` | GET | — | 滚动复习：SRS 到期队列（due_at≤now 含积压，默认 20 条）→ 词卡轮播数据源（只读） |
 | `/vocabulary/detail/cached-batch` | POST | `{words[≤50]}` | 滚动复习详情分页：批量取「已缓存详解」（只读缓存，miss 词不出现、绝不触发生成——对端 moon-well R248/magicbook R289） |

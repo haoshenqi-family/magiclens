@@ -51,6 +51,9 @@
     ML_API: 'ml:api',
     ML_AUTH: 'ml:auth',
     ML_DETAIL: 'ml:detail',
+    // R66 划词发音：单词真人词库音四级链路（IndexedDB 缓存 → 词典直连 → moon-well
+    // 词典代理），SW 统一取字节回传，content 用 Web Audio 解码播放（对宿主页 CSP 免疫）
+    ML_DICT_SPEAK: 'ml:dict-speak',
     ML_FAMILIAR: 'ml:familiar',
     ML_HL_RESCAN: 'ml:hl-rescan',
     ML_HL_TOGGLE: 'ml:hl-toggle',
