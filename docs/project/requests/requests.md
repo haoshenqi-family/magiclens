@@ -84,3 +84,5 @@
 62. **发布正式版 v0.8.24：R59 悬浮球滚动复习/详情分页/语速三档 + R60 注册链接修复 + R61 邀请链接动态获取（去时间戳 merge release）**（占号 2026-11-13，待回填）
 
 63. **缺陷：悬浮球滚动复习词卡显示 unknown message type（service worker 版本漂移，旧 SW 不识别 ml:review-queue）**（占号 2026-11-13，待回填）
+
+64. **Worktree 纪律同源修订：主检出优先、merge 即清**（主号 ops R187；2026-11-14，**已完成**）：本仓 `AGENTS.md`「Git Worktree 使用规范」节按 ops R187 新口径重写——主检出空闲时直接切任务分支开发（默认），主检出被占才建 worktree，干净复跑用 detached 临时树；merge 后立即 `worktree remove` + `branch -d`，验收状态由 PingCode idea `In progress` 承载；本地加载验收改在主检出进行（merge 后切回 `develop`），不再依赖任务树路径。`../ops/tools/worktree-doctor.sh` 巡检清理，本轮清掉本仓 r59/r60/r62 三棵已合入驻留树及分支（r63 在途未合入，保留）。纯文档 push，本仓无构建链。
