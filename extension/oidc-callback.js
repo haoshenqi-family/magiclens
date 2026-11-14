@@ -3,7 +3,13 @@
  * 的 JSON 文本：在此读出并写入 chrome.storage，用户全程无需手动填 Token。
  * Why 独立 content_script（架构评审 L2）：本段只在 moon-well 回调页有意义，此前随
  * content.js 注入全部页面——回调域之外是一段永不生效的死逻辑，而回调页反而要跑
- * 完整的划词引擎启动门控。独立条目 matches 仅 moon-well 域，互不干扰。 */
+ * 完整的划词引擎启动门控。独立条目 matches 仅 moon-well 域，互不干扰。
+ * R64 修复：迁出时把裸 MSG 引用带了过来，而 MSG 从非全局（rpc.js 只挂
+ * __magicLensRpc，全仓口径是 const MSG = __magicLensRpc.MSG）——ReferenceError
+ * 抛在 storage 异步回调里、外层 try/catch 接不住：横幅照常渲染，但 ML_LOGIN_OK
+ * 发不出、window.close 兜底定时器不注册，background 的 tabs.remove 永不调度，
+ * 登录成功页永不关闭。修复=回调内解构 MSG + 发送失败不吞兜底定时器
+ * + manifest 条目显式先注入 rpc.js（依赖显式化，不借道 catch-all 条目）。 */
 /* ---------- OIDC 登录回调捕获（v0.3） ----------
  * moon-well /auth/oidc/callback 成功时页面 body 即 Result{accessToken, refreshToken}
  * 的 JSON 文本：在此读出并写入 chrome.storage，用户全程无需手动填 Token。 */
@@ -39,8 +45,15 @@
         refreshToken: payload.result.refreshToken || '',
       }, () => {
         banner(true);
-        // 通知 options 页刷新登录状态；background 稍后关闭本标签
-        chrome.runtime.sendMessage({ type: MSG.ML_LOGIN_OK }, () => void chrome.runtime.lastError);
+        // R64：MSG 非全局，必须在回调内解构——此处异步执行时本条目与 catch-all
+        // 条目的 rpc.js 必已落定；放 IIFE 顶层会在条目顺序变动时先崩、连令牌捕获
+        // 一起丢（storage 回调抛错外层 try/catch 接不住，R47 即此翻车）。
+        const MSG = __magicLensRpc.MSG;
+        // 通知 options 页刷新登录状态；background 稍后关闭本标签。
+        // 发送失败不吞兜底：异常只跳过通知，下方 window.close 定时器照常注册。
+        try {
+          chrome.runtime.sendMessage({ type: MSG.ML_LOGIN_OK }, () => void chrome.runtime.lastError);
+        } catch { /* SW 不可达时静默，由下方兜底 */ }
         setTimeout(() => { try { window.close(); } catch { /* 非脚本打开时静默 */ } }, 3000);
       });
       return;

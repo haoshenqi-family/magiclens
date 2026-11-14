@@ -7,6 +7,11 @@
  *
  * 本守卫在 Node VM 中真实执行 common.js → rpc.js → iciba.js → background.js，
  * 再触发一次 ML_TRANSLATE 直连命中，锁住「模块导出名 ↔ SW 消费名」契约。
+ * R64 增补回调页契约：oidc-callback.js 在 VM 中按 manifest 注入顺序真实执行
+ * rpc.js → oidc-callback.js，锁住「存令牌 → 渲染横幅 → 发 ML_LOGIN_OK → 注册
+ * 兜底定时器」链路——R47 迁独立 content script 后引用裸 MSG（rpc.js 只挂
+ * __magicLensRpc），ReferenceError 抛在 storage 异步回调里无人接，登录成功页
+ * 永不关闭，静态 node --check 与本套件原断言都覆盖不到这个域。
  * 无第三方依赖：node scripts/check-extension-modules.js
  */
 'use strict';
@@ -109,6 +114,70 @@ async function main() {
   });
 
   console.log('PASS extension module contract: iciba.js export -> background.js ML_TRANSLATE');
+
+  // ---- R64 回调页契约：登录成功链路必须真实走通（存令牌→发 ML_LOGIN_OK→兜底定时器）----
+  // manifest 断言注入顺序：oidc-callback.js 依赖 __magicLensRpc.MSG，rpc.js 必须先注入。
+  const manifest = JSON.parse(read('manifest.json'));
+  const callbackEntry = manifest.content_scripts.find((entry) => entry.js.includes('oidc-callback.js'));
+  assert.ok(callbackEntry, 'manifest 必须有 oidc-callback.js 的注入条目');
+  assert.deepEqual(callbackEntry.js, ['rpc.js', 'oidc-callback.js'],
+    '回调页条目必须先注入 rpc.js（oidc-callback.js 解构 __magicLensRpc.MSG）');
+
+  const saved = {};
+  const sent = [];
+  const timers = [];
+  const makeElement = (tag) => ({
+    tagName: tag,
+    className: '',
+    textContent: '',
+    style: {},
+    children: [],
+    append(...els) { this.children.push(...els); },
+    appendChild(el) { this.children.push(el); return el; },
+  });
+  const head = makeElement('head');
+  const body = makeElement('body');
+  body.innerText = JSON.stringify({
+    success: true,
+    result: { accessToken: 'at-contract-check', refreshToken: 'rt-contract-check' },
+  });
+  // content script 世界：window 即隔离世界的全局（rpc.js 挂 __magicLensRpc 的目标），
+  // 所以 window 必须自指回全局，否则裸 __magicLensRpc 解析不到——恰是 R64 缺陷形态。
+  const sandbox = {
+    location: { hostname: 'moon-well.haoshenqi.top', pathname: '/auth/oidc/callback' },
+    document: { head, body, createElement: (tag) => makeElement(tag) },
+    chrome: {
+      // storage 回调按浏览器语义异步投递：修复前（裸 MSG）会在异步回调里抛
+      // ReferenceError——同步调用会被外层 try/catch 接住，掩盖真实失败形态
+      storage: { sync: { set: (items, cb) => { queueMicrotask(() => { Object.assign(saved, items); cb(); }); } } },
+      runtime: { sendMessage: (msg, cb) => { sent.push(msg); cb(); } },
+    },
+    // 只记录不执行：window.close 兜底 3s 不必真等，链路正确性由注册与否断言
+    setTimeout: (fn, ms) => { timers.push(ms); return 0; },
+    clearTimeout: () => {},
+    console,
+  };
+  sandbox.window = sandbox;
+  sandbox.close = () => {};
+  const callbackContext = vm.createContext(sandbox);
+  vm.runInContext(read('rpc.js'), callbackContext, { filename: 'rpc.js' });
+  vm.runInContext(read('oidc-callback.js'), callbackContext, { filename: 'oidc-callback.js' });
+  await new Promise((resolve) => setImmediate(resolve)); // 让异步 storage 回调落地
+
+  assert.deepEqual(saved, { token: 'at-contract-check', refreshToken: 'rt-contract-check' },
+    '回调页必须把两个令牌写入 chrome.storage.sync');
+  assert.equal(sent.length, 1, 'ML_LOGIN_OK 必须恰好发出一次（background 据此关标签页）');
+  assert.equal(sent[0].type, context.__magicLensRpc.MSG.ML_LOGIN_OK,
+    '发出的消息类型必须取自 rpc.js 的 MSG 表（R64：裸 MSG 引用会让发送整段哑火）');
+
+  const bannerTexts = [];
+  const walk = (el) => { bannerTexts.push(String(el.textContent)); (el.children || []).forEach(walk); };
+  walk(head);
+  walk(body);
+  assert.ok(bannerTexts.some((t) => t === '✓ MagicLens 登录成功'), '成功横幅必须已渲染');
+  assert.ok(timers.includes(3000), 'window.close 兜底定时器必须注册');
+
+  console.log('PASS extension module contract: oidc-callback.js stores token and sends ML_LOGIN_OK');
 }
 
 main().catch((error) => {
