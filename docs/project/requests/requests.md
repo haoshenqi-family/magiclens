@@ -85,4 +85,4 @@
 
 63. **缺陷：悬浮球滚动复习词卡显示 unknown message type（service worker 版本漂移，旧 SW 不识别 ml:review-queue）**（占号 2026-11-13，待回填）
 
-64. **登录成功回调页不自动关闭：oidc-callback 引用不存在的裸全局 MSG 臺 ReferenceError**（占号 2026-11-14，待回填）
+64. **登录成功回调页不自动关闭：oidc-callback 引用不存在的裸全局 MSG 臺 ReferenceError**（占号 2026-11-14；2026-11-14 修复完成已 push origin/develop 待验收）：R47（906e232）迁独立 content script 时把裸 `MSG` 引用带了过来，而 `MSG` 从非全局（rpc.js 只挂 `__magicLensRpc`，全仓口径 `const MSG = __magicLensRpc.MSG`）——ReferenceError 抛在 chrome.storage.sync.set 异步回调、外层 try/catch 接不住：横幅照常渲染，但 ML_LOGIN_OK 发不出、window.close 兜底定时器不注册、background tabs.remove 永不调度，登录成功页永久停留（潜伏期 2026-10-15 起，token 90 天有效登录罕见故未炸过）。修复=storage 回调内解构 MSG + sendMessage try/catch 不吞兜底 + manifest 回调条目显式先注入 rpc.js；契约套件 +1 段（VM 真实执行 rpc.js→oidc-callback.js 锁登录链路，旧版回放 FAIL 证明有效）；0.8.25-202611141302 测试版（dd08928；R63 并行同递增 0.8.25，本条先推为准，R63 推送时顺延 0.8.26）；worktree `magiclens-r64-oidc-callback-close` 驻留待验收。

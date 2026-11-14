@@ -123,3 +123,13 @@
 - **驻留**：worktree `../magiclens-r62-release-v0824`、分支 `chore/r62-release-v0824`（已全部推远端），与 R59/R60/R61 驻留一同待用户装 v0.8.24 实测后清理。
 
 **台账总结**：`requests.md` 第 62 条占号（5c69f6c）本处回填；`response.md` 写入前 12 节（历史欠账），本次压回 10 节，最旧 R50–R52 原样搬入 `response-archive/response-R50-R52.md` 并登记索引。
+
+## 2026-11-14（R64：登录成功回调页不自动关闭修复）
+
+### R64（用户：「✓ MagicLens 登录成功 / 令牌已自动保存，本窗口稍后自动关闭。然后一直没有关闭」）
+
+- **做了什么**：登录成功回调页的两条关闭链路（background 收 ML_LOGIN_OK 后 2.5s `chrome.tabs.remove` 为主、content 3s `window.close` 为兜底）双双哑火，断点是同一处——`oidc-callback.js` 引用裸 `MSG`，而 `MSG` 从非全局（rpc.js 只挂 `__magicLensRpc`，全仓口径 `const MSG = __magicLensRpc.MSG`）；R47（906e232）迁独立 content script 时把裸引用带了过来、解构行丢了。ReferenceError 抛在 `chrome.storage.sync.set` 异步回调里、外层 try/catch 接不住：横幅照常渲染（用户看得到「登录成功」），但 ML_LOGIN_OK 发不出、兜底定时器不注册、background 永不 `tabs.remove`，标签页永久停留。修复：① storage 回调内解构 `MSG`（异步执行时两条注入条目的 rpc.js 必已落定；刻意不放 IIFE 顶层——条目顺序变动会先崩、连令牌捕获一起丢）；② `sendMessage` 包 try/catch，发送失败不吞兜底定时器；③ manifest 回调条目显式先注入 `rpc.js`（依赖显式化，不借道 catch-all 条目的注入）。潜伏期自 2026-10-15（token 90 天有效、登录罕见故一直未炸）。
+- **测试**：`scripts/check-extension-modules.js` +1 段回调页契约——VM 按 manifest 注入顺序真实执行 rpc.js → oidc-callback.js，锁「存令牌→渲染横幅→发 ML_LOGIN_OK（类型取自 MSG 表）→注册兜底定时器」链路；storage 回调按浏览器语义异步投递（同步调用会被外层 try/catch 接住，掩盖真实失败形态——首版测试即踩此坑）；**旧版缺陷回放 FAIL 证明守卫有效**（0c4b792 旧文件换入重跑 = `ReferenceError: MSG is not defined` 复现 + 套件 exit 1，恢复修复版全绿）；node --check + manifest JSON 合法性过；本套件之外 T1 手工矩阵无登录回调独立行（真机验收覆盖）。
+- **验收（用户真机）**：`chrome://extensions` 加载本 worktree `extension/` → 设置页「登录」→ Authentik 登录完成 → 回调页应显示「✓ MagicLens 登录成功」并在约 2.5-3s 内自动关闭（修复前永不关闭）；回 options 页登录状态应已刷新。
+- **部署**：`0c4b792..dd08928` push `origin/develop`；0.8.25-202611141302 测试版（不触发发布）；正式版随下一轮发布去时间戳 merge `release`。
+- **总结**：requests.md 占号 R64（`0c4b792`）本条为回应；冲突记录：R63 并行会话同日开发且测试版同递增至 0.8.25——其提交（5805c32/d45b580）驻**主检出树**尚未 push，曾致主检出试合并 manifest 冲突（即时 abort，未留痕）；处置=worktree 分支对 origin/develop 纯快进直推，**0.8.25 归先推的 R64**，R63 推送时须顺延 0.8.26（由其会话 pull 后自行改版号，未代改）。
