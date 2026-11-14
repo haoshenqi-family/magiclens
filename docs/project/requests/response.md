@@ -136,3 +136,40 @@
 - **验收（用户真机）**：`chrome://extensions` 加载本 worktree `extension/` → 设置页「登录」→ Authentik 登录完成 → 回调页应显示「✓ MagicLens 登录成功」并在约 2.5-3s 内自动关闭（修复前永不关闭）；回 options 页登录状态应已刷新。
 - **部署**：`0c4b792..dd08928` push `origin/develop`（R64 先行，0.8.25-202611141302 测试版）；2026-11-14 用户令「merge 到 develop」——R63（5805c32/d45b580）与 R64 在主检出正式合并推送，合并结果顺延 **0.8.26-202611141315**（含两修）；正式版随下一轮发布去时间戳 merge `release`。
 - **总结**：requests.md 占号 R64（`0c4b792`）本条为回应；冲突记录：R63 并行会话同日开发且测试版同递增至 0.8.25——其提交（5805c32/d45b580）驻主检出树尚未 push，曾致主检出试合并 manifest 冲突（即时 abort，未留痕）；R64 先以纯快进推上 origin/develop；同日用户令合并，已在合并中把撞号顺延为 0.8.26（R63 修复同车），其台账撞号条目（Worktree 纪律修订）重编为 65。
+
+## 2026-11-14（R66：划词发音四级链路——IndexedDB 词音缓存 + moon-well 词典代理）
+
+**对 R66 的回应**：用户要「缓存每个单词的真人发音、不要机械合成音」，并拍板链路与边界：
+不预取；词典直连失效走后端（后端给的也必须是词典音），后端也失效才机器合成。
+
+- **交付（版本 0.8.27-202611141415 测试版）**：
+  - 四级的第 1~3 级收进 background SW（新消息 `ML_DICT_SPEAK`）：① IndexedDB 词音缓存
+    （库 `magiclens`/store `dictvoice`，键=trim+弯撇号归一+小写，与 moon-well R259 同口径；
+    软上限 3000 词 LRU，`ts` 索引剪枝；读写失败按 miss/跳过降级）；② 有道 dictvoice 直连
+    （SW fetch 吃 host_permissions 豁免，5s 超时，形制校验同服务端）；③ moon-well
+    `POST /tts/dict-voice`（R259 词典真人音非 TTS，10s，404/断网/未登录都落下一级）。
+    同词并发 single-flight；L2/L3 字节均回写客户端缓存。
+  - content `speak()` 改 Web Audio 解码播放（`decodeAudioData` 老 Safari 回调形态兼容，
+    chat.js 同款）：字节经消息通道，**对宿主页 CSP 免疫**——根治 R43 起 media-src 严格
+    站点被页面 CSP 打回机械音的问题。`speakSeq`（stopSpeak 时 +1）+ `current.text` 双闸
+    作废迟到响应/迟到回退；AudioContext 每页复用；`ctx` 悬挂或解码失败退机器合成。
+  - 机器合成（speechSynthesis）退居最终兜底：四级全空 / 短语句子 / 解码或播放被拦。
+- **守卫**：`scripts/check-extension-modules.js` 增 R66 契约段（VM 内存 IndexedDB 桩 +
+  可控 fetch 真实执行 background.js）：直连命中回传形制与归一词序 / 缓存命中零出网 /
+  直连失败→代理命中（登录态）/ 四级全空 `{ok:false}` / 形状闸零出网，5 组断言全绿。
+- **集成套件**：`matrix/magiclens.csv` ml-speak 行改四级口径；`browser/run.js` 用例断言
+  「SW 直连 dictvoice」+「二次朗读 IndexedDB 缓存零出网」+「直连命中不叠打代理」
+  （mock 对 youdao 域有 R43 遗留成功路由，即第 2 级命中短路；第 3 级代理由 VM 契约测试
+  与 moonwell T1 dict-voice 用例覆盖）——**magiclens T1 17/0/0/0 全绿**。
+- **服务端配对**：moon-well R259（`/tts/dict-voice` + MinIO 永久缓存），其仓 LLD/台账各自
+  回写；dev 已部署验证（api-docs 见端点）。
+- **文档四问**：L1 README 功能表「划词朗读」行 + API 契约速查新增 `/tts/dict-voice`；
+  L2 design.md 追加决策 19；LLD 落 `iterations/1.0/r66-dictvoice-cache/lld.md`。
+- **发布范围**：push develop `b034224`（测试版不触发发布）；正式发布待用户确认后按
+  §0.2 两段式（去时间戳后缀 → merge release）。
+- **手工 AC（待真机验收）**：单词点 🔊 真人音；同词第二次秒出（缓存）；短语/句子合成音；
+  关气泡即停；断网单词仍机械音兜底。
+- **PingCode**：idea 未建，待用户令补建挂 ML-56+（本条先台账承载）。
+
+**台账总结**：`requests.md` 第 66 条由 `claim.sh` 占号即 push（`ce139f3`）；response.md 现
+7 节未超窗口。冲突记录：无撞号；R65 为今日已完成的 docs-only 任务（worktree 纪律同源修订，主号 ops R187），本条顺延 R66。
