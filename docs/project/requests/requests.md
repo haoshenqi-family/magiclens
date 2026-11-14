@@ -84,3 +84,5 @@
 62. **发布正式版 v0.8.24：R59 悬浮球滚动复习/详情分页/语速三档 + R60 注册链接修复 + R61 邀请链接动态获取（去时间戳 merge release）**（占号 2026-11-13，待回填）
 
 63. **缺陷：悬浮球滚动复习词卡显示 unknown message type（service worker 版本漂移，旧 SW 不识别 ml:review-queue）**（占号 2026-11-13，待回填）
+
+64. **登录成功回调页不自动关闭：oidc-callback 引用不存在的裸全局 MSG 臺 ReferenceError**（占号 2026-11-14，待回填）
