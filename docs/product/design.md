@@ -296,3 +296,22 @@ MagicLens 扩展悬浮球在这些域自动隐藏；其他网站继续按用户�
 - 音色固定美音（type=2），英音（type=1）未开口径；词形不做屈折还原（trains 与 train
   词典音不同）。
 - 集成套件 ml-speak 行升级为四级口径（SW 直连 fail-fast → 代理命中双断言）。
+
+## 20. 段落整页翻译：攒批懒加载与内容性插入（2026-11-14，R67，v0.8.28；moon-well 零改动）
+
+**决策**：P1 收尾项「段落整页翻译（translate-batch）」落地（§5 遗留清零）。新模块
+`page-translate.js`（主清单注入，顶层 + 同源 iframe 经 contentDocument 伸手，§12 L165 口径）：
+悬浮球「🌐 整页翻译」气泡（经 SW 转发 ML_PT_TOGGLE）与 popup 按钮按页开关；段落进视口才请求
+（IO rootMargin 400px），**攒满 8 段或 800ms 即发、单飞行**，译文以兄弟块插原段下方（textContent-only）。
+
+- **为什么攒批是契约级设计**：服务端把一次请求内的 miss 段合并为一次 LLM 调用（per-call 计费 1 积分）
+  + 缓存命中段 1 积分/段——逐段发把 miss 路径放大 8 倍；批量让「一页英文」的成本从几十积分压到十几积分。
+  服务端 ES 缓存命中仍计费，故页内再挂一层内存缓存挡 toggle 循环的重复扣费（双层省钱）。
+- **Shadow DOM 口径的边界澄清**：AGENTS.md §0.2「UI 一律挂 closed Shadow DOM」管的是**UI 面板**
+  （气泡/抽屉/chip）；译文块是**内容性插入**（magicbook 阅读器 `reading-translation` 同款形态），
+  用内联 style 自包含——不注入全局样式表、不污染 window，约束的精神（样式隔离）不受损；
+  状态 chip 照旧 closed Shadow DOM（`#magiclens-pt-host`）。译文块带 `data-magiclens-translation`
+  标记，highlight.js `skipped()` 排除（译文英文词不进判定矩阵），划词/发现三处同步排除。
+- **计费护栏**：按页手动开关（无全局设置键，刷新即回关闭）、单次开启 ≤100 段、失败段两端不缓存可重试。
+  语义对齐 magicbook R291（顺序逐段 → 这里升级为批量顺序）与「整页翻译每加一项都只是往同一对中继加
+  消息类型」的 §12 预言——本次只加了 ML_TRANSLATE_BATCH / ML_PT_TOGGLE 两条消息类型。

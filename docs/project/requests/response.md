@@ -173,3 +173,42 @@
 
 **台账总结**：`requests.md` 第 66 条由 `claim.sh` 占号即 push（`ce139f3`）；response.md 现
 7 节未超窗口。冲突记录：无撞号；R65 为今日已完成的 docs-only 任务（worktree 纪律同源修订，主号 ops R187），本条顺延 R66。
+
+## 2026-11-14（R67：段落整页翻译——translate-batch 攒批懒加载 + 双语内联渲染）
+
+**对 R67 的回应**：用户指令「把这个功能上线」——补齐 design.md §5 P1 收尾项
+「剩段落整页翻译（translate-batch）」（R1-R66 全台账从未立项）。moon-well 零改动。
+
+- **交付（0.8.28-202611142136 测试版）**：
+  - `page-translate.js` 新模块（manifest 主清单 highlight.js 之后）：视口懒加载
+    （IO rootMargin 400px per-doc）+ 攒满 8 段或 800ms 即发、单飞行顺序；译文以兄弟块
+    插原段下方（textContent-only、内联 style 自包含，LI/TD 类插元素内部——ul/tr 下兄弟
+    div 非法）；状态 chip closed Shadow DOM 左下角（进度/达上限提示/✕ 关闭/401 重新登录链）；
+    页内内存缓存挡 toggle 循环重复扣费；单次开启 ≤100 段护栏；生命周期三件
+    （storage.onChanged / onInvalidated / bfcache pageshow）与 highlight/content/ball 同模式；
+    能力握手 `data-magiclens-page-translate`。
+  - rpc.js MSG +2（ML_TRANSLATE_BATCH / ML_PT_TOGGLE）；background 两 case：批量端点
+    `/vocabulary/reading/translate-batch`（60s 超时，SW 侧兜底归一/去空白/≤20 段/每段 ≤2000
+    ——服务端 `@Size` 镜像）；toggle 转发给 sender tab（收不到回「请刷新页面」可行动文案，
+    R63 教训）。悬浮球 +1 气泡（🌐，经 SW 转发）；popup +1 按钮（直发 tabs.sendMessage）；
+    highlight.js `skipped()` 排除译文标记（译文英文词不进判定矩阵）。
+  - **设计要点**（design.md §20 ADR）：攒批是契约级设计——服务端把一次请求内的 miss 段
+    合并为一次 LLM 调用（8 段 1 积分 vs 逐段 8 积分）；译文块是内容性插入不属 UI 面板，
+    §0.2 的 Shadow DOM 约束精神（样式隔离/无全局污染）不受损。
+- **守卫**：check-extension-modules.js +R67 契约段全绿（MSG 两键 / manifest 注入位 /
+  归一过滤截断与 20 段上限 / 空段落护栏零出网 / 积分不足文案透传 / `""` 段透传）；
+  node --check 全过。
+- **集成套件（同任务内同步）**：matrix/magiclens.csv +1（ml-page-translate，15 行）；
+  e2e_bridge.py +1；browser/run.js +1 特性用例（开启 → 6 段单批 body 断言 → 内联块渲染 →
+  关闭清干净 → 三开页内缓存零新请求）+ translate-batch mock 路由（result 按请求段落序动态
+  生成）+ pages/article.html fixture——`guard.py` 三向对账全绿，套件 magiclens 18/18 PASS
+  （0 FAIL 0 SKIP），浏览器全特性回归 15/15。
+- **文档四问**：L1 README 新「整页翻译」节 + 悬浮球气泡清单 +「规划中」注记移除；
+  L2 design.md 追加决策 20；LLD 落 `iterations/1.0/r67-page-translate/lld.md`。
+- **手工 AC（待真机验收）**：英文页开/关与滚动渐进出译文；关闭移除干净、刷新重置；
+  同源 iframe 页出译文；积分不足/401 文案；生词高亮不点亮译文；magicbook 域球让位但
+  popup 按钮可用。
+- **PingCode**：idea 未建，待用户令补建挂 ML-56+（R66 同口径，本条先台账承载）。
+
+**台账总结**：`requests.md` 第 67 条由 `claim.sh` 占号即 push（`5122f3d`）；response.md 现
+8 节未超窗口。冲突记录：无撞号。
