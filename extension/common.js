@@ -21,6 +21,17 @@
     // 不突现悬浮球，想要时设置页自行打开
     ballEnabled: false,
     ballAsked: false,
+    // R69 悬浮球气泡逐项配置：每个径向气泡 + 滚动复习词卡各一个布尔键（默认全开=
+    // 升级零变化）。Why 键名统一 bubble*/ballReview 前缀：check-ball-visibility.js 的
+    // 双锁按前缀做「默认键 ↔ 注册表 cfgKey」双向覆盖断言，前缀即契约的一部分。
+    // 新增气泡只改 __magicLensBallActions 注册表一处（声明 cfgKey），配置 UI 与守卫自动跟随。
+    bubbleChat: true,
+    bubbleHighlight: true,
+    bubblePageTranslate: true,
+    bubbleLearning: true,
+    bubbleLibrary: true,
+    bubbleMe: true,
+    ballReview: true,
   });
 
   if (g.__magicLensNormDomain) return;
@@ -52,6 +63,24 @@
       return Boolean(n) && (h === n || h.endsWith(`.${n}`));
     });
   };
+
+  /* R69 悬浮球气泡注册表（单源）：径向气泡的唯一权威清单。
+   * ⚠️ 新增/下线气泡的纪律（check-ball-visibility.js 双锁强制，违反即挂）：
+   *   1. 只改本表——声明 {id, icon, label, cfgKey}；cfgKey 必须是 __magicLensDefaults
+   *      里 bubble* 前缀的布尔键（锁 A 双向覆盖：默认键 ↔ cfgKey 一一对应）；
+   *   2. ball.js 的 RUNS 表按 id 补动作处理器（锁 B：RUNS 的 id 集合必须等于本表），
+   *      禁止在 ball.js 私挂 ACTIONS 字面量绕过本表；
+   *   3. options.js 循环本表自动渲染设置页「悬浮球」区块的逐项开关（禁止手抄清单）。
+   * Why 表只放纯数据不放处理器：options 页不加载 ball.js（此处须可独立求值），
+   * 而 __magicLensAsk/MSG 等 handler 依赖 ball.js/content.js 的作用域。 */
+  g.__magicLensBallActions = Object.freeze([
+    { id: 'chat', icon: '💬', label: '伴读对话', cfgKey: 'bubbleChat' },
+    { id: 'highlight', icon: '〰', label: '生词高亮', cfgKey: 'bubbleHighlight' },
+    { id: 'page-translate', icon: '🌐', label: '整页翻译', cfgKey: 'bubblePageTranslate' },
+    { id: 'learning', icon: '🎓', label: '每日学习', cfgKey: 'bubbleLearning' },
+    { id: 'library', icon: '📚', label: '书库', cfgKey: 'bubbleLibrary' },
+    { id: 'me', icon: '👤', label: '我的', cfgKey: 'bubbleMe' },
+  ]);
 
   /** R56：宿主已自带常驻入口的域名——扩展悬浮球在这些域及子域自动让位。
    * Why 不放开给用户配置：这是「同一入口不能有两个」的产品约束，不是用户偏好；

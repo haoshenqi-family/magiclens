@@ -12,9 +12,13 @@
  *   `POST /buddy/catalog`（JWT 经 background 中转）拿 equipped 伙伴的 MinIO 匿名直链，
  *   <img> 直连——probe 成功才切头像态，失败保留文字兜底（R206 同款探测再切换）。
  * - 动作集：magicbook 在 /buddy 页配置、阅读页动作转发顶栏工具；网页上下文没有
- *   顶栏，固定五项（chat 钉首位，R234 服务端不变量的扩展侧同构）：对话=开抽屉、
- *   生词高亮=本页开关（经 background 转发 ML_HL_TOGGLE，与 Alt+U 同一语义）、
- *   每日学习/书库/我的=新标签打开 magicbook 对应页。可配置性登记 LLD 遗留。
+ *   顶栏，气泡清单来自 common.js 的 __magicLensBallActions 注册表（chat 钉首位，
+ *   R234 服务端不变量的扩展侧同构）：对话=开抽屉、生词高亮=本页开关（经 background
+ *   转发 ML_HL_TOGGLE，与 Alt+U 同一语义）、整页翻译=ML_PT_TOGGLE（R67）、
+ *   每日学习/书库/我的=新标签打开 magicbook 对应页。
+ *   **R69 起逐项可配置**（设置页「悬浮球」区块，storage.onChanged 即时重建）——
+ *   R54 登记的「可配置性 LLD 遗留」就此清账；新增气泡只改注册表一处，
+ *   options 配置 UI 与 check-ball-visibility.js 双锁自动跟随（见注册表纪律注释）。
  * - 位置记忆：magicbook 用页面 localStorage；扩展禁污染宿主，改 chrome.storage.local
  *   按 hostname 键（同一站点各页共用，换设备不跟随——位置本就是屏幕相关）。
  *
@@ -31,27 +35,33 @@
   const MSG = __magicLensRpc.MSG;
   const SITE = window.__magicLensSiteOrigin;
 
-  // 动作全集（顺序即展开顺位，chat 恒首位——R234 口径的扩展侧同构）
-  const ACTIONS = [
-    { id: 'chat', icon: '💬', label: '对话', run: () => window.__magicLensAsk('') },
-    { id: 'highlight', icon: '〰', label: '生词高亮', run: () => {
+  /* R69：气泡动作 = 注册表（common.js __magicLensBallActions，唯一权威）+ 本文件的
+   * RUNS 处理器按 id 映射。禁止在本文件手写气泡清单（check-ball-visibility.js 双锁：
+   * RUNS 的 id 集合必须等于注册表，字面量 ACTIONS 数组直接挂）。 */
+  const RUNS = {
+    chat: () => { if (typeof window.__magicLensAsk === 'function') window.__magicLensAsk(''); },
+    highlight: () => {
       // 经 background 转发给本页 highlight.js（与 Alt+U 完全同一链路与语义）
       __magicLensRpc.send({ type: MSG.ML_HL_TOGGLE }, () => void chrome.runtime.lastError);
-    } },
-    { id: 'page-translate', icon: '🌐', label: '整页翻译', run: () => {
+    },
+    'page-translate': () => {
       // R67 段落整页翻译：经 SW 转发给本页 page-translate.js（与高亮气泡同构，Why 不直调
       // window 钩子：扩展重载后的旧页面上钩子缺失，SW 转发能回「请刷新页面」类可行动文案）
       __magicLensRpc.send({ type: MSG.ML_PT_TOGGLE }, () => void chrome.runtime.lastError);
-    } },
-    { id: 'learning', icon: '🎓', label: '每日学习', run: () => window.open(`${SITE}/learning`, '_blank', 'noopener') },
-    { id: 'library', icon: '📚', label: '书库', run: () => window.open(`${SITE}/`, '_blank', 'noopener') },
-    { id: 'me', icon: '👤', label: '我的', run: () => window.open(`${SITE}/me`, '_blank', 'noopener') },
-  ];
+    },
+    learning: () => window.open(`${SITE}/learning`, '_blank', 'noopener'),
+    library: () => window.open(`${SITE}/`, '_blank', 'noopener'),
+    me: () => window.open(`${SITE}/me`, '_blank', 'noopener'),
+  };
+  // 动作全集（顺序即展开顺位，chat 恒首位由注册表顺序保证——R234 口径的扩展侧同构）
+  const ACTIONS = window.__magicLensBallActions.map((a) => ({ ...a, run: RUNS[a.id] }));
 
   let host = null;      // shadow host
   let wrap = null;      // 定位/拖拽命中区（R223：定位迁 wrap，按钮只画头像）
   let visible = false;
   let bubbleCloseTimer = null;
+  let activeActions = [];  // R69：本次 build 实际启用的气泡（配置过滤后，FAB fallback 用）
+  let lastSig = null;      // R69：上次 build 时的「视觉相关配置」签名（onChanged 判断是否重建）
 
   function bg(msg) {
     return new Promise((resolve) => {
@@ -70,7 +80,8 @@
   }
 
   /* ---------- DOM（closed Shadow DOM） ---------- */
-  function build() {
+  /** R69：cfg 入参——气泡过滤与复习卡门控都读它。唯一调用方 sync()（含重建路径）。 */
+  function build(cfg) {
     host = document.createElement('div');
     host.id = 'magiclens-ball-host';
     const shadow = host.attachShadow({ mode: 'closed' });
@@ -186,8 +197,9 @@
     shadow.append(style, wrap, buildReviewDom());
     (document.body || document.documentElement).appendChild(host);
 
-    // 气泡（chat 恒首位由 ACTIONS 顺序保证）
-    for (const a of ACTIONS) {
+    // 气泡（chat 恒首位由注册表顺序保证）；R69：按 cfg 逐项过滤（bubble* 键，默认全开）
+    activeActions = ACTIONS.filter((a) => cfg[a.cfgKey] !== false);
+    for (const a of activeActions) {
       const b = document.createElement('button');
       b.className = 'bubble';
       b.dataset.action = a.id;
@@ -201,15 +213,22 @@
       bubbles.appendChild(b);
     }
 
-    // FAB 本体点击 = 对话（与 magicbook 同：点球开抽屉，气泡是 hover 增强）
+    // FAB 本体点击跟随配置（R69）：chat 启用 → 开抽屉（与 magicbook 同，原行为）；
+    // chat 被关 → 第一个启用气泡的动作兜底；全关 → 设置页重新开启（与 popup「设置」
+    // 同一链路 ML_OPENOPTIONS）。Why 不读全局 ACTIONS：过滤后的 activeActions 才是
+    // 本页真实的可用面。
     fab.addEventListener('click', () => {
-      if (typeof window.__magicLensAsk === 'function') window.__magicLensAsk('');
+      if (activeActions.some((a) => a.id === 'chat')) return RUNS.chat();
+      if (activeActions.length) return activeActions[0].run();
+      __magicLensRpc.send({ type: MSG.ML_OPENOPTIONS }, () => void chrome.runtime.lastError);
     });
 
     initBubbles();
     initDrag();
     loadBuddyAvatar(fab, img);
-    initReview();
+    // R69：滚动复习词卡全局开关（ballReview，设置页「悬浮球」区块）——关闭即整个子系统
+    // 不激活（DOM 隐藏且不发队列请求）；既有的暂停/收起（storage.local）语义不变，两者独立
+    if (cfg.ballReview !== false) initReview();
     visible = true;
   }
 
@@ -234,28 +253,29 @@
     if (bubbleCloseTimer) { clearTimeout(bubbleCloseTimer); bubbleCloseTimer = null; }
     if (!wrap) return;
     const items = wrap.querySelectorAll('.bubble');
-    if (items.length) {
-      const rect = wrap.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      const clearRadius = 94; // 气泡半径 + 展开半径的余量
-      const inward = centerX > window.innerWidth / 2 ? -1 : 1;
-      const vertical = centerY < clearRadius ? -1 : (window.innerHeight - centerY < clearRadius ? 1 : 0);
-      // 顶/底空间不足时往反方向让位。屏幕方向向量 (dx,dy)=(inward,-vertical)；
-      // 气泡位移按 (cos a, -sin a) 存（数学角），故 a = -atan2(dy, dx)。
-      const baseDeg = vertical
-        ? -Math.atan2(-vertical, inward) * 180 / Math.PI
-        : (inward < 0 ? 180 : 0);
-      const spread = vertical ? 90 : 120;
-      const count = items.length;
-      items.forEach((bubble, i) => {
-        const off = count > 1 ? (i / (count - 1) - 0.5) * spread : 0;
-        const angle = (baseDeg + off) * Math.PI / 180;
-        bubble.style.setProperty('--bx', `${Math.round(Math.cos(angle) * 74)}px`);
-        bubble.style.setProperty('--by', `${Math.round(-Math.sin(angle) * 74)}px`);
-      });
-      wrap.classList.toggle('bubbles-left', inward > 0);
-    }
+    // R69：零气泡（配置全关）不加 bubbles-open——该类还承担「展开时复习卡让位」
+    //（.wrap.bubbles-open ~ .rvw），空展开会白白隐藏词卡
+    if (!items.length) return;
+    const rect = wrap.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const clearRadius = 94; // 气泡半径 + 展开半径的余量
+    const inward = centerX > window.innerWidth / 2 ? -1 : 1;
+    const vertical = centerY < clearRadius ? -1 : (window.innerHeight - centerY < clearRadius ? 1 : 0);
+    // 顶/底空间不足时往反方向让位。屏幕方向向量 (dx,dy)=(inward,-vertical)；
+    // 气泡位移按 (cos a, -sin a) 存（数学角），故 a = -atan2(dy, dx)。
+    const baseDeg = vertical
+      ? -Math.atan2(-vertical, inward) * 180 / Math.PI
+      : (inward < 0 ? 180 : 0);
+    const spread = vertical ? 90 : 120;
+    const count = items.length;
+    items.forEach((bubble, i) => {
+      const off = count > 1 ? (i / (count - 1) - 0.5) * spread : 0;
+      const angle = (baseDeg + off) * Math.PI / 180;
+      bubble.style.setProperty('--bx', `${Math.round(Math.cos(angle) * 74)}px`);
+      bubble.style.setProperty('--by', `${Math.round(-Math.sin(angle) * 74)}px`);
+    });
+    wrap.classList.toggle('bubbles-left', inward > 0);
     wrap.classList.add('bubbles-open');
   }
 
@@ -924,20 +944,37 @@
     rvwEls = null;
   }
 
-  /* ---------- 显隐（R54 v1 口径不变） ---------- */
+  /* ---------- 显隐（R54 v1 口径）+ R69 配置即时重建 ----------
+   * Why 整体重建而非就地增删气泡：气泡 DOM、复习卡、头像、拖拽绑定是一次性装配
+   *（R223 命名监听纪律的教训——重复 init 会累积监听），remove()→build() 是唯一的
+   * 对称拆装路径；位置从 storage.local 恢复，重建无损。 */
+  function visualSignature(cfg) {
+    // 「改了会变脸」的键（enabled/ballEnabled/disabledDomains/各 bubble*/ballReview）；
+    // token 等非视觉键刻意排除——token 刷新不该引发重建
+    const keys = ['enabled', 'ballEnabled', 'disabledDomains',
+      ...window.__magicLensBallActions.map((a) => a.cfgKey), 'ballReview'];
+    return JSON.stringify(keys.map((k) => JSON.stringify(cfg[k])));
+  }
+
   function sync() {
     chrome.storage.sync.get(__magicLensDefaults, (cfg) => {
       if (chrome.runtime.lastError) return;
       const want = window.__magicLensBallVisible(cfg, location.hostname, window === window.top);
-      if (want && !visible) { build(); applySavedPosition(); }
+      const sig = visualSignature(cfg);
+      if (want && (!visible || sig !== lastSig)) { remove(); build(cfg); applySavedPosition(); }
       else if (!want && visible) remove();
+      lastSig = sig;
     });
   }
 
   __magicLensRpc.onInvalidated(remove);
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'sync') return;
-    if (changes.enabled || changes.ballEnabled || changes.disabledDomains) sync();
+    // R69：气泡/复习卡配置键并入盯梢——sync() 内部按签名判断是否真重建，
+    // 未变化的键变更（如 token）走不到 build
+    if (changes.enabled || changes.ballEnabled || changes.disabledDomains
+      || changes.ballReview
+      || window.__magicLensBallActions.some((a) => changes[a.cfgKey])) sync();
     // R59：未登录时复习卡静默隐藏；登录成功（token 落库）自动补拉一次队列
     if (changes.token && review.authFailed && visible && rvwEls) reviewLoad();
   });
