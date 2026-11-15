@@ -212,3 +212,42 @@
 
 **台账总结**：`requests.md` 第 67 条由 `claim.sh` 占号即 push（`5122f3d`）；response.md 现
 8 节未超窗口。冲突记录：无撞号。
+
+## 2026-11-15（R68：划词链路加固——控件选区双轨检测 + 气泡响应判代防漂移）
+
+**对 R68 的回应**：wupage（GPL-3.0，只学思路不搬码）研读报告 P0 两项落地 + 在册缺陷
+「GitHub code view 划词不弹」。moon-well 零改动，纯扩展侧。
+
+- **交付（0.8.29-202611150857 测试版，`5b38c49` merge 即清分支）**：
+  - `content.js selectionInfo` 双轨制：控件轨（textarea/input 文本类读
+    `selectionStart/End`——控件选区不进 `window.getSelection()`，旧逻辑在此整段失效；
+    readOnly 允许查询只挡替换）+ range 轨保留并加 shadow 探针（`ShadowRoot.getSelection`
+    有值优先）；只读零干扰（不 focus/不 setSelectionRange/不拦事件）。
+  - 控件锚点：光标行号 × 行高近似定位，三重回退字段矩形（GitHub 整文件透明 textarea
+    直接贴字段矩形会把气泡钉在文件顶部）。
+  - `selection-relay.js` 同口径控件轨（iframe 内输入框此前同样不弹）+ `sendSelection` 抽取。
+  - **translate 判代**：`current` 加 `seq`，三赋值点统一 `seq: ++bubbleSeq`，回调 stale
+    检查文本比对 → seq 比对（同词关泡重开旧响应不得复活——R63 词卡漂移的机制层收尾）；
+    详解/朗读此前已有各自判代不动。
+- **GitHub 边界实测（修正 11-14 判断）**：扩展注入正常、单击定位写 textarea，但拖选/
+  双击/键盘 Shift 选择均由 GitHub JS 层自管（三路径实测不落任何标准选区 API，渲染层
+  无稳定契约）→ 本修复恢复「标准控件行为」站点；GitHub 拖选特例不可行（wupage 同样
+  无此特判），是否立项待用户拍板。
+- **集成套件（同任务内同步）**：matrix +1（ml-control-selection，16 行）、run.js 新用例
+  （普通 textarea + readOnly 模拟 GitHub 透明层）+ iframe-relay 控件轨补断言 +
+  control-selection.html/iframe-child.html fixture；**顺手修 run.js 预存 ReferenceError**
+  （总结打印引用循环内变量 → 全 PASS 也 exit 2，退出码门禁被废）。`guard.py` 三向全绿、
+  套件 16/16 PASS、真站四场景全绿（详见 LLD §4）。
+- **调试教训（存档）**：closed Shadow DOM 主世界 `host.shadowRoot` 恒 null——页面级
+  探测必须走 CDP pierce（diag8-12 连续假阴性根因）；CDP pierce 的 closed shadow root
+  在 `shadowRoots` 字段不在 `children`；品牌 Chrome 136+ 忽略 --load-extension，扩展
+  E2E 必须用 CfT（套件 findCft 已有）。
+- **文档四问**：L1 功能不变不涉；L2 架构不变不涉；LLD 落
+  `iterations/1.0/r68-selection-hardening/lld.md`（状态行随验收回填）。
+- **手工 AC（待真机验收）**：标准输入框/textarea 划词应弹、普通网页划词零回归、
+  同词关泡重开无旧译文复活、GitHub blob 拖选不弹属预期（自管选择壁垒）。
+- **PingCode**：idea 未建，待用户令补建（R66/R67 同口径，本条先台账承载）。
+
+**台账总结**：`requests.md` 第 68 条由 `claim.sh` 占号即 push（`433b573`）、详情已回填；
+response.md 现 9 节未超窗口。冲突记录：无撞号。配套 ops 仓套件改动随 ops main
+`53d04ef` push。
