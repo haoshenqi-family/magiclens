@@ -315,3 +315,25 @@ MagicLens 扩展悬浮球在这些域自动隐藏；其他网站继续按用户�
 - **计费护栏**：按页手动开关（无全局设置键，刷新即回关闭）、单次开启 ≤100 段、失败段两端不缓存可重试。
   语义对齐 magicbook R291（顺序逐段 → 这里升级为批量顺序）与「整页翻译每加一项都只是往同一对中继加
   消息类型」的 §12 预言——本次只加了 ML_TRANSLATE_BATCH / ML_PT_TOGGLE 两条消息类型。
+
+## 21. 悬浮球气泡逐项配置：registry 单源与双锁（2026-11-15，R69，v0.8.30）
+
+**决策**：清 R54 登记的「可配置性 LLD 遗留」——悬浮球六个径向气泡（💬 伴读对话 / 〰 生词高亮 /
+🌐 整页翻译 / 🎓 每日学习 / 📚 书库 / 👤 我的）+ 滚动复习词卡全部逐项可配置，入口在设置页
+「悬浮球」区块（用户拍板）。核心是**结构性防复发**：把「新增气泡必须可配置」从口头纪律
+变成代码契约。
+
+- **单源**：`common.js __magicLensBallActions`（frozen 纯数据：id/icon/label/cfgKey）——
+  ball.js 渲染、options.js 配置 UI、守卫对账三方共读这一份；run 处理器留在 ball.js 按 id
+  映射（options 页不加载 ball.js，故表必须可独立求值）。`__magicLensDefaults` 新增
+  `bubble*` × 6 + `ballReview`，默认全 true=升级零变化。
+- **双锁**（check-ball-visibility.js）：锁 A=注册表 cfgKey ↔ defaults bubble*/ballReview
+  键双向覆盖（ballReview 是词卡开关非气泡，单独断言）；锁 B=ball.js 禁私挂字面量 ACTIONS、
+  RUNS 按 id 全覆盖、options.js 必须引用注册表。再加注册表注释里的三条纪律（⚠️ 新增气泡
+  只改表一处）——下次加气泡若绕过配置面，守卫直接挂。
+- **即时重建**：配置变更走 remove()+build(cfg)+applySavedPosition() 整体重建（R223 命名
+  监听纪律下唯一对称拆装路径；位置/词卡状态从 storage 恢复）；sync() 按 visualSignature
+  判重，token 等非视觉键不触发重建。
+- **FAB 本体点击跟随配置**：chat 启用→开抽屉；被关→第一个启用气泡兜底；全关→
+  ML_OPENOPTIONS 开设置页（用户永远有「重新开启」的回路）。零气泡时 openBubbles 早退
+  （bubbles-open 还承担复习卡让位，空展开会误隐藏词卡）。

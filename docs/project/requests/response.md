@@ -251,3 +251,42 @@
 **台账总结**：`requests.md` 第 68 条由 `claim.sh` 占号即 push（`433b573`）、详情已回填；
 response.md 现 9 节未超窗口。冲突记录：无撞号。配套 ops 仓套件改动随 ops main
 `53d04ef` push。
+
+## 2026-11-15（R69：悬浮球气泡功能逐项配置——registry 单源 + 守卫双锁）
+
+**对 R69 的回应**：用户指令「buddy 整页翻译 回顾等气泡功能都要能在悬浮球那里配置。
+代码层面写清楚，避免下次再犯」——清 R54 头注释登记的「可配置性 LLD 遗留」。
+配置入口用户拍板：设置页「悬浮球」区块。
+
+- **交付（0.8.30-202611152156 测试版）**：
+  - `common.js`：`__magicLensBallActions` 注册表（frozen 纯数据 {id,icon,label,cfgKey} ×6，
+    单源——ball.js 渲染、options.js 配置 UI、守卫对账三方共读；数据进 common 的 Why：
+    options 页不加载 ball.js，表须可独立求值）+ `__magicLensDefaults` 新增
+    `bubbleChat/bubbleHighlight/bubblePageTranslate/bubbleLearning/bubbleLibrary/bubbleMe/ballReview`
+    七布尔键，**默认全 true=升级零变化**。
+  - `ball.js`：ACTIONS 改注册表驱动 + RUNS 按 id 映射；`build(cfg)` 过滤气泡；
+    配置变更**即时生效**（onChanged 盯全部视觉键 → visualSignature 判重 →
+    remove+build+applySavedPosition 整体重建，token 等非视觉键不触发）；
+    FAB 本体点击跟随配置（chat 开→抽屉 / 关→第一个启用气泡 / 全关→ML_OPENOPTIONS
+    开设置页）；滚动复习词卡 `ballReview` 门控（关=不 initReview、零队列请求，
+    与暂停/收起独立）；`openBubbles()` 零气泡早退（bubbles-open 兼管复习卡让位）。
+  - `options.html/js`：「悬浮球」区块循环注册表自动渲染逐气泡开关 + 词卡开关，
+    storage 为唯一事实源（onChanged 跨页同步）。
+  - **守卫双锁（check-ball-visibility.js）**：锁 A=registry cfgKey ↔ defaults
+    bubble* 键双向覆盖（ballReview 非气泡单独断言）；锁 B=ball.js 禁私挂字面量
+    ACTIONS + RUNS 按注册表 id 全覆盖 + options.js 必须引用注册表——
+    「新增气泡绕过配置面」从纪律变成挂门禁的结构性约束。
+- **验证**：node --check 全过；三守卫全绿（双锁输出 `6 actions two-way locked`）；
+  套件同任务内同步（matrix/magiclens.csv +1 ml-ball-bubbles=17 行、run.js 新用例、
+  e2e_bridge +1）：`guard.py` 三向全绿、浏览器全特性回归 **17/17**（含并行 R68 的
+  ml-control-selection）、runner magiclens **20/20**。
+- **文档四问**：L1 README 悬浮球行补逐项开关说明；L2 design.md 追加决策 21；
+  LLD 落 `iterations/1.0/r69-ball-bubbles-config/lld.md`（含并行 R68 版本漂移插曲：
+  本条语义化 +1 落 0.8.30）。
+- **手工 AC（待真机验收）**：设置页逐项开关即时生效（已打开页 hover 立即少一项）；
+  全关点球本体落设置页；词卡关闭消失、恢复复活；升级用户默认全开零变化。
+- **PingCode**：idea 未建，待用户令补建（R66-R68 同口径，本条先台账承载）。
+
+**台账总结**：`requests.md` 第 69 条由 `claim.sh` 占号即 push（`c2555c4`）、详情已回填；
+response.md 现 10 节未超窗口。冲突记录：无撞号；占号时 R68 已被并行会话占用（划词链路
+加固），本条顺延 69，版本顺延 0.8.30。
