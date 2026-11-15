@@ -166,8 +166,9 @@ function startMainEngine() {
   const elDVariant = shadow.querySelector('.d-variant');
   const elDBody = shadow.querySelector('.d-body');
 
-  let current = null; // { text, word }
+  let current = null; // { text, word, seq }
   let detailSeq = 0;  // Why 序号：旧词的慢响应不得覆盖新词面板（缓存 miss 的词响应最慢）
+  let bubbleSeq = 0;  // R68 气泡代：current 每次更替 +1，translate 的迟到响应只认同代
 
   /* ---------- 孤儿上下文自处（R13「译」永久转圈的根因） ----------
    * Why：扩展重新加载/发版后，已打开标签页里的这份脚本副本上下文失效，
@@ -251,8 +252,46 @@ function startMainEngine() {
   }
 
   /* ---------- 选区 ---------- */
+  // R68 控件轨白名单：number/email/date 等类型浏览器不暴露选择状态（selectionStart
+  // 恒 null），划了也是无效选区，只放行文本类控件。
+  const CTRL_INPUT_TYPES = ['text', 'search', 'url', 'tel'];
+  const isTextControl = (el) => el instanceof HTMLTextAreaElement ||
+    (el instanceof HTMLInputElement && CTRL_INPUT_TYPES.includes(el.type));
+
+  // R68 控件选区锚点：控件内选区拿不到行级 rect（整个字段只有一个大矩形），GitHub
+  // 新版 code view 的透明 textarea 覆盖整个文件，直接贴字段矩形会把气泡钉在文件
+  // 顶部。按 selectionStart 反推光标行号 × 行高近似定位；行高取不到（line-height:
+  // normal）或字段本身只有几行时退回字段矩形，坐标越界（虚拟化文本/滚动错位）也退回。
+  function controlRect(el, caretOffset) {
+    const r = el.getBoundingClientRect();
+    if (!r.width && !r.height) return r;
+    const lineH = parseFloat(getComputedStyle(el).lineHeight);
+    if (!lineH || el.clientHeight <= lineH * 3) return r;
+    const line = el.value.slice(0, caretOffset).split('\n').length;
+    const y = r.top + (line - 1) * lineH - el.scrollTop;
+    if (y < r.top || y + lineH > r.bottom) return r;
+    return { left: r.left, top: y, bottom: y + lineH };
+  }
+
   function selectionInfo() {
-    const sel = window.getSelection();
+    // R68 控件轨：input/textarea 内选区不进 window.getSelection()——控件选区只存在
+    // 于元素的 selectionStart/End 上，此时 window 选区恒 isCollapsed（GitHub 新版
+    // code view 把代码文本放进透明 textarea，旧逻辑在此整段失效）。只做读取：不
+    // focus、不 setSelectionRange、不拦事件，对宿主页（含 GitHub 自身的快捷键/复制/
+    // 光标定位）零干扰；readOnly 字段（如代码视图）也允许查询。
+    const active = document.activeElement;
+    if (isTextControl(active) && !active.disabled) {
+      const s = active.selectionStart, e = active.selectionEnd;
+      if (s == null || e == null || s === e) return null;
+      const text = active.value.slice(s, e).trim();
+      if (!text) return null;
+      return { text, rect: controlRect(active, s), word: window.__magicLensSelectionWord(text) };
+    }
+    // R68 shadow 探针：焦点元素在 shadow root 内且选区也在其中时，root 自己的
+    // getSelection() 给出真节点选区，window 选区会被重定向到宿主；root 没有该方法
+    // 或返回空（选区在别处）时照旧走 window——只在「能拿到真选区」时才替换。
+    const rootNode = active && active.getRootNode ? active.getRootNode() : null;
+    const sel = (rootNode && rootNode.getSelection && rootNode.getSelection()) || window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
     // Why：用户在扩展 UI 内划选/复制文本（气泡或详解面板）时不得触发新翻译流程
     const insideHost = (node) =>
@@ -302,7 +341,7 @@ function startMainEngine() {
     resetButtons();
     const action = window.__magicLensSelectionAction(text);
     if (action === 'none') return;
-    current = { text, word: action === 'translate' ? word : null };
+    current = { text, word: action === 'translate' ? word : null, seq: ++bubbleSeq };
     configureActions(action);
     elSrc.textContent = text.length > 120 ? `${text.slice(0, 120)}…` : text;
     // Why 先配置按钮再测量：AI 模式隐藏过单词按钮，若不先恢复，card 会按旧宽度定位，
@@ -349,6 +388,7 @@ function startMainEngine() {
   function translate() {
     if (!current) return;
     const text = current.text;
+    const seq = current.seq; // R68 判代：只认「本轮气泡」的响应
     // MAX_LEN 是 translate 接口约束，自动与手动入口都必须遵守。
     if (text.length > MAX_LEN) {
       setError(`选区过长（超过 ${MAX_LEN} 字符），请缩小选区`);
@@ -360,7 +400,9 @@ function startMainEngine() {
     askBackground({ type: MSG.ML_TRANSLATE, text }, (resp) => {
       if (translateInflight === text) translateInflight = null;
       // 气泡关闭或已换成别的选区时，旧请求的迟到响应必须作废。
-      if (!current || current.text !== text) return;
+      // R68：seq 判代取代文本比对——同词重复划选/关泡重开时文本比对会放行旧响应
+      //（同词新气泡 seq 已换），历史缺陷=旧词的迟到译文可复活进新气泡。
+      if (!current || current.seq !== seq) return;
       if (!resp.ok) return setError(window.__magicLensUserFacingError(resp.error, '翻译失败，请稍后重试'), resp.status);
       const data = resp.data || {};
       setResult(data.translation || '（空结果）', data.source);
@@ -533,7 +575,7 @@ function startMainEngine() {
       retry.textContent = ' 点击重试';
       retry.addEventListener('click', () => {
         if (detailWord) {
-          current = { text: detailWord, word: detailWord };
+                current = { text: detailWord, word: detailWord, seq: ++bubbleSeq };
           openDetail();
         }
       });
@@ -668,7 +710,7 @@ function startMainEngine() {
     configureActions('translate');
     elSrc.textContent = word;
     show(anchor, source);
-    current = { text: word, word };
+    current = { text: word, word, seq: ++bubbleSeq };
     if (cfg.autoTranslate) {
       translate();
     } else {
