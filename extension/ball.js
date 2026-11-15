@@ -55,6 +55,16 @@
   };
   // 动作全集（顺序即展开顺位，chat 恒首位由注册表顺序保证——R234 口径的扩展侧同构）
   const ACTIONS = window.__magicLensBallActions.map((a) => ({ ...a, run: RUNS[a.id] }));
+  const ACTIONS_BY_ID = new Map(ACTIONS.map((a) => [a.id, a]));
+
+  /* ---------- R70 服务端配置（buddy 页真值源） ----------
+   * 逐项配置的唯一真值 = moon-well POST /buddy/quick-actions（与 magicbook buddy 页
+   * 「伙伴悬浮球快捷动作」同一份）。扩展侧只读：结果缓存在 chrome.storage.local
+   * magiclens.ballQuickActions = {selected, stored, ts}，断网/未登录用缓存兜底；
+   * stored=false（用户从未在 buddy 页保存过）或无缓存 = 注册表全量 + 词卡开。
+   * Why 缓存先行 + 服务端校正：球构建不等网络（首屏零等待），拉取回来签名变化才重建。 */
+  const BALL_QA_KEY = 'magiclens.ballQuickActions';
+  let serverSelection = null; // null=未保存/无缓存（全量默认）；array=stored 选择（服务端顺序）
 
   let host = null;      // shadow host
   let wrap = null;      // 定位/拖拽命中区（R223：定位迁 wrap，按钮只画头像）
@@ -197,8 +207,14 @@
     shadow.append(style, wrap, buildReviewDom());
     (document.body || document.documentElement).appendChild(host);
 
-    // 气泡（chat 恒首位由注册表顺序保证）；R69：按 cfg 逐项过滤（bubble* 键，默认全开）
-    activeActions = ACTIONS.filter((a) => cfg[a.cfgKey] !== false);
+    // R70：气泡清单来自服务端配置（buddy 页真值源）——stored 时按服务端顺序渲染
+    // selected ∩ registry（宿主专有 id 静默跳过）；从未保存（stored=false）/无缓存
+    // = 注册表全量（升级/新用户零变化）。词卡独立判定：selected 含 'review' 才激活。
+    const selection = Array.isArray(serverSelection) ? serverSelection : null;
+    activeActions = selection
+      ? selection.map((id) => ACTIONS_BY_ID.get(id)).filter(Boolean)
+      : ACTIONS.slice();
+    const reviewOn = !selection || selection.includes('review');
     for (const a of activeActions) {
       const b = document.createElement('button');
       b.className = 'bubble';
@@ -226,9 +242,9 @@
     initBubbles();
     initDrag();
     loadBuddyAvatar(fab, img);
-    // R69：滚动复习词卡全局开关（ballReview，设置页「悬浮球」区块）——关闭即整个子系统
-    // 不激活（DOM 隐藏且不发队列请求）；既有的暂停/收起（storage.local）语义不变，两者独立
-    if (cfg.ballReview !== false) initReview();
+    // R70：滚动复习词卡由服务端配置驱动（selected 含 'review'）——未保存/无缓存按开
+    // （与「气泡全量默认」同一语义）；卡片上的暂停/收起（storage.local）语义不变，两者独立
+    if (reviewOn) initReview();
     visible = true;
   }
 
@@ -944,39 +960,62 @@
     rvwEls = null;
   }
 
-  /* ---------- 显隐（R54 v1 口径）+ R69 配置即时重建 ----------
+  /* ---------- 显隐（R54 v1 口径）+ R70 配置即时重建 ----------
    * Why 整体重建而非就地增删气泡：气泡 DOM、复习卡、头像、拖拽绑定是一次性装配
    *（R223 命名监听纪律的教训——重复 init 会累积监听），remove()→build() 是唯一的
    * 对称拆装路径；位置从 storage.local 恢复，重建无损。 */
   function visualSignature(cfg) {
-    // 「改了会变脸」的键（enabled/ballEnabled/disabledDomains/各 bubble*/ballReview）；
+    // 「改了会变脸」的输入：显隐三键 + 服务端选择（缓存先行/服务端校正都会变它）；
     // token 等非视觉键刻意排除——token 刷新不该引发重建
-    const keys = ['enabled', 'ballEnabled', 'disabledDomains',
-      ...window.__magicLensBallActions.map((a) => a.cfgKey), 'ballReview'];
-    return JSON.stringify(keys.map((k) => JSON.stringify(cfg[k])));
+    return JSON.stringify([cfg.enabled, cfg.ballEnabled, cfg.disabledDomains, serverSelection]);
   }
 
   function sync() {
     chrome.storage.sync.get(__magicLensDefaults, (cfg) => {
       if (chrome.runtime.lastError) return;
-      const want = window.__magicLensBallVisible(cfg, location.hostname, window === window.top);
-      const sig = visualSignature(cfg);
-      if (want && (!visible || sig !== lastSig)) { remove(); build(cfg); applySavedPosition(); }
-      else if (!want && visible) remove();
-      lastSig = sig;
+      chrome.storage.local.get({ [BALL_QA_KEY]: null }, (local) => {
+        if (chrome.runtime.lastError) return;
+        const cached = local[BALL_QA_KEY];
+        serverSelection = (cached && cached.stored && Array.isArray(cached.selected))
+          ? cached.selected : null;
+        const want = window.__magicLensBallVisible(cfg, location.hostname, window === window.top);
+        const sig = visualSignature(cfg);
+        if (want && (!visible || sig !== lastSig)) { remove(); build(cfg); applySavedPosition(); }
+        else if (!want && visible) remove();
+        lastSig = sig;
+      });
+    });
+  }
+
+  /** 拉取服务端选择并落缓存：成功即写 storage.local（onChanged 触发 sync 按签名重建）；
+   * 失败（未登录/断网）静默保留现有缓存——球不因后端抖动翻脸，下次页面加载再试。 */
+  function fetchQuickActions() {
+    bg({ type: MSG.ML_API, path: '/buddy/quick-actions', body: {} }).then((resp) => {
+      if (!resp || !resp.ok || !resp.data || typeof resp.data !== 'object') return;
+      const { selected, stored } = resp.data;
+      if (!Array.isArray(selected)) return;
+      const next = {
+        selected: selected.filter((x) => typeof x === 'string'),
+        stored: Boolean(stored),
+        ts: Date.now(),
+      };
+      chrome.storage.local.set({ [BALL_QA_KEY]: next }, () => {
+        if (chrome.runtime.lastError) return;
+        sync(); // 缓存已落盘；签名不变则不重建
+      });
     });
   }
 
   __magicLensRpc.onInvalidated(remove);
   chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes[BALL_QA_KEY]) { sync(); return; }
     if (area !== 'sync') return;
-    // R69：气泡/复习卡配置键并入盯梢——sync() 内部按签名判断是否真重建，
-    // 未变化的键变更（如 token）走不到 build
-    if (changes.enabled || changes.ballEnabled || changes.disabledDomains
-      || changes.ballReview
-      || window.__magicLensBallActions.some((a) => changes[a.cfgKey])) sync();
+    if (changes.enabled || changes.ballEnabled || changes.disabledDomains) sync();
+    // R70：登录态就绪（token 落库）补拉一次配置——首次安装/刚登录的页面不用等下次刷新
+    if (changes.token && changes.token.newValue) fetchQuickActions();
     // R59：未登录时复习卡静默隐藏；登录成功（token 落库）自动补拉一次队列
     if (changes.token && review.authFailed && visible && rvwEls) reviewLoad();
   });
   sync();
+  fetchQuickActions(); // 启动即校正一次：缓存先行渲染，服务端回来按签名决定是否重建
 })();

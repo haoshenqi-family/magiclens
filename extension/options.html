@@ -87,13 +87,12 @@
     <label><input type="checkbox" id="autoTranslate"> 选中即自动翻译（关闭后需点气泡里的「译」）</label>
   </div>
 
-  <!-- R54 常驻入口开关（悬浮球）+ R69 气泡逐项配置 -->
+  <!-- R54 常驻入口开关（悬浮球）+ R70 逐项配置真值源=moon-well（buddy 页） -->
   <div class="field">
     <label><input type="checkbox" id="ballEnabled"> 常驻入口（悬浮球）：网页右下角显示，点击直接打开 AI 伴读</label>
     <div class="hint">已打开的页面<b>实时生效</b>（无需刷新）；magicbook 站内使用站点自带悬浮球，扩展球会自动隐藏；域名管理名单里的站点不显示；主开关关闭或扩展被禁用时也不显示。关闭悬浮球后仍可划词点「问 AI」进入伴读。</div>
-    <div class="hint">气泡快捷功能与词卡（关闭后 hover 悬浮球即不再出现对应气泡；全部关闭时点球本体直达本设置页）：</div>
-    <div id="bubbleToggles"><!-- R69：options.js 循环 __magicLensBallActions 注册表自动渲染，禁止手抄清单 --></div>
-    <label><input type="checkbox" id="ballReview"> 滚动复习词卡：悬浮球上方轮播 SRS 到期词（卡片上的暂停/收起不受此开关影响）</label>
+    <div class="hint">气泡快捷功能（💬 对话 / 〰 生词高亮 / 🌐 整页翻译 / 🎓 每日学习 / 📚 书库 / 👤 我的）与滚动复习词卡与 <b>magicbook 伙伴页同一份配置</b>：在伙伴页「伙伴悬浮球快捷动作」勾选（扩展专有三项带「仅扩展」标），保存后扩展球下次构建生效；从未配置过 = 全部显示。</div>
+    <div class="row"><button id="buddyConfigBtn">打开 magicbook 伙伴页配置</button></div>
   </div>
 
   <div class="field">

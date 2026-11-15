@@ -544,6 +544,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           '/ai/agent/memory/list', '/ai/agent/memory/save', '/ai/agent/memory/delete',
           '/ai/agent/book-profile',
           '/buddy/catalog', // R54 修订：悬浮球 buddy 形象（equipped 伙伴头像直链）
+          // R70 悬浮球快捷动作真值源（buddy 页同源配置；buddy 域全 POST，读也是 POST）
+          '/buddy/quick-actions',
         ]);
         if (!ALLOWED.has(msg.path)) {
           sendResponse({ ok: false, error: 'path not allowed', status: 0 });

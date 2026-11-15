@@ -5,13 +5,14 @@
  * 「所有网页」显示，就会在同一位置叠出第二个入口。这里真实加载 common.js，
  * 锁住宿主让位域及原有的主开关 / 球开关 / iframe / 用户禁用名单语义。
  *
- * R69 增补气泡注册表双锁（用户口径「代码层面写清楚，避免下次再犯」的执行机制）：
- * - 锁 A（common.js VM 真实执行）：__magicLensBallActions 的每个 cfgKey 必须在
- *   __magicLensDefaults 里有对应布尔默认（bubble 前缀键或 ballReview），且每个
- *   这类默认键必须回指唯一气泡——防「删气泡漏删默认键 / 加默认键忘挂气泡」；
+ * R69 增补气泡注册表双锁（用户口径「代码层面写清楚，避免下次再犯」的执行机制）；
+ * R70 真值源迁 moon-well 后锁 A 升级为跨仓断言、锁 B 改挂 buddy 页引导：
+ * - 锁 A（跨仓）：__magicLensBallActions 的每个 id 必须在 moon-well BuddyService
+ *   QUICK_ACTION_IDS 白名单内（真值源 POST /buddy/quick-actions 与 buddy 页配置面
+ *   同一份）——新增气泡先扩后端白名单，否则 buddy 页表达不了它；
  * - 锁 B（ball.js / options.js 文本断言）：ball.js 必须消费注册表（禁止私挂字面量
- *   ACTIONS 数组）、每个注册表 id 在 ball.js 有对应 RUNS 处理器行、options.js 必须
- *   循环注册表渲染配置（禁止手抄清单）——防「新气泡绕过配置面」回归 R67 前的状态。
+ *   ACTIONS 数组）、每个注册表 id 在 ball.js 有对应 RUNS 处理器行；options.js 必须
+ *   引导去 buddy 页且不得再渲染本地开关（R69 本地开关已随真值迁移移除）。
  *
  * 无第三方依赖：node scripts/check-ball-visibility.js
  */
@@ -66,48 +67,51 @@ assert.equal(Array.isArray(yieldDomains), true, '让位域必须是数组');
 assert.equal(Object.isFrozen(yieldDomains), true, '让位域名单位必须冻结，运行期不得漂移');
 assert.deepEqual(Array.from(yieldDomains), ['magicbook.haoshenqi.top']);
 
-// ---- R69 锁 A：气泡注册表 ↔ 默认键 双向覆盖（common.js 同一 VM 里对账） ----
+// ---- R70 锁 A：气泡注册表 ⊆ moon-well 快捷动作白名单（跨仓对账） ----
+// 真值源 = moon-well POST /buddy/quick-actions 的白名单（BuddyService.QUICK_ACTION_IDS，
+// magicbook buddy 页配置面同一份）。扩展 registry 的 id 必须都在白名单内——否则用户
+// 在 buddy 页根本表达不了这个气泡（R70 起没有本地开关兜底）。家族布局两仓同层；
+// 文件缺失/白名单解析失败直接挂（宁可误报不放过漂移）。
 const registry = context.__magicLensBallActions;
-const defaults = context.__magicLensDefaults;
 assert.ok(Array.isArray(registry) && registry.length >= 1, '气泡注册表必须存在且非空');
 assert.equal(Object.isFrozen(registry), true, '气泡注册表必须冻结，运行期不得漂移');
-assert.equal(Object.isFrozen(defaults), true, '默认值单点必须冻结');
 
 const ids = new Set();
-const cfgKeys = new Set();
 for (const a of registry) {
   assert.ok(a && typeof a.id === 'string' && a.id, `注册表条目缺 id: ${JSON.stringify(a)}`);
   assert.ok(typeof a.icon === 'string' && typeof a.label === 'string' && a.label,
-    `气泡 ${a.id} 缺 icon/label（options 配置 UI 直接渲染）`);
-  assert.ok(typeof a.cfgKey === 'string' && a.cfgKey, `气泡 ${a.id} 缺 cfgKey（配置性是硬要求，R69）`);
-  assert.ok(/^(bubble|ballReview)/.test(a.cfgKey), `气泡 ${a.id} 的 cfgKey 必须走 bubble*/ballReview 前缀契约: ${a.cfgKey}`);
-  assert.equal(defaults[a.cfgKey], true, `气泡 ${a.id} 的默认键 ${a.cfgKey} 必须在 __magicLensDefaults 且默认 true（升级零变化）`);
+    `气泡 ${a.id} 缺 icon/label（渲染与无障碍名直接消费）`);
   assert.ok(!ids.has(a.id), `气泡 id 重复: ${a.id}`);
-  assert.ok(!cfgKeys.has(a.cfgKey), `cfgKey 重复: ${a.cfgKey}`);
   ids.add(a.id);
-  cfgKeys.add(a.cfgKey);
 }
-// 反向：defaults 里所有 bubble 前缀键必须回指唯一注册表条目（ballReview 是滚动复习
-// 词卡的全局开关、不是径向气泡——单独断言其默认值存在，不参与气泡双向对账）
-assert.equal(defaults.ballReview, true, 'ballReview（滚动复习词卡开关）默认必须存在且为 true');
-for (const key of Object.keys(defaults)) {
-  if (!key.startsWith('bubble')) continue;
-  assert.ok(cfgKeys.has(key), `默认键 ${key} 是孤儿——气泡已删但默认键未清，或默认键未挂注册表条目`);
+const moonWellServicePath = path.resolve(extensionDir, '..', '..', 'moon-well',
+  'src/main/java/top/haoshenqi/magicbook/buddy/service/BuddyService.java');
+assert.ok(fs.existsSync(moonWellServicePath),
+  `找不到 moon-well BuddyService.java（家族布局要求两仓同层）: ${moonWellServicePath}`);
+const mwSrc = fs.readFileSync(moonWellServicePath, 'utf8');
+const mwMatch = mwSrc.match(/QUICK_ACTION_IDS\s*=\s*List\.of\(([^)]*)\)/);
+assert.ok(mwMatch, 'moon-well BuddyService.QUICK_ACTION_IDS 解析失败（形态漂移即挂）');
+const mwWhitelist = new Set([...mwMatch[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]));
+assert.ok(mwWhitelist.size >= registry.length, 'moon-well 白名单必须覆盖全部扩展气泡');
+for (const id of ids) {
+  assert.ok(mwWhitelist.has(id),
+    `气泡 ${id} 不在 moon-well 快捷动作白名单——先去 BuddyService 扩白名单（buddy 页才能表达它），R70`);
 }
 
-// ---- R69 锁 B：ball.js 必须消费注册表、RUNS 全覆盖；options.js 禁手抄 ----
+// ---- R70 锁 B：ball.js 必须消费注册表、RUNS 全覆盖；options 必须引导去 buddy 页 ----
 const ballSrc = fs.readFileSync(path.join(extensionDir, 'ball.js'), 'utf8');
 assert.ok(ballSrc.includes('__magicLensBallActions'), 'ball.js 必须消费 __magicLensBallActions 注册表');
 assert.ok(!/const\s+ACTIONS\s*=\s*\[/.test(ballSrc),
-  'ball.js 禁止私挂字面量 ACTIONS 数组（清单只许来自注册表，R69）');
+  'ball.js 禁止私挂字面量 ACTIONS 数组（清单只许来自注册表，R69/R70）');
 for (const id of ids) {
   assert.ok(new RegExp(`^\\s*'?${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'?\\s*:\\s*\\(\\)`, 'm').test(ballSrc),
     `ball.js 的 RUNS 表缺气泡 ${id} 的处理器行——注册表与 RUNS 必须一一对应`);
 }
 const optionsSrc = fs.readFileSync(path.join(extensionDir, 'options.js'), 'utf8');
-assert.ok(optionsSrc.includes('__magicLensBallActions'),
-  'options.js 必须循环 __magicLensBallActions 渲染配置 UI（禁止手抄气泡清单）');
-assert.ok(optionsSrc.includes('ballReview'), 'options.js 必须渲染滚动复习词卡开关（ballReview）');
+assert.ok(optionsSrc.includes('buddyConfigBtn') && optionsSrc.includes('__magicLensSiteOrigin'),
+  'options.js 必须引导用户去 magicbook buddy 页配置快捷动作（R70 单一真值，本地无开关）');
+assert.ok(!optionsSrc.includes('__magicLensBallActions'),
+  'options.js 不得再循环注册表渲染本地开关（R70 真值已迁 moon-well，本地开关会漂移）');
 
 console.log('PASS ball visibility: magicbook host yield + original gates');
-console.log(`PASS ball bubbles registry: ${registry.length} actions two-way locked with defaults + RUNS + options UI`);
+console.log(`PASS ball bubbles registry: ${registry.length} actions ⊆ moon-well whitelist (${mwWhitelist.size}) + RUNS + buddy-page guide`);

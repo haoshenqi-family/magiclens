@@ -49,51 +49,12 @@ $ball.addEventListener('change', () => {
   chrome.storage.sync.set({ ballEnabled: $ball.checked, ballAsked: true });
 });
 
-/* ---------- R69 悬浮球气泡/词卡逐项开关 ----------
- * 清单循环 common.js 的 __magicLensBallActions 注册表自动渲染（与 ball.js 同一单源，
- * 新增气泡改注册表一处即自动出现在这里——check-ball-visibility.js 锁 B 禁手抄）。
- * 沿用域名管理的「storage 为唯一事实源」模式：get 渲染、change 直写、onChanged
- * 跨页同步（两个 options 标签互不打架）。 */
-const $bubbleToggles = document.getElementById('bubbleToggles');
-const $ballReview = document.getElementById('ballReview');
-const BUBBLE_KEYS = window.__magicLensBallActions.map((a) => ({ id: a.id, icon: a.icon, label: a.label, cfgKey: a.cfgKey }));
-
-function renderBubbleToggles(cfg) {
-  $bubbleToggles.textContent = '';
-  for (const a of BUBBLE_KEYS) {
-    const label = document.createElement('label');
-    label.style.display = 'block';
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.dataset.cfgKey = a.cfgKey;
-    input.checked = cfg[a.cfgKey] !== false;
-    input.addEventListener('change', () => {
-      chrome.storage.sync.set({ [a.cfgKey]: input.checked });
-    });
-    label.append(input, ` ${a.icon} ${a.label}气泡`);
-    $bubbleToggles.appendChild(label);
-  }
-}
-
-function renderBallReview(cfg) {
-  $ballReview.checked = cfg.ballReview !== false;
-}
-$ballReview.addEventListener('change', () => {
-  chrome.storage.sync.set({ ballReview: $ballReview.checked });
-});
-
-function renderBallConfig() {
-  chrome.storage.sync.get(__magicLensDefaults, (cfg) => {
-    if (chrome.runtime.lastError) return;
-    renderBubbleToggles(cfg);
-    renderBallReview(cfg);
-  });
-}
-renderBallConfig();
-chrome.storage.onChanged.addListener((changes, area) => {
-  // 只在悬浮球相关键变化时重渲染（含其他标签页/其他设备改动）
-  if (area !== 'sync') return;
-  if (changes.ballReview || BUBBLE_KEYS.some((a) => changes[a.cfgKey])) renderBallConfig();
+/* ---------- R70 悬浮球快捷动作配置（真值源=moon-well，buddy 页） ----------
+ * R69 的本地逐气泡开关已随真值迁移移除（单一真值不漂移）：扩展球只读
+ * moon-well POST /buddy/quick-actions（与 magicbook buddy 页「伙伴悬浮球快捷动作」
+ * 同一份），本页只负责把用户送去那里。 */
+document.getElementById('buddyConfigBtn').addEventListener('click', () => {
+  window.open(`${window.__magicLensSiteOrigin}/buddy`, '_blank', 'noopener');
 });
 
 $loginBtn.addEventListener('click', () => {

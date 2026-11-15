@@ -337,3 +337,23 @@ MagicLens 扩展悬浮球在这些域自动隐藏；其他网站继续按用户�
 - **FAB 本体点击跟随配置**：chat 启用→开抽屉；被关→第一个启用气泡兜底；全关→
   ML_OPENOPTIONS 开设置页（用户永远有「重新开启」的回路）。零气泡时 openBubbles 早退
   （bubbles-open 还承担复习卡让位，空展开会误隐藏词卡）。
+
+## 22. 悬浮球配置真值源迁 moon-well：两颗球同一份配置（2026-11-15，R70，v0.8.31；moon-well R260 + magicbook R294 接力）
+
+**决策**：R69 的「扩展设置页本地开关」被用户纠偏——真意是**与 magicbook buddy 页同一份配置**。
+真值源收敛到 moon-well `POST /buddy/quick-actions`（R225/R234 迁移时 javadoc 就写明「三端共用单一
+配置源」的预留设计），扩展球只读。
+
+- **分工**：moon-well R260 扩白名单（+highlight/page-translate/review，扩展专有三项）；
+  magicbook R294 薄代理 + 存量懒迁移（stored=false 且 view_settings 有存量 → 代回填一次）
+  + 离线兜底 + buddy 页配置面 7→10（扩展项带「仅扩展」标、宿主球按 HOST_ACTION_IDS 过滤）；
+  magiclens R70 只读拉取。
+- **扩展侧语义**：缓存先行（storage.local magiclens.ballQuickActions）+ 启动即拉取校正，
+  签名变化才重建（球首屏零等待、断网用缓存）；`stored=true` 按 `selected ∩ registry`
+  **服务端顺序**渲染、词卡=selected 含 'review'；`stored=false`=注册表全量（升级零变化）。
+  R69 本地键（bubble*×6+ballReview）删除——单一真值不留影子开关。
+- **防复发升级**：R69 双锁的锁 A 从「本地默认键对账」升级为**跨仓断言**（registry id ⊆
+  moon-well BuddyService.QUICK_ACTION_IDS，`../moon-well` 同层文本解析）——新增气泡先扩
+  后端白名单，buddy 页才能表达它；锁 B 增补「options 不得再引用 registry」（防本地开关复活）。
+- **review 不是气泡**：词卡由 selected 含 'review' 驱动、不进 registry——宿主球无词卡是
+  自然分化，一个 chip 管两端。
