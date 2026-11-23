@@ -105,3 +105,5 @@
 
 
 73. **缺陷：整页翻译「已译 0 段」与伴读网页上下文采零——TreeWalker FILTER_REJECT 跳过子树**（占号 2026-11-23；同日修复完成待真机复测，0.8.34-202611231721 测试版；缺陷：R67 验收发现，顺带 P0 上下文采集同根因）：①**症状**——用户验收 R71/R72 时报「段落翻译没问题、整页翻译有问题」，确认症状=整页开启后 chip 恒「已译 0 段」从不翻译，同页 Alt+P 单段正常。②**根因**——`rescanDoc` 元素级 TreeWalker 对不匹配元素返回 `FILTER_REJECT`（REJECT=连整棵子树剪掉），真实页面 `<p>` 嵌在 div/article 容器里从 body 遇容器即全灭 → 发现数恒 0；Alt+P 走 elementFromPoint+closest 不经 walker 故正常。漏网原因=E2E fixture 的 `<p>` 恰是 body 直接子元素（扁平结构侥幸绕过剪枝）。R67 原始缺陷真机首测暴露，非 R71/R72 回归。③**顺带同根因**——`page-extract.js`（伴读问 AI 网页上下文采集）同款 REJECT：嵌套页面伴读上下文采零只带标题，随 R73 一并修（同次排查同修法，条目注明）；highlight.js 的 SHOW_TEXT walker REJECT 打在无子树文本节点上无此缺陷。④**修复与回归锁**——两处 FILTER_REJECT→FILTER_SKIP+语义注释；fixture 嵌套化（正文包进 article>div.prose）；守卫 R73 段（两文件禁 REJECT 必 SKIP、fixture 嵌套在册）；TDD 先复现（嵌套 fixture 下 ml-page-translate FAIL 批量 0 请求）后修转绿。⑤**验证**——ml-page-translate/ml-shortcuts 全过，浏览器 18/18、runner 21/21、guard 三向 18 行 0 缺口、契约守卫 6 段全绿。⑥**遗留**——真机复测整页翻译（嵌套正文页）；正式发布 R66–R73 攒批次待用户确认；PingCode idea 待用户令。
+
+74. **缺陷：双击 Alt 窗口误伤 Alt+A 键序与长按重复（R72）+ 在途回包跨会话重复渲染（R67 潜伏）——浏览器实测发现**（占号 2026-11-23，待回填）
