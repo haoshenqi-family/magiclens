@@ -130,9 +130,13 @@
   function rescanDoc(st) {
     if (!active || !st.doc.body) return;
     const seen = new Set();
+    // ⚠️ 必须用 FILTER_SKIP 而非 REJECT（R73）：REJECT 会把不匹配元素连同**整棵子树**
+    // 一起剪掉——真实页面的 <p> 都嵌在 div/article 容器里，从 body 出发遇到第一个
+    // 容器就全军覆没（「已译 0 段」缺陷，扁平 fixture 曾侥幸掩盖）；SKIP 只跳过
+    // 节点本身、继续下钻，配 TEXT_TAGS 精确命中嵌套段落
     const walker = st.doc.createTreeWalker(
       st.doc.body, NodeFilter.SHOW_ELEMENT,
-      { acceptNode: (el) => (el.matches(TEXT_TAGS) && visible(st.win, el) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT) }
+      { acceptNode: (el) => (el.matches(TEXT_TAGS) && visible(st.win, el) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP) }
     );
     const found = [];
     while (walker.nextNode()) {

@@ -466,6 +466,23 @@ async function main() {
     'options.js 必须读写两个快捷键设置键');
 
   console.log('PASS extension module contract: R71 translate shortcuts combo contract');
+
+  // ---- R73 缺陷回归锁：元素级 TreeWalker 不得用 FILTER_REJECT ----
+  // REJECT 语义=连子树一起剪掉：真实页面正文都嵌在 div/article 容器里，从 body 出发
+  // 遇容器即全灭（整页翻译「已译 0 段」/伴读上下文采零，R67/P0 原始缺陷，扁平 fixture
+  // 曾侥幸掩盖）。元素 walker 只许 SKIP（跳节点不下钻）；highlight.js 的 SHOW_TEXT
+  // walker 用 REJECT 无害（文本节点无子树），不在本锁范围。
+  const ptWalker = read('page-translate.js');
+  const pxWalker = read('page-extract.js');
+  assert.ok(!ptWalker.includes('FILTER_REJECT'), 'page-translate.js 元素 walker 禁用 FILTER_REJECT（R73：REJECT 剪子树致发现数恒 0）');
+  assert.ok(ptWalker.includes('FILTER_SKIP'), 'page-translate.js 元素 walker 必须用 FILTER_SKIP 下钻嵌套容器');
+  assert.ok(!pxWalker.includes('FILTER_REJECT'), 'page-extract.js 元素 walker 禁用 FILTER_REJECT（R73：伴读上下文采零）');
+  assert.ok(pxWalker.includes('FILTER_SKIP'), 'page-extract.js 元素 walker 必须用 FILTER_SKIP 下钻嵌套容器');
+  const fixtureHtml = fs.readFileSync(path.resolve(extensionDir, '..', '..', 'ops', 'tools', 'integration-suite', 'browser', 'pages', 'article.html'), 'utf8');
+  assert.ok(fixtureHtml.includes('<article>') && fixtureHtml.includes('class="prose"'),
+    'article fixture 必须保持嵌套容器结构（扁平 <p> 会掩盖 REJECT/SKIP 语义回归）');
+
+  console.log('PASS extension module contract: R73 element-walker SKIP-subtree regression lock');
 }
 
 main().catch((error) => {

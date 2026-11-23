@@ -1,6 +1,6 @@
 # response.md — 对话回应记录（仅保留最近 10 个 request 的回应）
 
-> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移） · [response-R29.md](response-archive/response-R29.md)（2026-10-11 R40 写入触发轮转搬移） · [response-R30-R31.md](response-archive/response-R30-R31.md)（2026-10-11 R41 集成时窗口超限搬移） · [response-R32.md](response-archive/response-R32.md)（2026-10-13 R43 写入触发轮转搬移） · [response-R33.md](response-archive/response-R33.md)（2026-10-14 R44 写入触发轮转搬移） · [response-R34.md](response-archive/response-R34.md)（2026-10-15 R45 写入触发轮转搬移） · [response-R35-R38.md](response-archive/response-R35-R38.md)（2026-10-16 R50 写入触发轮转搬移，窗口回 10 条 request 内） · [response-R41.md](response-archive/response-R41.md)（2026-10-27 R56 写入触发轮转搬移） · [response-R45.md](response-archive/response-R45.md)（2026-10-21 R51 写入触发轮转搬移） · [response-R39.md](response-archive/response-R39.md)（2026-10-27 R52 写入触发轮转搬移） · [response-R46.md](response-archive/response-R46.md)（2026-10-27 R53 写入触发轮转搬移） · [response-R40.md](response-archive/response-R40.md)（2026-10-27 R54 写入触发轮转搬移） · [response-R47.md](response-archive/response-R47.md)（2026-10-27 R55 写入触发轮转搬移） · [response-R42.md](response-archive/response-R42.md)（2026-10-29 R57 写入触发轮转搬移） · [response-R43.md](response-archive/response-R43.md)（2026-11-02 R58 写入触发轮转搬移） · [response-R44.md](response-archive/response-R44.md)（2026-11-08 R59 写入触发轮转搬移） · [response-R59.md](response-archive/response-R59.md)（2026-11-23 R71 写入触发轮转搬移） · [response-R60.md](response-archive/response-R60.md)（2026-11-23 R72 写入触发轮转搬移）
+> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移） · [response-R29.md](response-archive/response-R29.md)（2026-10-11 R40 写入触发轮转搬移） · [response-R30-R31.md](response-archive/response-R30-R31.md)（2026-10-11 R41 集成时窗口超限搬移） · [response-R32.md](response-archive/response-R32.md)（2026-10-13 R43 写入触发轮转搬移） · [response-R33.md](response-archive/response-R33.md)（2026-10-14 R44 写入触发轮转搬移） · [response-R34.md](response-archive/response-R34.md)（2026-10-15 R45 写入触发轮转搬移） · [response-R35-R38.md](response-archive/response-R35-R38.md)（2026-10-16 R50 写入触发轮转搬移，窗口回 10 条 request 内） · [response-R41.md](response-archive/response-R41.md)（2026-10-27 R56 写入触发轮转搬移） · [response-R45.md](response-archive/response-R45.md)（2026-10-21 R51 写入触发轮转搬移） · [response-R39.md](response-archive/response-R39.md)（2026-10-27 R52 写入触发轮转搬移） · [response-R46.md](response-archive/response-R46.md)（2026-10-27 R53 写入触发轮转搬移） · [response-R40.md](response-archive/response-R40.md)（2026-10-27 R54 写入触发轮转搬移） · [response-R47.md](response-archive/response-R47.md)（2026-10-27 R55 写入触发轮转搬移） · [response-R42.md](response-archive/response-R42.md)（2026-10-29 R57 写入触发轮转搬移） · [response-R43.md](response-archive/response-R43.md)（2026-11-02 R58 写入触发轮转搬移） · [response-R44.md](response-archive/response-R44.md)（2026-11-08 R59 写入触发轮转搬移） · [response-R59.md](response-archive/response-R59.md)（2026-11-23 R71 写入触发轮转搬移） · [response-R60.md](response-archive/response-R60.md)（2026-11-23 R72 写入触发轮转搬移） · [response-R62.md](response-archive/response-R62.md)（2026-11-23 R73 写入触发轮转搬移）
 
 - `response-archive/response-R50-R52.md`：R50 docs v2 迁移 / R51 发布链纯文档跳过打包 / R52 伴读抽屉去 token+站内链接——2026-11-13 R62 写入触发轮转搬移（窗口 12→13 压回 10），原样搬移不改写
 
@@ -8,19 +8,6 @@
 
 - `response-archive/response-R53.md`：R53 伴读抽屉语音双向（麦克风转写 + 回复朗读）——2026-11-13 R63 写入触发轮转搬移，原样搬移不改写
 
-
-## 2026-11-13（R62：发布正式版 v0.8.24）
-
-### R62（用户：「release magiclens」）
-
-**回应**：执行两段式正式发布（AGENTS.md §0.2），把 develop 上的 R59/R60/R61 三个测试版（0.8.22→0.8.24）合成正式版 **v0.8.24** 发布。
-
-- **发布前验证（正式发布态）**：家族套件 magiclens T1 **17/17 PASS 全绿**（含 R59 的 ml-ball-review 悬浮球滚动复习 1263ms/intercepted=9 与 ml-chat-speed 语速 E2E 实测；无 FAIL 无 SKIP）；`guard.py` magiclens 矩阵 14 行缺口 0——另报出 4 条 **moonwell** 缺口（`/yakka/*` 端点在 dev /v3/api-docs 出现但矩阵未收）系**另一会话在途的 moon-well 新模块**，与 magiclens 无关、不拦本次发布，已如实登记待该任务收口。
-- **发布动作**（worktree `../magiclens-r62-release-v0824`，R36 先例）：① `28a1075` chore(release) 去时间戳后缀（`0.8.24-202611111044` → `0.8.24`）push develop；② release 头（2202000）上 `--no-ff` merge develop → `f03fcc3` push release（release 分支含 v0.8.20 独有提交，非 FF，须在 release 头上合）；③ `release.yml` 自动跑成功（16s）。
-- **发布产物验证**：GitHub Release **v0.8.24**（Latest）已建，资产 `magiclens-extension-v0.8.24.zip`，changelog `v0.8.20...v0.8.24`（涵盖 R57 划词直译/R58 README/R59 悬浮球滚动复习+详情分页+语速三档/R60+R61 注册链接两修）。
-- **驻留**：worktree `../magiclens-r62-release-v0824`、分支 `chore/r62-release-v0824`（已全部推远端），与 R59/R60/R61 驻留一同待用户装 v0.8.24 实测后清理。
-
-**台账总结**：`requests.md` 第 62 条占号（5c69f6c）本处回填；`response.md` 写入前 12 节（历史欠账），本次压回 10 节，最旧 R50–R52 原样搬入 `response-archive/response-R50-R52.md` 并登记索引。
 
 ## 2026-11-13（R63：缺陷——滚动复习词卡报 unknown message type）
 
@@ -263,3 +250,17 @@ response.md 现 10 节未超窗口。冲突记录：无撞号；占号时 R68 �
 **验证**：node --check 全过；check-extension-modules R71 段扩 R72 断言（修饰键 code 拒录 round-trip 反例、onAliasKeydown/DOUBLE_ALT_MS/BARE_*_RE 装配断言）全绿；guard.py 三向 18 行缺口 0；浏览器全特性 **18/18 PASS**、runner magiclens **21/21 PASS**。
 
 **遗留**：真机 AC 待用户（R71 16 条 + R72 13 条，重点=双击窗口手感 500ms 是否合意、Shift 悬停误触观察）；正式发布 R66–R72 攒批次待用户确认；PingCode idea 待用户令。
+
+## 2026-11-23（R73：缺陷——整页翻译「已译 0 段」，TreeWalker FILTER_REJECT 跳子树）
+
+### R73（用户验收 R71/R72 时报：「段落翻译没有问题，整页翻译有问题」→ 症状确认：开了整页不翻译、chip 恒「已译 0 段」、同页 Alt+P 单段正常）
+
+**定性**：非 R71/R72 回归，是 **R67 原始缺陷真机首测暴露**。根因=`rescanDoc` 元素级 TreeWalker 对不匹配元素返回 `FILTER_REJECT`——**REJECT 语义=连整棵子树一起剪**：真实页面 `<p>` 都嵌在 div/article 容器里，从 body 遇第一个容器即全灭 → 发现数恒 0；Alt+P 走 `elementFromPoint+closest` 不经 walker 故正常，症状完全吻合。**为何漏网**：E2E fixture 的 6 个 `<p>` 恰是 body 直接子元素（扁平结构侥幸绕过 walker 剪枝）。
+
+**顺带发现同根因第二处**：`page-extract.js`（伴读「问 AI」网页上下文采集）第 32 行一字不差同款 REJECT——嵌套页面上伴读上下文也在采零（只带标题）。同次排查定位、同一行级修法，随 R73 一并修（条目注明，非无主修复）。highlight.js 的 SHOW_TEXT walker REJECT 打在无子树的文本节点上，无此缺陷不在范围。
+
+**修复**：两处 `FILTER_REJECT` → `FILTER_SKIP`（只跳节点本身、继续下钻）+ ⚠️ 语义注释；**回归锁两把**：①fixture 嵌套化（`article.html` 正文包进 `<article><div class="prose">`，真实页面形态，扁平结构永不再掩护此缺陷）；②守卫 R73 段（page-translate/page-extract 禁含 FILTER_REJECT、必含 FILTER_SKIP、fixture 嵌套结构在册）。**TDD 顺序**：先嵌套 fixture 复现 FAIL（批量请求 0 次）→ 改 SKIP → 全绿。
+
+**验证**：嵌套 fixture 下 `ml-page-translate`/`ml-shortcuts` 全过（6 段断言不变）；浏览器全特性 **18/18**、runner magiclens **21/21**、guard 三向 18 行缺口 0、模块契约守卫 6 段全绿。0.8.34-202611231721 测试版。
+
+**遗留**：真机复测整页翻译（嵌套正文页应正常翻译）；正式发布 R66–R73 攒批次待用户确认；PingCode idea 待用户令。
