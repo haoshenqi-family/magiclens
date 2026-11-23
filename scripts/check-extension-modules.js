@@ -400,6 +400,66 @@ async function main() {
   assert.equal(poorResp.error, '积分不足，无法使用AI功能', '业务文案必须原样透传（R32 不做技术化改写）');
 
   console.log('PASS extension module contract: background.js ML_TRANSLATE_BATCH batch translate contract');
+
+  // ---- R71 翻译快捷键契约：键位串三件套 + defaults 在册 + 装配静态断言 ----
+  // 锁四件事：①common.js combo 三件套 round-trip（事件→串→匹配/反例→展示）——
+  // e.code 形制是 macOS 死键（Alt+A→å）下快捷键能活的命门，按 e.key 匹配的回归
+  // 必须在守卫层打掉；②__magicLensDefaults 两键在册（R46 默认值单点纪律）；
+  // ③page-translate.js 装配（keydown 监听/编辑态守卫/两默认键引用/晚于 common.js 注入）；
+  // ④options 录制器接线（录制框+清除按钮+combo 函数引用）。
+  const defaults = context.__magicLensDefaults;
+  assert.equal(defaults.shortcutPageToggle, 'Alt+KeyA', 'defaults 必须有 shortcutPageToggle（默认 Alt+A，与沉浸式翻译一致）');
+  assert.equal(defaults.shortcutParagraph, 'Alt+KeyP', 'defaults 必须有 shortcutParagraph（默认 Alt+P）');
+
+  const comboOf = context.__magicLensComboFromEvent;
+  const comboMatch = context.__magicLensComboMatches;
+  const comboLabel = context.__magicLensComboLabel;
+  assert.equal(typeof comboOf, 'function', 'common.js 必须公开 __magicLensComboFromEvent');
+  assert.equal(typeof comboMatch, 'function', 'common.js 必须公开 __magicLensComboMatches');
+  assert.equal(typeof comboLabel, 'function', 'common.js 必须公开 __magicLensComboLabel');
+  const ev = (mods, code) => ({
+    altKey: mods.includes('Alt'), ctrlKey: mods.includes('Ctrl'),
+    metaKey: mods.includes('Meta'), shiftKey: mods.includes('Shift'), code,
+  });
+  assert.equal(comboOf(ev(['Alt'], 'KeyA')), 'Alt+KeyA', '单修饰键出串');
+  assert.equal(comboOf(ev(['Ctrl', 'Shift'], 'Comma')), 'Ctrl+Shift+Comma', '多修饰键固定序（Alt,Ctrl,Meta,Shift）');
+  assert.equal(comboOf(ev(['Meta'], 'Digit1')), 'Meta+Digit1');
+  assert.equal(comboOf(ev(['Shift'], 'KeyA')), null, '纯 Shift 不可录制（裸键属网页）');
+  assert.equal(comboOf(ev([], 'KeyA')), null, '无主修饰键不可录制');
+  assert.equal(comboOf({ code: 'KeyA' }), null, '残缺事件安全返回 null');
+  assert.equal(comboMatch('Alt+KeyA', ev(['Alt'], 'KeyA')), true, '串↔事件全等命中');
+  assert.equal(comboMatch('Alt+KeyA', ev(['Alt', 'Shift'], 'KeyA')), false, '修饰键集合必须全等（多 Shift 不命中）');
+  assert.equal(comboMatch('Alt+KeyA', ev(['Ctrl'], 'KeyA')), false, '修饰键不同不命中');
+  assert.equal(comboMatch('', ev(['Alt'], 'KeyA')), false, '空串=禁用，永不命中');
+  assert.equal(comboMatch('Alt+KeyA', null), false, '非法事件安全返回 false');
+  assert.equal(comboLabel('Alt+KeyA'), 'Alt+A', 'Key 前缀剥除');
+  assert.equal(comboLabel('Ctrl+Shift+Comma'), 'Ctrl+Shift+,', '命名键给可读符号');
+  assert.equal(comboLabel('Meta+Digit1'), 'Meta+1');
+  assert.equal(comboLabel('Alt+Space'), 'Alt+空格');
+  assert.equal(comboLabel(''), '', '空串展示为空（设置页显「未设置」）');
+  assert.equal(comboLabel('Alt+Nonsense'), 'Alt+Nonsense', '未知 code 原样透出（新键盘键不炸展示）');
+
+  const ptSrc = read('page-translate.js');
+  assert.ok(ptSrc.includes("document.addEventListener('keydown'"), 'page-translate.js 必须挂顶层 keydown 监听');
+  assert.ok(ptSrc.includes('isEditableTarget'), 'page-translate.js 必须带编辑态守卫（输入框内不触发）');
+  assert.ok(ptSrc.includes('cfg.shortcutPageToggle') && ptSrc.includes('cfg.shortcutParagraph'),
+    'page-translate.js 必须消费两个快捷键默认键');
+  assert.ok(ptSrc.includes('__magicLensComboMatches'), '触发匹配必须走 common.js 三件套（禁私写匹配逻辑）');
+  const mainEntryR71 = manifest.content_scripts.find((entry) => entry.js.includes('page-translate.js'));
+  assert.ok(mainEntryR71.js.indexOf('common.js') < mainEntryR71.js.indexOf('page-translate.js'),
+    'page-translate.js 必须晚于 common.js 注入（依赖 defaults 与 combo 三件套）');
+
+  const optHtml = read('options.html');
+  const optSrc = read('options.js');
+  for (const id of ['scPage', 'scPara', 'scPageClear', 'scParaClear', 'scErr']) {
+    assert.ok(optHtml.includes(`id="${id}"`), `options.html 必须有快捷键录制元素 #${id}`);
+  }
+  assert.ok(optSrc.includes('__magicLensComboFromEvent') && optSrc.includes('__magicLensComboLabel'),
+    'options.js 录制器必须走 common.js 三件套');
+  assert.ok(optSrc.includes('shortcutPageToggle') && optSrc.includes('shortcutParagraph'),
+    'options.js 必须读写两个快捷键设置键');
+
+  console.log('PASS extension module contract: R71 translate shortcuts combo contract');
 }
 
 main().catch((error) => {

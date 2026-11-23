@@ -13,6 +13,11 @@
  *   （AGENTS.md §0.2 禁的是全局样式与 window 污染；magicbook 阅读器阅读翻译同款形态）。
  *  - 消息：ML_TRANSLATE_BATCH 经 background 中转（callApi 60s）；ML_PT_TOGGLE 两条入口
  *    （悬浮球经 SW 转发、popup 直发 tabs.sendMessage）同落本文件的 onMessage。
+ *  - 快捷键（R71）：顶层文档 keydown（capture）分发两条——整页开关（默认 Alt+A，与
+ *    沉浸式翻译一致）与悬停单段翻译（默认 Alt+P，翻译/撤销鼠标所在段落）；键位串存
+ *    chrome.storage.sync（e.code 形制，common.js 三件套），设置页「快捷键」节可录制。
+ *    边界：编辑态输入框不触发（mac 死键字符不搞双重效果）、域名禁用站静默、
+ *    iframe 内聚焦不响应（单段只认顶层文档段落）。
  *  - 生命周期：storage.onChanged 联动主开关、rpc onInvalidated 失效自清理、
  *    bfcache pageshow 重建文档绑定——三件与 highlight/content/ball 同模式。
  *
@@ -38,7 +43,12 @@
 
   /* ---------- 状态 ---------- */
   let siteDisabled = false;   // 域名管理禁用：与高亮同口径，写死在本页生命周期内（刷新生效）
-  let cfg = { enabled: true };
+  let cfg = {
+    enabled: true,
+    // R71 快捷键键位串（common.js __magicLensDefaults 单点）：'' = 禁用该键
+    shortcutPageToggle: 'Alt+KeyA',
+    shortcutParagraph: 'Alt+KeyP',
+  };
   let active = false;         // 本页本次开启状态（按页临时态，无全局设置键）
   let docs = new Map();       // Document → {doc, win, io, mo, listeners[], rescanTimer}
   let records = new Map();    // Element → {el, doc, text, state, node}
@@ -50,8 +60,13 @@
   const sessionCache = new Map(); // 归一化文本 → 译文（页内 toggle 循环零计费；刷新即清，服务端 ES 缓存为权威）
 
   const PT_HOST_ID = 'magiclens-pt-host';
-  let host = null;            // chip 的 shadow host
-  let chipParts = null;       // {status, done, close, error, retryLink}
+  let host = null;            // chip/提示条共用的 shadow host
+  let shadowDom = null;       // closed shadow 根的持引（host.shadowRoot 对 closed 恒 null，不可回查）
+  let chipRow = null;         // 活跃态进度行（active 时才建；{status, close}）
+  let errBox = null;          // 错误/提示条（host 在即可用，inactive 时的快捷键反馈走这里）
+  let hintTimer = null;       // inactive 提示条的自动消隐定时器
+  let lastX = -1;             // R71 鼠标锚点（悬停单段翻译用；顶层文档坐标）
+  let lastY = -1;
 
   /* ---------- 段落发现 ---------- */
   const CJK_RE = /[\u3400-\u9fff\uf900-\ufaff]/g;
@@ -66,15 +81,24 @@
     return true;
   }
 
-  /** 段落文本是否够格翻译：够长、非中文主导、页面级去重。返回归一化文本或 null */
-  function paragraphText(el, seen) {
-    if (el.closest('pre, code, [contenteditable], [data-magiclens-translation]')) return null;
-    if (el.closest('#magiclens-host, #magiclens-chat-host, #magiclens-ball-host, #magiclens-pt-host')) return null;
-    if (records.has(el)) return null;
-    const text = (el.innerText || '').replace(/\s+/g, ' ').trim();
-    if (text.length < MIN_CHARS) return null;
+  const normalizeText = (el) => (el.innerText || '').replace(/\s+/g, ' ').trim();
+
+  /** 段落资格（不含 records 查重）：互斥标记（代码块/编辑器/扩展自建 UI）+ 够长 + 非中文主导。
+   * Why 拆出纯资格判定：整页发现（records 查重+页面去重）与 R71 单段快捷键（自行管理
+   * 已录段落）共用同一门槛，两条入口的资格口径永不漂移。 */
+  function qualifies(el, text) {
+    if (el.closest('pre, code, [contenteditable], [data-magiclens-translation]')) return false;
+    if (el.closest('#magiclens-host, #magiclens-chat-host, #magiclens-ball-host, #magiclens-pt-host')) return false;
+    if (text.length < MIN_CHARS) return false;
     const cjk = (text.match(CJK_RE) || []).length;
-    if (cjk / text.length > CJK_RATIO_MAX) return null;
+    return cjk / text.length <= CJK_RATIO_MAX;
+  }
+
+  /** 段落文本是否够格翻译：资格 + 页面级去重。返回归一化文本或 null */
+  function paragraphText(el, seen) {
+    if (records.has(el)) return null;
+    const text = normalizeText(el);
+    if (!qualifies(el, text)) return null;
     if (seen.has(text)) return null;
     seen.add(text);
     return text;
@@ -277,12 +301,15 @@
     }
   }
 
-  /* ---------- 状态 chip（closed Shadow DOM） ---------- */
-  function buildChip() {
+  /* ---------- 状态 chip（closed Shadow DOM） ----------
+   * host/errBox 与 chipRow 分层：错误提示在未开启时也要能出现（R71 快捷键的
+   * 「未找到段落/总开关关闭」反馈），进度行（含 ✕=关闭整页翻译）只在 active 时存在。 */
+  function ensureHost() {
     if (host) return;
     host = document.createElement('div');
     host.id = PT_HOST_ID;
     const shadow = host.attachShadow({ mode: 'closed' });
+    shadowDom = shadow;
     const style = document.createElement('style');
     style.textContent = `
       :host { all: initial; }
@@ -299,6 +326,17 @@
         padding: 7px 12px; font-size: 12px; line-height: 1.5; }
       .err a { color: #fca5a5; cursor: pointer; text-decoration: underline; }`;
     shadow.appendChild(style);
+    const err = document.createElement('div');
+    err.className = 'err';
+    err.hidden = true;
+    shadow.appendChild(err);
+    errBox = err;
+    document.documentElement.appendChild(host);
+  }
+
+  function buildChip() {
+    ensureHost();
+    if (chipRow) return;
     const chip = document.createElement('div');
     chip.className = 'chip';
     const status = document.createElement('span');
@@ -309,45 +347,54 @@
     close.title = '关闭整页翻译';
     close.addEventListener('click', () => toggle());
     chip.append(status, close);
-    const err = document.createElement('div');
-    err.className = 'err';
-    err.hidden = true;
-    shadow.append(chip, err);
-    document.documentElement.appendChild(host);
-    chipParts = { status, error: err };
+    shadowDom.insertBefore(chip, errBox);
+    chipRow = { status, close };
   }
 
   function updateChip() {
-    if (!host || !chipParts) return;
+    if (!chipRow) return;
     let text = scheduled >= MAX_ACTIVATION
       ? `段落翻译 · 已译 ${translatedCount} 段（达本页上限 ${MAX_ACTIVATION} 段）`
       : `段落翻译 · 已译 ${translatedCount} 段`;
     if (inflight || pending.length) text += `，进行中 ${pending.length + (inflight ? BATCH : 0)} 段`;
-    chipParts.status.textContent = text;
+    chipRow.status.textContent = text;
   }
 
   function showChipError(message, auth) {
-    if (!host || !chipParts) return;
-    chipParts.error.textContent = '';
+    ensureHost();
+    errBox.textContent = '';
     const span = document.createElement('span');
     span.textContent = message;
-    chipParts.error.append(span);
+    errBox.append(span);
     if (auth) {
       // 与 content.js setError 同款：401/403 给内联「重新登录」入口
       const link = document.createElement('a');
       link.textContent = '重新登录';
       link.addEventListener('click', () => __magicLensRpc.send({ type: MSG.ML_LOGIN }, () => void chrome.runtime.lastError));
-      chipParts.error.append(' ', link);
+      errBox.append(' ', link);
     }
-    chipParts.error.hidden = false;
+    errBox.hidden = false;
   }
 
   function clearChipError() {
-    if (host && chipParts) chipParts.error.hidden = true;
+    if (errBox) errBox.hidden = true;
+  }
+
+  /** R71 快捷键反馈：active 时走既有错误条（下次成功自动清）；inactive 时临时提示
+   * 4s 自动消隐——不建进度行（✕ 的「关闭整页翻译」语义只在开启态成立） */
+  function hint(message) {
+    showChipError(message);
+    if (hintTimer) clearTimeout(hintTimer);
+    hintTimer = active ? null : setTimeout(() => {
+      hintTimer = null;
+      if (errBox) errBox.hidden = true;
+    }, 4000);
   }
 
   /* ---------- 开/关 ---------- */
-  function start() {
+  /** discover=false：R71 单段保底开启——只建 chip 不做全页发现。Why 必须跳过：
+   * 全页发现会给视口内段落起批，单段诉求被放大成视口批量计费（LLD §3）。 */
+  function start(discover = true) {
     if (active) return;
     active = true;
     scheduled = 0;
@@ -357,6 +404,7 @@
     buildChip();
     clearChipError();
     updateChip();
+    if (!discover) return;
     // 逐文档绑定 + 首扫：IO observe 的初始回调会立刻为视口内段落起批
     for (const entry of collectDocs()) {
       const st = setupDoc(entry);
@@ -374,7 +422,8 @@
     inflight = false; // 在途回包回来时 active=false，fill/remove 前有 active 守卫
     removeAllBlocks();
     records.clear();
-    if (host) { host.remove(); host = null; chipParts = null; }
+    if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+    if (host) { host.remove(); host = null; shadowDom = null; chipRow = null; errBox = null; }
   }
 
   function toggle() {
@@ -386,6 +435,82 @@
 
   // 供两个入口与 bfcache 恢复共用的唯一开关路径
   window.__magicLensPageTranslateToggle = toggle;
+
+  /* ---------- R71 悬停单段翻译：翻译/撤销鼠标所在的那一个段落 ---------- */
+  const NO_PARA_HINT = '未找到可翻译段落（把鼠标移到正文段落上再按）';
+
+  function translateParagraphAt(x, y) {
+    if (siteDisabled) return; // 禁用站零反应（与划词/高亮同一份禁用语义）
+    if (!cfg.enabled) return hint('划词翻译总开关已关闭，请先在 popup 开启');
+    if (x < 0 && y < 0) return hint(NO_PARA_HINT); // 鼠标未进过页面（尚无锚点）
+    const hit = document.elementFromPoint(x, y);
+    const el = hit && hit.closest ? hit.closest(TEXT_TAGS) : null;
+    if (!el) return hint(NO_PARA_HINT);
+
+    const rec = records.get(el);
+    // 已译段落再按一次=撤销：摘块、置 dismissed（records 保留以防 MO 重扫复活），
+    // sessionCache 保留译文——再按一次复活零请求零计费
+    if (rec && rec.state === 'done') {
+      if (rec.node) { rec.node.remove(); rec.node = null; }
+      rec.state = 'dismissed';
+      translatedCount = Math.max(0, translatedCount - 1);
+      updateChip();
+      return;
+    }
+    // 在途（排队/请求中）：单段无法从攒批里摘除，静默忽略（chip 已见进度）
+    if (rec && (rec.state === 'pending' || rec.state === 'loading')) return;
+
+    // 新段落判资格；failed/dismissed/idle 复用已归一文本（failed 重试按用户指令再计费）
+    let text = rec ? rec.text : null;
+    if (!text) {
+      const candidate = normalizeText(el);
+      if (!qualifies(el, candidate)) return hint(NO_PARA_HINT);
+      text = candidate;
+    }
+    if (!active) start(false); // 单段保底开启：不做全页发现（视口段落不得被放大成批量计费）
+    const target = records.get(el) || { el, doc: document, text, state: 'idle', node: null };
+    target.text = text;
+    target.state = 'idle';
+    records.set(el, target);
+    enqueue(target); // 页内缓存命中即时渲染零请求；未命中走既有攒批管线（单段也享受合批）
+  }
+
+  /* ---------- R71 快捷键分发（顶层文档 keydown capture） ---------- */
+  // 扩展自建 UI 的 shadow host：焦点落在其内部（如伴读输入框）时事件被重定向到 host，
+  // 外层只见 div——显式忽略，避免在伴读抽屉里打字误触翻译
+  const LENS_HOST_IDS = 'magiclens-host, magiclens-chat-host, magiclens-ball-host, magiclens-pt-host';
+
+  function isEditableTarget(t) {
+    if (!t || !t.tagName) return false; // target 为 document/window 时不拦
+    const tag = String(t.tagName).toUpperCase();
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    return Boolean(t.isContentEditable);
+  }
+
+  function onKeydown(e) {
+    if (e.isComposing) return;
+    if (siteDisabled) return; // 禁用站零反应（R25 高亮 Alt+U 同口径：禁用站连提示都不给）
+    const t = e.target;
+    // 编辑态不触发（mac Alt+字母在输入框插死键字符，快捷键再翻译一次=双重效果）；
+    // 扩展自建 UI host 同口径忽略
+    if (isEditableTarget(t) || (t && t.closest && t.closest(LENS_HOST_IDS))) return;
+    if (window.__magicLensComboMatches(cfg.shortcutPageToggle, e)) {
+      e.preventDefault();
+      e.stopPropagation();
+      const resp = toggle();
+      if (resp && resp.ok === false) hint(resp.error);
+      return;
+    }
+    if (window.__magicLensComboMatches(cfg.shortcutParagraph, e)) {
+      e.preventDefault();
+      e.stopPropagation();
+      translateParagraphAt(lastX, lastY);
+    }
+  }
+
+  const onMousemove = (e) => { lastX = e.clientX; lastY = e.clientY; };
+  document.addEventListener('keydown', onKeydown, true);
+  document.addEventListener('mousemove', onMousemove, { capture: true, passive: true });
 
   /* ---------- 入口消息：popup 直发 / 悬浮球经 SW 转发，同落此处 ---------- */
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -401,6 +526,9 @@
       // 总开关关闭时整页翻译一并停（与 highlight.js teardown 联动同语义）
       if (!cfg.enabled && active) stop();
     }
+    // R71 快捷键键位即时生效（设置页录制/清除无需刷新已开页面）
+    if (changes.shortcutPageToggle) cfg.shortcutPageToggle = changes.shortcutPageToggle.newValue;
+    if (changes.shortcutParagraph) cfg.shortcutParagraph = changes.shortcutParagraph.newValue;
   });
 
   window.addEventListener('pageshow', (e) => {
@@ -417,14 +545,20 @@
   });
 
   __magicLensRpc.onInvalidated(() => {
-    // 扩展重载孤儿页：摘掉 chip 与译文块、停监听（与 content retireOrphan 同语义）
+    // 扩展重载孤儿页：摘掉 chip 与译文块、停监听（与 content retireOrphan 同语义）；
+    // R71 快捷键/鼠标锚点监听是模块级生命周期，一并退役
     try { stop(); } catch { /* 文档已死时尽力而为 */ }
+    document.removeEventListener('keydown', onKeydown, true);
+    document.removeEventListener('mousemove', onMousemove, { capture: true });
   });
 
   /* ---------- 启动 ---------- */
   chrome.storage.sync.get(__magicLensDefaults, (c) => {
     siteDisabled = window.__magicLensIsDisabledHost(location.hostname, c.disabledDomains);
     cfg.enabled = c.enabled !== false;
+    // R71 键位串（'' = 禁用，直接采纳不回退默认）
+    cfg.shortcutPageToggle = typeof c.shortcutPageToggle === 'string' ? c.shortcutPageToggle : cfg.shortcutPageToggle;
+    cfg.shortcutParagraph = typeof c.shortcutParagraph === 'string' ? c.shortcutParagraph : cfg.shortcutParagraph;
     // 能力握手（与 data-magiclens-highlight / data-magiclens-selection 同模式）：popup/ball
     // 直发 tabs.sendMessage 依赖本监听已就位，标记给出「装了 ≠ 通」的显式探针
     document.documentElement.dataset.magiclensPageTranslate = '1';

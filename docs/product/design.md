@@ -357,3 +357,33 @@ MagicLens 扩展悬浮球在这些域自动隐藏；其他网站继续按用户�
   后端白名单，buddy 页才能表达它；锁 B 增补「options 不得再引用 registry」（防本地开关复活）。
 - **review 不是气泡**：词卡由 selected 含 'review' 驱动、不进 registry——宿主球无词卡是
   自然分化，一个 chip 管两端。
+
+## 23. 翻译快捷键：扩展内录制式自定义 + 悬停单段翻译（2026-11-23，R71，v0.8.32；moon-well 零改动）
+
+**决策**：给「整页翻译」「翻译段落」配快捷键（用户点名参考沉浸式翻译），**方案 A=扩展内
+keydown 监听 + 设置页录制**（沉浸式翻译同款交互）；默认键位 `Alt+A`=整页开/关（与沉浸式
+翻译一致）、`Alt+P`=悬停单段翻译。被否：方案 B `chrome.commands`——键位自定义 UI 归
+`chrome://extensions/shortcuts`、扩展不可编程读写，与「快捷键设置」诉求不符；
+`toggle-highlight`（Alt+U）维持 commands 现状不动。后果（方案 A 固有，与沉浸式一致）：
+快捷键仅在网页聚焦时生效；iframe 内聚焦不响应。
+
+- **键位串形制**：`修饰键(固定序 Alt,Ctrl,Meta,Shift)+"+"+e.code`（如 `Alt+KeyA`），
+  存 chrome.storage.sync（`__magicLensDefaults` 两键，R46 单点纪律；`''`=禁用）。
+  **Why 存 e.code 不存 e.key**：macOS Option 组合把 e.key 变死键字符（Alt+A→å、
+  Alt+P→π），按 key 匹配在 Mac 整段失效。展示与匹配走 common.js 三件套
+  （`__magicLensComboFromEvent/Matches/Label`，纯函数供 options/page-translate/守卫三方共用，
+  Node 守卫锁契约）。
+- **悬停单段翻译**（page-translate.js 内新增）：鼠标锚点（顶层 mousemove 记坐标）→
+  `elementFromPoint → closest(TEXT_TAGS)` → 复用拆出的 `qualifies` 资格判定（与整页发现
+  同门槛零漂移）。状态机：done→按=撤销（置 `dismissed` 防 MO 重扫复活，sessionCache
+  保留译文=复活零计费）；pending/loading→忽略；idle/failed/新段→`start(false)` 保底开启
+  （**不做全页发现**——否则视口段落被放大成批量计费）→ `enqueue` 走既有攒批管线。
+- **触发守卫**：编辑态（input/textarea/select/contenteditable）不触发（mac 死键字符不搞
+  双重效果）；扩展自建 shadow host（含伴读抽屉——closed shadow 重定向让外层只见 host div）
+  显式忽略；域名禁用站静默；未命中组合零拦截（网页自身快捷键零干扰）；命中才
+  `preventDefault+stopPropagation`。
+- **设置页**：「快捷键」节两行录制框 + 清除；Esc 取消；与另一条冲突拒绝；storage 为唯一
+  事实源，page-translate 经 `storage.onChanged` 即时采纳（已开页面免刷新）。
+- **测试**：VM 契约段（combo round-trip + defaults + 装配静态断言）+ 集成套件
+  `ml-shortcuts`（单段→撤销→编辑态→整页 5+1 缓存合批→关闭→未命中零拦截），
+  guard 三向全绿。

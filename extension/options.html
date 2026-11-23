@@ -37,6 +37,11 @@
     /* R54 常驻入口：首次安装引导卡片 */
     .ball-ask { border: 1px solid #c7d2fe; background: #eef2ff; border-radius: 10px; padding: 12px 14px; }
     .ball-ask label { color: #4338ca; }
+    /* R71 翻译快捷键录制 */
+    .klabel { flex: 0 0 9.5em; font-size: 13px; font-weight: 400; }
+    .key-input { flex: 1; min-width: 0; border: 1px solid #d1d5db; border-radius: 8px; padding: 7px 10px; font: inherit; color: #374151; background: #f9fafb; cursor: pointer; }
+    .key-input.rec { outline: 2px solid #c7d2fe; color: #4f46e5; background: #fff; }
+    .key-input::placeholder { color: #9ca3af; }
   </style>
 </head>
 <body>
@@ -85,6 +90,23 @@
 
   <div class="field">
     <label><input type="checkbox" id="autoTranslate"> 选中即自动翻译（关闭后需点气泡里的「译」）</label>
+  </div>
+
+  <!-- R71 翻译快捷键：录制式自定义（沉浸式翻译同款交互），存 chrome.storage.sync，''=禁用 -->
+  <div class="field">
+    <label>快捷键</label>
+    <div class="row">
+      <span class="klabel">整页翻译 开/关</span>
+      <input type="text" id="scPage" class="key-input" readonly>
+      <button id="scPageClear" class="ghost">清除</button>
+    </div>
+    <div class="row">
+      <span class="klabel">翻译鼠标所在段落</span>
+      <input type="text" id="scPara" class="key-input" readonly>
+      <button id="scParaClear" class="ghost">清除</button>
+    </div>
+    <div id="scErr" class="err-hint" hidden></div>
+    <div class="hint">点击输入框后按下组合键即可录制（Esc 取消，需含 Alt / Ctrl / ⌘ 任一修饰键）；对已打开页面<b>即时生效</b>。<b>整页翻译</b>=当前网页正文随滚动整段双语对照（同悬浮球 🌐 / popup 按钮）；<b>翻译段落</b>=只译鼠标所在的那一段，再按一次撤销。正在输入文字的编辑框内与域名管理名单站点不触发。</div>
   </div>
 
   <!-- R54 常驻入口开关（悬浮球）+ R70 逐项配置真值源=moon-well（buddy 页） -->

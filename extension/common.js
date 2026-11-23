@@ -27,6 +27,10 @@
     // chrome.storage.local `magiclens.ballQuickActions` = {selected:[], stored:bool, ts}
     // 供断网兜底；stored=false（用户从未在 buddy 页保存过）或无缓存时按注册表全量渲染。
     // 逐项可配的入口在设置页引导去 buddy 页（options.js）。
+    // R71 翻译快捷键默认键位（串形制见 __magicLensComboFromEvent）：Alt+A=整页翻译开关
+    //（与沉浸式翻译一致）/ Alt+P=悬停单段翻译；''=禁用。设置页「快捷键」节可录制/清除。
+    shortcutPageToggle: 'Alt+KeyA',
+    shortcutParagraph: 'Alt+KeyP',
   });
 
   if (g.__magicLensNormDomain) return;
@@ -213,6 +217,53 @@
     esc = esc.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     restore(true);
     return esc;
+  };
+
+  /* ---------- R71 翻译快捷键：键位串三件套（options / page-translate / 守卫三方共用） ----------
+   * 串形制 = 修饰键（固定序 Alt,Ctrl,Meta,Shift）+ "+" + e.code，如 Alt+KeyA、Ctrl+Shift+Comma。
+   * Why 存 e.code 不存 e.key：macOS Option 组合把 e.key 变成死键字符（Alt+A→å、Alt+P→π），
+   * 按 key 匹配在 Mac 上整段失效；e.code 是物理键位，跨布局稳定。空串 = 该键禁用。
+   * Why 落 common.js 纯函数：options 页不加载 page-translate.js（R69 registry 同因），
+   * 且 Node 守卫（check-extension-modules.js R71 段）可直接锁契约防漂移。 */
+
+  const COMBO_MODS = ['altKey', 'ctrlKey', 'metaKey', 'shiftKey'];
+  const COMBO_MOD_NAMES = { altKey: 'Alt', ctrlKey: 'Ctrl', metaKey: 'Meta', shiftKey: 'Shift' };
+  // e.code → 展示名：字母/数字剥前缀，常见命名键给可读符号（录制框回显用）
+  const COMBO_CODE_LABELS = {
+    Comma: ',', Period: '.', Slash: '/', Semicolon: ';', Quote: "'",
+    BracketLeft: '[', BracketRight: ']', Backslash: '\\', Minus: '-', Equal: '=',
+    Backquote: '`', Space: '空格', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓',
+  };
+  const COMBO_CODE_LABEL = (code) =>
+    COMBO_CODE_LABELS[code] || (/^Key./.test(code) ? code.slice(3)
+      : /^Digit./.test(code) ? code.slice(5) : code);
+
+  /** KeyboardEvent → 键位串。无主修饰键（Alt/Ctrl/Meta 任一）返回 null：
+   * 裸键/纯 Shift 属于网页本身（页面聚焦时要打字），不可录制为快捷键。 */
+  g.__magicLensComboFromEvent = (e) => {
+    if (!e || typeof e.code !== 'string' || !e.code) return null;
+    if (!e.altKey && !e.ctrlKey && !e.metaKey) return null;
+    const parts = COMBO_MODS.filter((k) => e[k]).map((k) => COMBO_MOD_NAMES[k]);
+    parts.push(e.code);
+    return parts.join('+');
+  };
+
+  /** 键位串与事件全等比对（修饰键集合 + code 逐一对上）；串非法/空返回 false。 */
+  g.__magicLensComboMatches = (stored, e) => {
+    const combo = String(stored || '');
+    if (!combo) return false;
+    const made = g.__magicLensComboFromEvent(e);
+    return Boolean(made) && made === combo;
+  };
+
+  /** 键位串 → 展示文案（Alt+KeyA → Alt+A）；空/非法串返回空串（设置页显「未设置」）。 */
+  g.__magicLensComboLabel = (stored) => {
+    const combo = String(stored || '');
+    if (!combo) return '';
+    const parts = combo.split('+');
+    const code = parts.pop();
+    if (!code || parts.some((p) => !COMBO_MOD_NAMES[`${p.toLowerCase()}Key`])) return '';
+    return [...parts, COMBO_CODE_LABEL(code)].join('+');
   };
 
   /* ---------- R53 伴读语音共享工具（content / background / offscreen 三处共用） ---------- */

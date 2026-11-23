@@ -1,0 +1,13 @@
+## 2026-11-08（R59：同步 magicbook 近期功能——悬浮球滚动复习 + 语速三档）
+
+### R59（同步 magicbook R285/R289/R263：悬浮球 SRS 滚动复习轮播 + 回复朗读语速三档）
+
+- **做了什么**：对齐 magicbook 上次同步点（10-27 R52-R54）之后的两个用户可见能力——**A 滚动复习**（R285 词卡轮播 + R289 详情分页）与 **B 语速三档**（R263）；R261 行内 gloss 用户拍板不做（涉及任意网页排版、改动大，且 magicbook 站内已接受「扩展接管高亮时该开关不生效」）。
+- **A 交付（`ball.js` + `rpc.js` + `background.js` + `chat.js` 抽屉事件）**：球 shadow root 内 `wrap` 兄弟节点常驻词卡（不进 wrap——径向气泡与拖拽命中区冲突，R285 同源教训）；`ML_REVIEW_QUEUE`→`GET /learning/srs/queue` 20 词洗牌 8s 轮播、「认识」复用 `ML_MARK`→`GET /vocabulary/known/{word}` 按点击瞬间下标删词；`ML_REVIEW_DETAIL_BATCH`→`POST /vocabulary/detail/cached-batch`（moon-well R248 只读缓存零计费）详情分页：每词基本意思前 2 义项 + 随机 1 模块 ≤4 页、line-clamp 3 硬钳、同词连翻、无缓存/端点未发生产/失败三路静默回退简卡；**计费红线**：绝不调 `/vocabulary/detail/{word}`（miss 现场生成计费）；暂停矩阵对齐 R285（页面不可见/气泡展开/抽屉打开/inFlight…），抽屉开合经 chat.js 派发的 `magiclens-chat` 事件感知（closed shadow 唯一通道）；paused/collapsed 走 `chrome.storage.local`（禁污染宿主 localStorage——magicbook 用页面 localStorage 是站内特权不能照抄）；未登录静默隐藏、登录成功（token 落库）自动补拉。
+- **B 交付（`chat.js`）**：抽屉头部语速按钮 1.0/0.75/0.5x 循环（R263 顺序），档位 `chrome.storage.local` `magiclens.ttsSpeed`（设备相关体验，不进 sync）；播放分叉：1.0x 恒走原 BufferSource 链路零回归，非 1.0x 走 `<audio>` + `preservesPitch`/`webkit`/`moz` 三连钉变速不变调（Why：BufferSource 只有重采样必变调，`preservesPitch` 是 HTMLMediaElement 专属），blob 被页面 CSP `media-src` 拦时回退 BufferSource 套 `playbackRate`（变调降级好过无声）；换档不打断当前段、下一段生效。
+- **⚠ 发版时序**：`cached-batch` 在 moon-well develop（dev 环境），生产 release 尚未携带（2026-11-08 release 落后 develop 22 提交）——扩展直连生产 moon-well，该端点 404 期间详情分页自动回退简卡（与「无缓存词」同一降级路径），moon-well R248 发生产后详情自动生效，扩展无需再发版。
+- **集成套件（R185 门禁）**：`matrix/magiclens.csv` +2 行（`ml-ball-review`/`ml-chat-speed`）、`e2e_bridge.py` FEATURES 同步、run.js mock 层补 `/learning/srs/queue` 与 `cached-batch`（fixture：队列两词、批量表 apple 命中/terrible 有意 miss 验简卡分叉）；**坑**：`/vocabulary/detail/` 前缀规则抢配批量端点致前端全量 miss（详情失败不可见口径反而掩盖 mock 配错）——精确规则必须排在前缀之前（已写进 run.js 注释）；悬浮球默认关闭须显式 `sSet ballEnabled:true`；harness 默认装主检出，验 worktree 必须 `--ext`。**实测**：CfT chrome@157 全量 **14/14 pass**（worktree 扩展）、静态守卫 3/3、`guard.py` 三向对账全绿；套件变更已 push ops main（303de4f）。
+- **版本**：0.8.21 → **0.8.22-202611082233**（测试版，带时间戳不触发发布）。
+- **文档四问**：能力变了吗 → README 功能表 3 处（悬浮球行补滚动复习、语音双向行补语速、契约速查 +2 端点）；实现/边界 → 本 LLD `r59-sync-review-speed/lld.md`（含 4 条踩坑）；本次怎么实现 → 同文件；契约速查以 moon-well 现行代码为准（`LearningController.srs/queue`、`VocabularyController.detail/cached-batch` 均已核对源码）。
+- **台账**：requests.md 占号 R59（claim.sh `f18f602`，push 即占）；PingCode idea **ML-55**（J5QST1pL）已建 → In progress；worktree `../magiclens-r59-buddy-review-speed` / 分支 `feat/r59-buddy-review-speed` merge 后**驻留待真机验收**。窗口轮转：写入前含 R44/R50–R58 共 10 条，本条写入达 11，最旧的 R44 原样搬至 `response-archive/response-R44.md` 并登记索引，窗口回 10。
+- **总结**：requests.md 条目 59 已回填；本条为回应；冲突记录：无。
