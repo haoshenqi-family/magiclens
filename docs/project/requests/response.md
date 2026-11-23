@@ -1,6 +1,6 @@
 # response.md — 对话回应记录（仅保留最近 10 个 request 的回应）
 
-> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移） · [response-R29.md](response-archive/response-R29.md)（2026-10-11 R40 写入触发轮转搬移） · [response-R30-R31.md](response-archive/response-R30-R31.md)（2026-10-11 R41 集成时窗口超限搬移） · [response-R32.md](response-archive/response-R32.md)（2026-10-13 R43 写入触发轮转搬移） · [response-R33.md](response-archive/response-R33.md)（2026-10-14 R44 写入触发轮转搬移） · [response-R34.md](response-archive/response-R34.md)（2026-10-15 R45 写入触发轮转搬移） · [response-R35-R38.md](response-archive/response-R35-R38.md)（2026-10-16 R50 写入触发轮转搬移，窗口回 10 条 request 内） · [response-R41.md](response-archive/response-R41.md)（2026-10-27 R56 写入触发轮转搬移） · [response-R45.md](response-archive/response-R45.md)（2026-10-21 R51 写入触发轮转搬移） · [response-R39.md](response-archive/response-R39.md)（2026-10-27 R52 写入触发轮转搬移） · [response-R46.md](response-archive/response-R46.md)（2026-10-27 R53 写入触发轮转搬移） · [response-R40.md](response-archive/response-R40.md)（2026-10-27 R54 写入触发轮转搬移） · [response-R47.md](response-archive/response-R47.md)（2026-10-27 R55 写入触发轮转搬移） · [response-R42.md](response-archive/response-R42.md)（2026-10-29 R57 写入触发轮转搬移） · [response-R43.md](response-archive/response-R43.md)（2026-11-02 R58 写入触发轮转搬移） · [response-R44.md](response-archive/response-R44.md)（2026-11-08 R59 写入触发轮转搬移） · [response-R59.md](response-archive/response-R59.md)（2026-11-23 R71 写入触发轮转搬移） · [response-R60.md](response-archive/response-R60.md)（2026-11-23 R72 写入触发轮转搬移） · [response-R62.md](response-archive/response-R62.md)（2026-11-23 R73 写入触发轮转搬移）
+> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移） · [response-R29.md](response-archive/response-R29.md)（2026-10-11 R40 写入触发轮转搬移） · [response-R30-R31.md](response-archive/response-R30-R31.md)（2026-10-11 R41 集成时窗口超限搬移） · [response-R32.md](response-archive/response-R32.md)（2026-10-13 R43 写入触发轮转搬移） · [response-R33.md](response-archive/response-R33.md)（2026-10-14 R44 写入触发轮转搬移） · [response-R34.md](response-archive/response-R34.md)（2026-10-15 R45 写入触发轮转搬移） · [response-R35-R38.md](response-archive/response-R35-R38.md)（2026-10-16 R50 写入触发轮转搬移，窗口回 10 条 request 内） · [response-R41.md](response-archive/response-R41.md)（2026-10-27 R56 写入触发轮转搬移） · [response-R45.md](response-archive/response-R45.md)（2026-10-21 R51 写入触发轮转搬移） · [response-R39.md](response-archive/response-R39.md)（2026-10-27 R52 写入触发轮转搬移） · [response-R46.md](response-archive/response-R46.md)（2026-10-27 R53 写入触发轮转搬移） · [response-R40.md](response-archive/response-R40.md)（2026-10-27 R54 写入触发轮转搬移） · [response-R47.md](response-archive/response-R47.md)（2026-10-27 R55 写入触发轮转搬移） · [response-R42.md](response-archive/response-R42.md)（2026-10-29 R57 写入触发轮转搬移） · [response-R43.md](response-archive/response-R43.md)（2026-11-02 R58 写入触发轮转搬移） · [response-R44.md](response-archive/response-R44.md)（2026-11-08 R59 写入触发轮转搬移） · [response-R59.md](response-archive/response-R59.md)（2026-11-23 R71 写入触发轮转搬移） · [response-R60.md](response-archive/response-R60.md)（2026-11-23 R72 写入触发轮转搬移） · [response-R62.md](response-archive/response-R62.md)（2026-11-23 R73 写入触发轮转搬移） · [response-R63.md](response-archive/response-R63.md)（2026-11-23 R74 写入触发轮转搬移）
 
 - `response-archive/response-R50-R52.md`：R50 docs v2 迁移 / R51 发布链纯文档跳过打包 / R52 伴读抽屉去 token+站内链接——2026-11-13 R62 写入触发轮转搬移（窗口 12→13 压回 10），原样搬移不改写
 
@@ -8,20 +8,6 @@
 
 - `response-archive/response-R53.md`：R53 伴读抽屉语音双向（麦克风转写 + 回复朗读）——2026-11-13 R63 写入触发轮转搬移，原样搬移不改写
 
-
-## 2026-11-13（R63：缺陷——滚动复习词卡报 unknown message type）
-
-### R63（用户：「fix this bug」+ 截图：滚动复习词卡红字 unknown message type + 重试）
-
-- **现象**：悬浮球旁「滚动复习」词卡整卡变红字 `unknown message type`，「重试」恒失败；同页其它功能（划词、高亮、伴读）正常。
-- **根因（实测证据，非 R59 代码回归，是 SW 与 content script 版本错位）**：报错串全仓唯一来源是 `background.js` 的 `default` 分支；词卡拉队列只发 `ml:review-queue`（R59 新增类型）。Chrome（Default profile）加载的是解包扩展 `magiclens/extension`，而其 **SW ScriptCache 仍是 2026-10-29 的构建**——`rpc.js` 的 MSG 表没有 `ML_REVIEW_QUEUE`、`background.js` 仍含 R61 已删除的 `ENROLLMENT_URL` 常量，整个 ScriptCache 目录 grep `ml:review-queue` 命中 0；对应 V8 code cache 时间戳却是 2026-11-13 16:14，说明今天 SW 被唤醒时仍在跑旧脚本。content script 则是每页从磁盘重读的，所以页面里是 R59 之后的新版（词卡在）→ 新类型落到旧 SW 的 `default`。MV3 解包扩展改消息表后，SW 只有在 `chrome://extensions` 重新加载或扩展更新时才重新注册，SW 脚本缓存（含 `importScripts` 的 `rpc.js`）会把旧构建一直沿用。
-- **处置 A（根因动作，用户侧 2 步）**：`chrome://extensions` → MagicLens 词镜 → **重新加载** → 刷新出问题的页面，词卡即恢复。
-- **处置 B（代码加固，本次提交）**：`ball.js` 新增 `reviewErrorText()`，把 `unknown message type` / `Extension context invalidated` 两类环境错误翻成可行动中文（「扩展版本未同步：请在 chrome://extensions 重新加载扩展，再刷新本页」/「扩展已更新，请刷新本页后重试」），业务错误（积分不足/超时/401 话术）原样透出——不静默降级；`background.js` 的 `default` 回带 `type` 便于 console 定位，错误串前缀保持不变；版本 0.8.24 → **0.8.25-202611131705** 测试版（带时间戳不触发发布；合并时与并行 R64 撞 0.8.25，按推送序顺延 **0.8.26-202611141315**）。
-- **验证**：`node --check` 双文件过、`manifest.json` JSON 合法；`reviewErrorText` 抽源码实跑 5 例断言全过（unknown→重载指引、invalidated→刷新指引、积分不足原样透出、空串兜底、「重新加载」关键词）；确认 `background.js` default 回带 `type`。**真机待用户按处置 A 验收**：重载扩展 + 刷新后词卡正常轮播。
-- **文档四问**：能力未变（仅错误话术）→ README 不动；契约未变（无新消息类型/新端点）→ design.md 不动；实现/边界 → LLD `iterations/1.0/r63-review-sw-skew/lld.md`；本次怎么实现 → 同文件。集成矩阵无新行（不新增/修改路由与特性，guard 三向对账不触发）。
-- **教训**：本仓新增消息类型的验收必须「**先 `chrome://extensions` 重新加载，再刷新页面**」——只刷新页面会得到「新 content script + 旧 SW」的假失败（与 R62「harness 默认装主检出、验 worktree 必须 `--ext`」同类：验收前先确认被测的是哪一版构建）。
-- **台账**：requests.md 占号 R63（claim.sh `0931667`，已 push）；worktree `../magiclens-r63-review-sw-skew`、分支 `fix/r63-review-sw-skew`，已 merge 本地 develop；**2026-11-14 用户令与 R64 一并 merge develop 并 push**（合并版顺延 0.8.26-202611141315），按 ops R187 merge 即清口径，其 worktree/分支待 worktree-doctor 巡检清理；窗口轮转：写入前 R53–R62 共 10 条，R53 原样搬至 `response-archive/response-R53.md` 并登记索引，窗口回到 R54–R63 共 10 条。
-- **总结**：本条为回应；冲突记录：无。
 
 ## 2026-11-14（R64：登录成功回调页不自动关闭修复）
 
@@ -264,3 +250,19 @@ response.md 现 10 节未超窗口。冲突记录：无撞号；占号时 R68 �
 **验证**：嵌套 fixture 下 `ml-page-translate`/`ml-shortcuts` 全过（6 段断言不变）；浏览器全特性 **18/18**、runner magiclens **21/21**、guard 三向 18 行缺口 0、模块契约守卫 6 段全绿。0.8.34-202611231721 测试版。
 
 **遗留**：真机复测整页翻译（嵌套正文页应正常翻译）；正式发布 R66–R73 攒批次待用户确认；PingCode idea 待用户令。
+
+## 2026-11-23（R74：缺陷——双击 Alt 键序误伤 + 在途回包跨会话重复渲染，浏览器实测发现）
+
+### R74（用户令「使用浏览器测试一下」→ CfT 真实浏览器实测暴露两个键序/时序缺陷）
+
+**实测环境**：CfT 加载 0.8.34 扩展 + 真实 dev moon-well 令牌 + 可信键盘事件（CDP Input 域），发现：①双击 Alt 开后 300ms 按 Alt+A → 撤销步失效、**同段两条不同译文**、chip「已译 13 段」；②页面出现重复真实翻译。
+
+**插桩实锤**：①keydown 时间线 `t=11 双击第二击→ON` → `t=313 Alt+A 的 Alt down（303ms<500ms 窗口）被当下一组双击第二击→误 toggle` → `t=314 A→再 toggle`——「双击后 ≤500ms 内任何 Alt 组合键」其前半按都误判，长按 Alt 的 keydown 重复（e.repeat）同样中招（**R72 缺陷**）。②`sendBatch` 回包仅守 `!active`：快速 OFF→ON 时旧会话在途回包落进新会话重复插 DOM（**R67 潜伏**，误伤放大器）。
+
+**修复**（page-translate.js）：`e.repeat` 守卫 + **静默确认窗**（第二击判定延迟 150ms，窗内任何其他 keydown 经 `cancelPendingDouble` 取消；stop 同步取消防幽灵 toggle）+ **会话代守卫**（`sessionSeq` 每次 start()+1，回包 stale 时仍写页内缓存——翻译费已花重开零计费——但跳过 DOM/chip/续发）。
+
+**回归锁**：套件 `ml-shortcuts` +⑩（双击开→立刻 Alt+A→恰好关闭不复活、零幽灵 toggle、repeat 零反应）；守卫 R74 段（repeat/静默窗/三处 cancelPendingDouble/会话代四断言）。
+
+**验证**：ml-shortcuts 全过；浏览器 18/18；guard 三向 18 行 0 缺口；契约守卫 7 段全绿；**CfT 真实浏览器端到端复测全过**——修复前失败的完整键序（整页→关→双击别名→Alt+P 单段→撤销）+ Wikipedia 真实页（首屏 8 段真实中文译文、scrollTo 后 IO 续批至 16 段、关闭清零），截图存档 /tmp/ml-browser-test/。0.8.35-202611232133 测试版。
+
+**遗留**：真机抽查 AC（`r74-shortcut-misfire/ac/manual-ac.md` 8 条，重点=双击后快速 Alt+A 手感）；正式发布 R66–R74 攒批次待用户确认；PingCode idea 待用户令。

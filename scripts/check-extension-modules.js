@@ -483,6 +483,20 @@ async function main() {
     'article fixture 必须保持嵌套容器结构（扁平 <p> 会掩盖 REJECT/SKIP 语义回归）');
 
   console.log('PASS extension module contract: R73 element-walker SKIP-subtree regression lock');
+
+  // ---- R74 缺陷回归锁：双击 Alt 静默窗 + 会话代守卫 ----
+  // 真机实测实锤两个键序缺陷：①双击 Alt 后 ≤500ms 按 Alt+A，其 Alt down 被当第二击
+  // 误 toggle（连开两次）；②快速 OFF→ON 时旧会话在途回包跨会话插 DOM（同段双译文）。
+  const ptR74 = read('page-translate.js');
+  assert.ok(ptR74.includes('e.repeat'), '别名分发必须忽略长按 keydown 重复（e.repeat）');
+  assert.ok(ptR74.includes('DOUBLE_ALT_QUIET'), '双击判定必须带静默确认窗（150ms 内其他 keydown 取消）');
+  assert.ok((ptR74.match(/cancelPendingDouble\(\)/g) || []).length >= 3,
+    'cancelPendingDouble 必须在「其他 keydown / stop / 新双击」三处调用');
+  assert.ok(ptR74.includes('const seq = sessionSeq') && ptR74.includes('seq !== sessionSeq'),
+    '批量回包必须按会话代守卫（stale 只进缓存不插 DOM）');
+  assert.ok(ptR74.includes('sessionSeq += 1'), 'start() 必须递增会话代');
+
+  console.log('PASS extension module contract: R74 double-tap quiet window + session-seq guard');
 }
 
 main().catch((error) => {

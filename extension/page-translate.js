@@ -21,6 +21,9 @@
  *  - 别名触发（R72，对齐沉浸式习惯）：双击 Alt（Mac 双击 ⌥，≤500ms）同切整页开关；
  *    按住 Shift 悬停到合格段落即翻译该段（复用 Alt+P 状态机，沉浸式选 Shift 正是为
  *    避开 mac Option 死键）。两个别名固定不可改键，不进 storage。
+ *    R74 加固：e.repeat（长按重复）不算击；第二击后 150ms 静默窗内出现其他 keydown
+ *    （如 Alt+A 的 A）即取消判定——防「双击后紧跟 Alt+A」键序误伤；批量回包带会话代，
+ *    快速开关后旧会话在途回包只进页内缓存不插 DOM（防同段双译文）。
  *  - 生命周期：storage.onChanged 联动主开关、rpc onInvalidated 失效自清理、
  *    bfcache pageshow 重建文档绑定——三件与 highlight/content/ball 同模式。
  *
@@ -60,6 +63,7 @@
   let inflight = false;       // 单飞行：一次只发一个批量请求，顺序完成
   let scheduled = 0;          // 本次开启已请求段数（计费护栏计数）
   let translatedCount = 0;    // 已渲染段数（chip 进度）
+  let sessionSeq = 0;         // 会话代（R74）：每次 start() +1，回包按代守卫防跨会话污染
   const sessionCache = new Map(); // 归一化文本 → 译文（页内 toggle 循环零计费；刷新即清，服务端 ES 缓存为权威）
 
   const PT_HOST_ID = 'magiclens-pt-host';
@@ -232,6 +236,10 @@
   }
 
   function sendBatch(batch) {
+    // R74 会话代守卫：快速 OFF→ON 时旧会话在途回包若继续 fill，会把译文块重复插进
+    // 新会话（同段两条不同译文——真机实测实锤）。stale 时只写页内缓存（翻译费已花，
+    // 缓存让重开零计费），DOM/chip/续发全跳过。
+    const seq = sessionSeq;
     const msg = {
       type: MSG.ML_TRANSLATE_BATCH,
       paragraphs: batch.map((r) => r.text),
@@ -240,32 +248,32 @@
     };
     __magicLensRpc.send(msg, (resp, err) => {
       inflight = false;
-      // Why 先于一切：stop() 后的在途回包若继续走 fill/remove，会把译文块重新插回已关闭的页面
-      if (!active) return;
+      const stale = !active || seq !== sessionSeq;
       const error = err || (resp && !resp.ok ? resp.error : null);
       if (error) {
         // 整批失败：摘掉占位块（失败不缓存，重开开关即重试），chip 给可行动文案
         for (const rec of batch) {
           rec.state = 'failed';
-          if (rec.node) { rec.node.remove(); rec.node = null; }
+          if (!stale && rec.node) { rec.node.remove(); rec.node = null; }
         }
-        showChipError(__magicLensUserFacingError(error, '翻译失败，请稍后重试'), resp && resp.auth);
+        if (!stale) showChipError(__magicLensUserFacingError(error, '翻译失败，请稍后重试'), resp && resp.auth);
       } else {
         const list = Array.isArray(resp.data) ? resp.data : [];
         batch.forEach((rec, i) => {
           const t = String(list[i] || '').trim();
-          if (!t) { rec.state = 'failed'; if (rec.node) { rec.node.remove(); rec.node = null; } return; }
+          if (!t) { rec.state = 'failed'; if (!stale && rec.node) { rec.node.remove(); rec.node = null; } return; }
           rec.state = 'done';
-          sessionCache.set(rec.text, t);
-          fillBlock(rec, t);
-          translatedCount += 1;
+          sessionCache.set(rec.text, t); // stale 也进缓存：钱已花，重开零计费
+          if (!stale) { fillBlock(rec, t); translatedCount += 1; }
         });
-        clearChipError();
-        updateChip();
+        if (!stale) clearChipError();
       }
-      // 续发：单飞行队列，完成一条再看下一条（满批立即发，零散的走防抖）
-      if (pending.length >= BATCH) flushNow();
-      else if (pending.length && !flushTimer) flushTimer = setTimeout(flushNow, FLUSH_DEBOUNCE);
+      if (!stale) {
+        updateChip();
+        // 续发：单飞行队列，完成一条再看下一条（满批立即发，零散的走防抖）
+        if (pending.length >= BATCH) flushNow();
+        else if (pending.length && !flushTimer) flushTimer = setTimeout(flushNow, FLUSH_DEBOUNCE);
+      }
     });
   }
 
@@ -404,6 +412,7 @@
   function start(discover = true) {
     if (active) return;
     active = true;
+    sessionSeq += 1; // 会话代 +1：旧会话在途回包按 stale 降级（R74）
     scheduled = 0;
     translatedCount = 0;
     records.clear();
@@ -430,6 +439,7 @@
     removeAllBlocks();
     records.clear();
     if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+    cancelPendingDouble(); // R74：stop 后待判双击不得再触发 toggle
     if (host) { host.remove(); host = null; shadowDom = null; chipRow = null; errBox = null; }
   }
 
@@ -520,31 +530,43 @@
   document.addEventListener('mousemove', onMousemove, { capture: true, passive: true });
 
   /* ---------- R72 沉浸式风格别名触发：双击 Alt 切整页 + 按住 Shift 悬停单段 ---------- */
-  const DOUBLE_ALT_MS = 500; // 双击判定窗口；两次裸 Alt keydown 间隔 ≤500ms 视为双击
-  let lastAltTap = 0;        // 上一次裸 Alt keydown 的时间戳（0=无连击记录）
+  const DOUBLE_ALT_MS = 500;   // 双击判定窗口；两次裸 Alt keydown 间隔 ≤500ms 视为双击
+  const DOUBLE_ALT_QUIET = 150; // R74 静默确认窗：第二击后 150ms 内无其他 keydown 才触发——
+  // 裸 Alt down 可能只是 Alt+A / ⌥P 的前半按（真机实测：双击后 300ms 按 Alt+A，
+  // 其 Alt down 距上一击 303ms 被误判成双击 → 连开两次）。判定延迟到窗口过了才 toggle
+  let lastAltTap = 0;          // 上一次裸 Alt keydown 的时间戳（0=无连击记录）
+  let doubleAltTimer = null;   // 待判定的双击定时器
   const BARE_ALT_RE = /^Alt(?:Left|Right)$/;
   const BARE_SHIFT_RE = /^Shift(?:Left|Right)$/;
 
   const isBareAlt = (e) => BARE_ALT_RE.test(e.code || '') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey;
   const isBareShift = (e) => BARE_SHIFT_RE.test(e.code || '') && e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey;
 
+  const cancelPendingDouble = () => {
+    if (doubleAltTimer) { clearTimeout(doubleAltTimer); doubleAltTimer = null; }
+  };
+
   function onAliasKeydown(e) {
+    if (e.repeat) return; // R74：按住不放的 keydown 重复不是「击」——长按 Alt 不得连触发双击判定
     if (isBareAlt(e)) {
-      // 任何其他 keydown 都会断连击（含 Alt+A 的 A）——双击语义只认连续两次裸 Alt
       const now = Date.now();
-      if (lastAltTap && now - lastAltTap <= DOUBLE_ALT_MS) {
-        lastAltTap = 0;
-        e.preventDefault();
-        e.stopPropagation();
-        const resp = toggle(); // 与 Alt+A 同一开关路径
-        if (resp && resp.ok === false) hint(resp.error);
-        return;
+      const second = Boolean(lastAltTap) && now - lastAltTap <= DOUBLE_ALT_MS;
+      lastAltTap = second ? 0 : now;
+      if (second) {
+        cancelPendingDouble();
+        // 与 Alt+A 同一开关路径；延迟静默窗后才 toggle（窗内任何其他 keydown 取消）
+        doubleAltTimer = setTimeout(() => {
+          doubleAltTimer = null;
+          const resp = toggle();
+          if (resp && resp.ok === false) hint(resp.error);
+        }, DOUBLE_ALT_QUIET);
       }
       // 单次裸 Alt 不拦截不动作（网页自身行为零干扰），只记连击起点
-      lastAltTap = now;
       return;
     }
-    lastAltTap = 0; // 非 Alt 物理键打断连击
+    // 非 Alt 物理键打断双击判定（含 Alt+A 的 A、⌥P 的 P——它们的前半按在上方只记起点）
+    cancelPendingDouble();
+    lastAltTap = 0;
     if (isBareShift(e)) {
       // 按住 Shift 悬停（沉浸式交互对齐）：复用 Alt+P 的翻译/撤销状态机与资格闸。
       // 误触面小：光标不在合格段落上时零反应；Shift+Tab/Shift+方向键/Shift+字母均非裸 Shift
