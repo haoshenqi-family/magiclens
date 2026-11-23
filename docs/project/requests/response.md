@@ -1,6 +1,6 @@
 # response.md — 对话回应记录（仅保留最近 10 个 request 的回应）
 
-> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移） · [response-R29.md](response-archive/response-R29.md)（2026-10-11 R40 写入触发轮转搬移） · [response-R30-R31.md](response-archive/response-R30-R31.md)（2026-10-11 R41 集成时窗口超限搬移） · [response-R32.md](response-archive/response-R32.md)（2026-10-13 R43 写入触发轮转搬移） · [response-R33.md](response-archive/response-R33.md)（2026-10-14 R44 写入触发轮转搬移） · [response-R34.md](response-archive/response-R34.md)（2026-10-15 R45 写入触发轮转搬移） · [response-R35-R38.md](response-archive/response-R35-R38.md)（2026-10-16 R50 写入触发轮转搬移，窗口回 10 条 request 内） · [response-R41.md](response-archive/response-R41.md)（2026-10-27 R56 写入触发轮转搬移） · [response-R45.md](response-archive/response-R45.md)（2026-10-21 R51 写入触发轮转搬移） · [response-R39.md](response-archive/response-R39.md)（2026-10-27 R52 写入触发轮转搬移） · [response-R46.md](response-archive/response-R46.md)（2026-10-27 R53 写入触发轮转搬移） · [response-R40.md](response-archive/response-R40.md)（2026-10-27 R54 写入触发轮转搬移） · [response-R47.md](response-archive/response-R47.md)（2026-10-27 R55 写入触发轮转搬移） · [response-R42.md](response-archive/response-R42.md)（2026-10-29 R57 写入触发轮转搬移） · [response-R43.md](response-archive/response-R43.md)（2026-11-02 R58 写入触发轮转搬移） · [response-R44.md](response-archive/response-R44.md)（2026-11-08 R59 写入触发轮转搬移） · [response-R59.md](response-archive/response-R59.md)（2026-11-23 R71 写入触发轮转搬移）
+> 归档索引：[response-R1-R10.md](response-archive/response-R1-R10.md) · [response-R11-R15.md](response-archive/response-R11-R15.md)（2026-10-07 R25 完成时补执行 R10/R20 漏掉的归档） · [response-R16.md](response-archive/response-R16.md)、[response-R17-R18.md](response-archive/response-R17-R18.md)（2026-10-08 R28 收口时搬移） · [response-R19.md](response-archive/response-R19.md)（2026-10-08 R29 完成时搬移） · [response-R20.md](response-archive/response-R20.md)（2026-10-08 R30 完成时搬移） · [response-R21-R22.md](response-archive/response-R21-R22.md)（2026-10-08 R32 完成时搬移） · [response-R23-R24.md](response-archive/response-R23-R24.md) · [response-R28.md](response-archive/response-R28.md) · [response-R25.md](response-archive/response-R25.md)（2026-10-10 R35 完成时搬移） · [response-R26.md](response-archive/response-R26.md)（2026-10-10 R36 写入触发轮转搬移） · [response-R27.md](response-archive/response-R27.md)（2026-10-10 R38 写入触发轮转搬移） · [response-R29.md](response-archive/response-R29.md)（2026-10-11 R40 写入触发轮转搬移） · [response-R30-R31.md](response-archive/response-R30-R31.md)（2026-10-11 R41 集成时窗口超限搬移） · [response-R32.md](response-archive/response-R32.md)（2026-10-13 R43 写入触发轮转搬移） · [response-R33.md](response-archive/response-R33.md)（2026-10-14 R44 写入触发轮转搬移） · [response-R34.md](response-archive/response-R34.md)（2026-10-15 R45 写入触发轮转搬移） · [response-R35-R38.md](response-archive/response-R35-R38.md)（2026-10-16 R50 写入触发轮转搬移，窗口回 10 条 request 内） · [response-R41.md](response-archive/response-R41.md)（2026-10-27 R56 写入触发轮转搬移） · [response-R45.md](response-archive/response-R45.md)（2026-10-21 R51 写入触发轮转搬移） · [response-R39.md](response-archive/response-R39.md)（2026-10-27 R52 写入触发轮转搬移） · [response-R46.md](response-archive/response-R46.md)（2026-10-27 R53 写入触发轮转搬移） · [response-R40.md](response-archive/response-R40.md)（2026-10-27 R54 写入触发轮转搬移） · [response-R47.md](response-archive/response-R47.md)（2026-10-27 R55 写入触发轮转搬移） · [response-R42.md](response-archive/response-R42.md)（2026-10-29 R57 写入触发轮转搬移） · [response-R43.md](response-archive/response-R43.md)（2026-11-02 R58 写入触发轮转搬移） · [response-R44.md](response-archive/response-R44.md)（2026-11-08 R59 写入触发轮转搬移） · [response-R59.md](response-archive/response-R59.md)（2026-11-23 R71 写入触发轮转搬移） · [response-R60.md](response-archive/response-R60.md)（2026-11-23 R72 写入触发轮转搬移）
 
 - `response-archive/response-R50-R52.md`：R50 docs v2 迁移 / R51 发布链纯文档跳过打包 / R52 伴读抽屉去 token+站内链接——2026-11-13 R62 写入触发轮转搬移（窗口 12→13 压回 10），原样搬移不改写
 
@@ -8,24 +8,6 @@
 
 - `response-archive/response-R53.md`：R53 伴读抽屉语音双向（麦克风转写 + 回复朗读）——2026-11-13 R63 写入触发轮转搬移，原样搬移不改写
 
-
-## 2026-11-11（R60 注册死链修复 + R61 邀请链接改后端动态获取）
-
-### R60（用户：「检查magiclens 的注册链接是不是失效的那个」→「改」）
-
-- **排查**：`background.js` 的 `ENROLLMENT_URL` 常量（v0.3.1 引入后从未更新）仍指 2026-10-30 过期且已从 Authentik 库删除的旧邀请 `5566492c`——10-23 邀请轮换（新邀请 `1572b336`、过期 2027-01-21、single_use=false）只同步了 magicbook `.env`，扩展侧所有已发布版本（商店 zip 手动装、无自动更新）注册按钮自 10-30 起全是死链。域名 `authentik.haoshenqi.top` 301→`account.haoshenqi.top` 保留 query，域名无罪。
-- **修复**：常量换现役邀请 + 域名改 `account.haoshenqi.top` 免 301；manifest 0.8.23-202611111026 测试版（`447eebf` push develop，worktree `magiclens-r60-enroll-url-refresh`）。
-- **教训沉淀**：邀请轮换是「magicbook .env + 扩展常量发版」双落点——此教训随即被 R61 从根上消除（见下）。
-- **总结**：requests.md 占号 R60（`445febc`）；本条为回应；冲突记录：无。
-
-### R61（用户：「邀请链接改为从后端获取，避免两端不一致。注意这个后端接口要开发白名单，不登录也可以获取」）
-
-- **做了什么**：`ML_REGISTER` 从「硬编码常量」改为运行时获取 moon-well 匿名端点 `GET /auth/enrollment-invite`（对端 moon-well R250：Nacos `app.auth.enrollment-invite-url` 真值源，热重绑，轮换改后端一处即全端生效）；**删除 `ENROLLMENT_URL` 内置常量**——保留即残留漂移面，违背真值收敛初衷；失败不静默（options 结果区 `showResult` 明示原因）。Why 匿名直连不走 callApi：其「无 token 即拒」闸门与注册按钮场景（未登录态）冲突，也不透传本地令牌避免无谓 401/静默刷新链。
-- **测试**：本项目无自动化测试框架——`node --check` 双文件语法过、旧 token 全仓零残留、manifest JSON 合法；集成套件侧语义用例落在 moon-well R250 的 `mw-get-auth-enrollment-invite`（dev 12/12 全绿），magiclens 矩阵 14 行无 ML_REGISTER 独立行（消息行为=开浏览器标签，非 API 契约，无需增行）。
-- **验收（用户真机）**：`chrome://extensions` 加载 `magiclens-r60-enroll-url-refresh/extension/` → 设置页点「注册」→ 应打开邀请流程页进入表单；断网/后端不可达时应看到 `✗` 错误文案而非无反应。
-- **部署**：`b43ad2f..f709a89` push `origin/develop`；0.8.24-202611111044 测试版（不触发发布）；正式版待用户验收后去时间戳 merge `release`。
-- **运维口径**：邀请轮换从此=Nacos 键（热重绑）+ magicbook `.env`（登录页）两处同步——扩展侧零动作。
-- **总结**：requests.md 占号 R61（`b43ad2f`）；本条为回应；冲突记录：无（与 R60 同树续作，一次会话一树）。
 
 ## 2026-11-13（R62：发布正式版 v0.8.24）
 
@@ -267,3 +249,17 @@ response.md 现 10 节未超窗口。冲突记录：无撞号；占号时 R68 �
 **验证**：node --check 全过；`check-extension-modules.js` +R71 契约段（combo round-trip/defaults 在册/page-translate 与 options 装配静态断言）全绿；套件同任务内同步：matrix +1（ml-shortcuts，18 行）、run.js 新特性用例（单段 1 请求 1 块→撤销零请求+900ms 防复活窗→编辑态守卫→Alt+A 两按=关再开、整页批次只含未缓存 5 段（**单段→整页不重复计费**实证）→再按关清干净→未命中零拦截）、e2e_bridge FEATURES +1，guard.py 三向全绿（缺口 0）；浏览器全特性回归 **18/18 PASS**、runner magiclens **21/21 PASS**。
 
 **遗留**：真机 AC 待用户（`ac/manual-ac.md` 16 条：录制/即时生效/编辑态/禁用站/mac 死键）；正式发布待用户确认按 §0.2 两段式（可与 R66–R70 同车）；PingCode idea 未建待用户令（R66–R70 同口径）。
+
+## 2026-11-23（R72：翻译快捷键对齐沉浸式补充——双击 Alt 别名 + Shift 悬停单段 + Mac 说明）
+
+### R72（用户：「悬停单段翻译 沉浸式翻译的快捷键是什么？我记得是按两下 alt，注意也要给 mac 用户提供快捷键」）
+
+**先答核实**（官方文档/FAQ 实测，回复已附来源）：沉浸式翻译整页开关=`Alt+A`（我们 R71 已同键位）；悬停段落翻译**无独立快捷键**=「按住 Shift+悬停」且**默认关闭**（Shift 避开 mac Option 死键，代价选区冲突误触，官方 issue #1749 在讨论长按误触）；**「双击 Alt」不是官方功能**（用户记忆来自其他工具）。**Mac 现状**：R71 的 Alt+A/Alt+P 在 Mac 即 ⌥A/⌥P，e.code 匹配天然可用。**用户拍板：两个都加**。
+
+**设计**（`iterations/1.0/r72-shortcut-it-parity/lld.md` + design.md §23.1）——①双击 Alt（裸 AltLeft/Right、仅 altKey、≤500ms `DOUBLE_ALT_MS`）走 `toggle()` 同路径；其他键断连击、单按不拦截零干扰；固定别名不进 storage（冗余别名不增设面）。②按住 Shift 悬停单段=裸 Shift（ShiftLeft/Right、仅 shiftKey）→ `translateParagraphAt(lastX,lastY)` 复用 Alt+P 全套状态机；**Why 敢默认启用而沉浸式默认关**：触发前提是光标悬停在合格段落上（elementFromPoint 资格闸），其他位置零反应；Shift+Tab/方向键/字母非裸 Shift 不命中。③**录制器怪串根修**：`__magicLensComboFromEvent` 拒修饰键物理 code（AltLeft 族→null）——录制器自动继续等待、匹配器永不命中裸修饰键（双击连击不误碰已录串），源头一处修三处受益。④options hint 补 Mac ⌥ 说明与两固定别名。
+
+**落位**：common.js（COMBO_MOD_CODE_RE 闸）/page-translate.js（onAliasKeydown 独立监听，onInvalidated 一并退役）/options.html 文案/manifest **0.8.33-202611231637** 测试版；ops 套件 run.js `ml-shortcuts` 用例 +4 段（单按 Alt 零反应→断连击→双击 Alt 开（6 段全缓存零请求）→双击 Alt 关→Shift 悬停单段→Shift 撤销）、matrix 行 note 增补、e2e_bridge 不变（slug 同行）。moon-well 零改动。
+
+**验证**：node --check 全过；check-extension-modules R71 段扩 R72 断言（修饰键 code 拒录 round-trip 反例、onAliasKeydown/DOUBLE_ALT_MS/BARE_*_RE 装配断言）全绿；guard.py 三向 18 行缺口 0；浏览器全特性 **18/18 PASS**、runner magiclens **21/21 PASS**。
+
+**遗留**：真机 AC 待用户（R71 16 条 + R72 13 条，重点=双击窗口手感 500ms 是否合意、Shift 悬停误触观察）；正式发布 R66–R72 攒批次待用户确认；PingCode idea 待用户令。

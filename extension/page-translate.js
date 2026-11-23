@@ -18,6 +18,9 @@
  *    chrome.storage.sync（e.code 形制，common.js 三件套），设置页「快捷键」节可录制。
  *    边界：编辑态输入框不触发（mac 死键字符不搞双重效果）、域名禁用站静默、
  *    iframe 内聚焦不响应（单段只认顶层文档段落）。
+ *  - 别名触发（R72，对齐沉浸式习惯）：双击 Alt（Mac 双击 ⌥，≤500ms）同切整页开关；
+ *    按住 Shift 悬停到合格段落即翻译该段（复用 Alt+P 状态机，沉浸式选 Shift 正是为
+ *    避开 mac Option 死键）。两个别名固定不可改键，不进 storage。
  *  - 生命周期：storage.onChanged 联动主开关、rpc onInvalidated 失效自清理、
  *    bfcache pageshow 重建文档绑定——三件与 highlight/content/ball 同模式。
  *
@@ -512,6 +515,42 @@
   document.addEventListener('keydown', onKeydown, true);
   document.addEventListener('mousemove', onMousemove, { capture: true, passive: true });
 
+  /* ---------- R72 沉浸式风格别名触发：双击 Alt 切整页 + 按住 Shift 悬停单段 ---------- */
+  const DOUBLE_ALT_MS = 500; // 双击判定窗口；两次裸 Alt keydown 间隔 ≤500ms 视为双击
+  let lastAltTap = 0;        // 上一次裸 Alt keydown 的时间戳（0=无连击记录）
+  const BARE_ALT_RE = /^Alt(?:Left|Right)$/;
+  const BARE_SHIFT_RE = /^Shift(?:Left|Right)$/;
+
+  const isBareAlt = (e) => BARE_ALT_RE.test(e.code || '') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey;
+  const isBareShift = (e) => BARE_SHIFT_RE.test(e.code || '') && e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey;
+
+  function onAliasKeydown(e) {
+    if (isBareAlt(e)) {
+      // 任何其他 keydown 都会断连击（含 Alt+A 的 A）——双击语义只认连续两次裸 Alt
+      const now = Date.now();
+      if (lastAltTap && now - lastAltTap <= DOUBLE_ALT_MS) {
+        lastAltTap = 0;
+        e.preventDefault();
+        e.stopPropagation();
+        const resp = toggle(); // 与 Alt+A 同一开关路径
+        if (resp && resp.ok === false) hint(resp.error);
+        return;
+      }
+      // 单次裸 Alt 不拦截不动作（网页自身行为零干扰），只记连击起点
+      lastAltTap = now;
+      return;
+    }
+    lastAltTap = 0; // 非 Alt 物理键打断连击
+    if (isBareShift(e)) {
+      // 按住 Shift 悬停（沉浸式交互对齐）：复用 Alt+P 的翻译/撤销状态机与资格闸。
+      // 误触面小：光标不在合格段落上时零反应；Shift+Tab/Shift+方向键/Shift+字母均非裸 Shift
+      e.preventDefault();
+      e.stopPropagation();
+      translateParagraphAt(lastX, lastY);
+    }
+  }
+  document.addEventListener('keydown', onAliasKeydown, true);
+
   /* ---------- 入口消息：popup 直发 / 悬浮球经 SW 转发，同落此处 ---------- */
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (!msg || msg.type !== MSG.ML_PT_TOGGLE) return;
@@ -546,9 +585,10 @@
 
   __magicLensRpc.onInvalidated(() => {
     // 扩展重载孤儿页：摘掉 chip 与译文块、停监听（与 content retireOrphan 同语义）；
-    // R71 快捷键/鼠标锚点监听是模块级生命周期，一并退役
+    // R71/R72 快捷键/鼠标锚点监听是模块级生命周期，一并退役
     try { stop(); } catch { /* 文档已死时尽力而为 */ }
     document.removeEventListener('keydown', onKeydown, true);
+    document.removeEventListener('keydown', onAliasKeydown, true);
     document.removeEventListener('mousemove', onMousemove, { capture: true });
   });
 

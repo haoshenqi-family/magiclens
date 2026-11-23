@@ -387,3 +387,23 @@ keydown 监听 + 设置页录制**（沉浸式翻译同款交互）；默认键�
 - **测试**：VM 契约段（combo round-trip + defaults + 装配静态断言）+ 集成套件
   `ml-shortcuts`（单段→撤销→编辑态→整页 5+1 缓存合批→关闭→未命中零拦截），
   guard 三向全绿。
+
+### 23.1 R72 增补：双击 Alt 别名 + Shift 悬停单段 + Mac 键位说明（2026-11-23，v0.8.33）
+
+核实沉浸式翻译官方口径（官方文档/FAQ）：整页开关=`Alt+A`；悬停段落翻译**无独立快捷键**，
+是「按住 Shift + 悬停」且**默认关闭**（Shift 通吃双平台、避开 mac Option 死键，代价是
+选区冲突误触，issue #1749 在讨论长按误触优化）；**「双击 Alt」不是官方功能**。用户拍板
+**两个都加**（保留 Alt+A/Alt+P）：
+
+- **双击 Alt/⌥ 切整页**（固定别名不进 storage）：裸 Alt（`code∈{AltLeft,AltRight}` 且仅
+  altKey）两次 keydown 间隔 ≤500ms（`DOUBLE_ALT_MS`）→ 走 `toggle()` 同一路径；任何其他
+  keydown 断连击；单次裸 Alt 不拦截不动作。
+- **按住 Shift 悬停单段**：裸 Shift（`code∈{ShiftLeft,ShiftRight}` 且仅 shiftKey）→
+  `translateParagraphAt(lastX, lastY)`，复用 Alt+P 全套状态机与资格闸。Why 敢默认启用而
+  沉浸式默认关：触发前提是光标已悬停在合格段落上（`elementFromPoint` 资格闸），纯 Shift
+  在其他位置零反应；Shift+Tab/方向键/字母均非裸 Shift 不命中。
+- **修饰键 code 闸**（`__magicLensComboFromEvent`）：`code` 命中修饰键物理键
+  （AltLeft 族）→ 返回 null——录制器自动「继续等待」（根修 `Alt+AltLeft` 怪串）、匹配器
+  永不命中裸修饰键（双击连击不误碰已录串）。
+- Mac 口径：Alt+A/Alt+P 在 Mac 即 ⌥A/⌥P（e.code 匹配，无平台分叉），设置页 hint 补
+  「Mac 上 Alt=⌥ Option」说明。

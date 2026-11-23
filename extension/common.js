@@ -228,6 +228,9 @@
 
   const COMBO_MODS = ['altKey', 'ctrlKey', 'metaKey', 'shiftKey'];
   const COMBO_MOD_NAMES = { altKey: 'Alt', ctrlKey: 'Ctrl', metaKey: 'Meta', shiftKey: 'Shift' };
+  // 修饰键自身的物理键（R72）：裸按 Alt/Shift 等不可录制也不可匹配——否则会录出
+  // "Alt+AltLeft" 怪串，且双击 Alt 连击检测会误碰已录键位串
+  const COMBO_MOD_CODE_RE = /^(Alt|Control|Meta|Shift)(Left|Right)$/;
   // e.code → 展示名：字母/数字剥前缀，常见命名键给可读符号（录制框回显用）
   const COMBO_CODE_LABELS = {
     Comma: ',', Period: '.', Slash: '/', Semicolon: ';', Quote: "'",
@@ -239,9 +242,11 @@
       : /^Digit./.test(code) ? code.slice(5) : code);
 
   /** KeyboardEvent → 键位串。无主修饰键（Alt/Ctrl/Meta 任一）返回 null：
-   * 裸键/纯 Shift 属于网页本身（页面聚焦时要打字），不可录制为快捷键。 */
+   * 裸键/纯 Shift 属于网页本身（页面聚焦时要打字），不可录制为快捷键。
+   * 修饰键自身的物理键（R72）也返回 null——裸按 Alt 录不出怪串、双击连击不误碰已录串。 */
   g.__magicLensComboFromEvent = (e) => {
     if (!e || typeof e.code !== 'string' || !e.code) return null;
+    if (COMBO_MOD_CODE_RE.test(e.code)) return null;
     if (!e.altKey && !e.ctrlKey && !e.metaKey) return null;
     const parts = COMBO_MODS.filter((k) => e[k]).map((k) => COMBO_MOD_NAMES[k]);
     parts.push(e.code);

@@ -427,6 +427,8 @@ async function main() {
   assert.equal(comboOf(ev(['Shift'], 'KeyA')), null, '纯 Shift 不可录制（裸键属网页）');
   assert.equal(comboOf(ev([], 'KeyA')), null, '无主修饰键不可录制');
   assert.equal(comboOf({ code: 'KeyA' }), null, '残缺事件安全返回 null');
+  assert.equal(comboOf(ev(['Alt'], 'AltLeft')), null, 'R72：修饰键自身物理键不可录制（防 Alt+AltLeft 怪串）');
+  assert.equal(comboOf(ev(['Shift'], 'ShiftRight')), null, 'R72：裸 Shift 不可录制');
   assert.equal(comboMatch('Alt+KeyA', ev(['Alt'], 'KeyA')), true, '串↔事件全等命中');
   assert.equal(comboMatch('Alt+KeyA', ev(['Alt', 'Shift'], 'KeyA')), false, '修饰键集合必须全等（多 Shift 不命中）');
   assert.equal(comboMatch('Alt+KeyA', ev(['Ctrl'], 'KeyA')), false, '修饰键不同不命中');
@@ -445,6 +447,10 @@ async function main() {
   assert.ok(ptSrc.includes('cfg.shortcutPageToggle') && ptSrc.includes('cfg.shortcutParagraph'),
     'page-translate.js 必须消费两个快捷键默认键');
   assert.ok(ptSrc.includes('__magicLensComboMatches'), '触发匹配必须走 common.js 三件套（禁私写匹配逻辑）');
+  assert.ok(ptSrc.includes('onAliasKeydown') && ptSrc.includes('DOUBLE_ALT_MS'),
+    'R72：必须挂别名监听（双击 Alt 切整页，500ms 窗口常量在册）');
+  assert.ok(/BARE_ALT_RE|Alt\(\?:Left\|Right\)/.test(ptSrc) && /BARE_SHIFT_RE|Shift\(\?:Left\|Right\)/.test(ptSrc),
+    'R72：双击 Alt/Shift 悬停必须按物理键 code（AltLeft/ShiftLeft 族）识别，不得按 e.key');
   const mainEntryR71 = manifest.content_scripts.find((entry) => entry.js.includes('page-translate.js'));
   assert.ok(mainEntryR71.js.indexOf('common.js') < mainEntryR71.js.indexOf('page-translate.js'),
     'page-translate.js 必须晚于 common.js 注入（依赖 defaults 与 combo 三件套）');
