@@ -21,7 +21,10 @@
   const MSG = __magicLensRpc.MSG;
   const HOST_ID = 'magiclens-read-host';
   const HOST_SELECTOR = `#${HOST_ID}, #magiclens-host, #magiclens-chat-host, #magiclens-ball-host, #magiclens-pt-host`;
-  const BLOCK_SEL = 'p,li,blockquote,dd,dt,h1,h2,h3,h4,h5,h6';
+  // R78：html-blob 是 Google 支持社区等站点的正文容器（页面可能 0 个 <p>）；
+  // 不并入时段末 ▶/译 与 Alt+S 连播都找不到段落。
+  const BLOCK_SEL = 'p,li,blockquote,dd,dt,h1,h2,h3,h4,h5,h6,html-blob';
+  const INNER_BLOCK_SEL = 'p,li,blockquote,dd,dt,h1,h2,h3,h4,h5,h6';
   const SKIP_SEL = `nav,header,footer,aside,form,pre,code,[contenteditable],[aria-hidden="true"],[role="navigation"],[role="banner"],[role="contentinfo"],${HOST_SELECTOR}`;
   const CJK_RE = /[\u3400-\u9fff\uf900-\ufaff]/g;
   const MIN_CHARS = 40;
@@ -203,6 +206,8 @@
       if (el.closest(HOST_SELECTOR)) continue;
       // 列表/引用内嵌 <p> 时只读最内层，避免同一段读两遍。
       if (/^(LI|BLOCKQUOTE|DD|DT)$/.test(el.tagName) && el.querySelector('p,blockquote,li,dd,dt')) continue;
+      // html-blob 内部若还有标准段落，交给内层（否则整块与逐段重复朗读/翻译）
+      if (el.tagName === 'HTML-BLOB' && el.querySelector(INNER_BLOCK_SEL)) continue;
       const text = normalizeText(el);
       if (!qualifies(el, text) || seen.has(text)) continue;
       seen.add(text);
@@ -337,7 +342,7 @@
   function onMouseMove(e) {
     const raw = e.target;
     if (!raw || (raw.closest && raw.closest(HOST_SELECTOR))) return;
-    const el = raw.closest ? raw.closest(BLOCK_SEL) : null;
+    const el = window.__magicLensClosestTextBlock(raw);
     if (!el) { scheduleHideHover(); return; }
     const item = itemByEl.get(el);
     if (!item) { scheduleHideHover(); return; }
@@ -711,7 +716,7 @@
   function onContextMenu(e) {
     const raw = e.target;
     if (!raw || (raw.closest && raw.closest(HOST_SELECTOR))) return;
-    const el = raw.closest ? raw.closest(BLOCK_SEL) : null;
+    const el = window.__magicLensClosestTextBlock(raw);
     lastContextItem = el ? (itemByEl.get(el) || null) : null;
   }
 
