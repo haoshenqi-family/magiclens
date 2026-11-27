@@ -456,14 +456,12 @@
   /* ---------- R71 悬停单段翻译：翻译/撤销鼠标所在的那一个段落 ---------- */
   const NO_PARA_HINT = '未找到可翻译段落（把鼠标移到正文段落上再按）';
 
-  function translateParagraphAt(x, y) {
-    if (siteDisabled) return; // 禁用站零反应（与划词/高亮同一份禁用语义）
-    if (!cfg.enabled) return hint('划词翻译总开关已关闭，请先在 popup 开启');
-    if (x < 0 && y < 0) return hint(NO_PARA_HINT); // 鼠标未进过页面（尚无锚点）
-    const hit = document.elementFromPoint(x, y);
-    const el = hit && hit.closest ? hit.closest(TEXT_TAGS) : null;
-    if (!el) return hint(NO_PARA_HINT);
-
+  /** 段落翻译/撤销核心（R71 快捷键与 R76 段末「译」按钮共用同一状态机）。
+   * 返回该段当前状态，供按钮同步图标态：done / dismissed / pending / loading / idle / gone。 */
+  function translateParagraphEl(el) {
+    if (siteDisabled) return 'gone'; // 禁用站零反应（与划词/高亮同一份禁用语义）
+    if (!cfg.enabled) { hint('划词翻译总开关已关闭，请先在 popup 开启'); return 'idle'; }
+    if (!el || !el.isConnected) { hint(NO_PARA_HINT); return 'gone'; }
     const rec = records.get(el);
     // 已译段落再按一次=撤销：摘块、置 dismissed（records 保留以防 MO 重扫复活），
     // sessionCache 保留译文——再按一次复活零请求零计费
@@ -472,25 +470,48 @@
       rec.state = 'dismissed';
       translatedCount = Math.max(0, translatedCount - 1);
       updateChip();
-      return;
+      return 'dismissed';
     }
     // 在途（排队/请求中）：单段无法从攒批里摘除，静默忽略（chip 已见进度）
-    if (rec && (rec.state === 'pending' || rec.state === 'loading')) return;
+    if (rec && (rec.state === 'pending' || rec.state === 'loading')) return rec.state;
 
     // 新段落判资格；failed/dismissed/idle 复用已归一文本（failed 重试按用户指令再计费）
     let text = rec ? rec.text : null;
     if (!text) {
       const candidate = normalizeText(el);
-      if (!qualifies(el, candidate)) return hint(NO_PARA_HINT);
+      if (!qualifies(el, candidate)) { hint(NO_PARA_HINT); return 'idle'; }
       text = candidate;
     }
     if (!active) start(false); // 单段保底开启：不做全页发现（视口段落不得被放大成批量计费）
-    const target = records.get(el) || { el, doc: document, text, state: 'idle', node: null };
+    const target = records.get(el) || { el, doc: el.ownerDocument, text, state: 'idle', node: null };
     target.text = text;
     target.state = 'idle';
     records.set(el, target);
     enqueue(target); // 页内缓存命中即时渲染零请求；未命中走既有攒批管线（单段也享受合批）
+    return target.state;
   }
+
+  function translateParagraphAt(x, y) {
+    if (siteDisabled) return; // 禁用站零反应（与划词/高亮同一份禁用语义）
+    if (!cfg.enabled) return hint('划词翻译总开关已关闭，请先在 popup 开启');
+    if (x < 0 && y < 0) return hint(NO_PARA_HINT); // 鼠标未进过页面（尚无锚点）
+    const hit = document.elementFromPoint(x, y);
+    const el = hit && hit.closest ? hit.closest(TEXT_TAGS) : null;
+    if (!el) return hint(NO_PARA_HINT);
+    translateParagraphEl(el);
+  }
+
+  // R76 段末「译」按钮（page-speak.js 的段末工具）复用同一状态机：资格闸、页内缓存、
+  // 计费护栏、撤销语义全部不复制。只暴露函数，records / 队列仍封闭在本模块闭包内。
+  window.__magicLensParagraphTranslate = (el) => translateParagraphEl(el);
+  window.__magicLensParagraphTranslateState = (el) => {
+    if (!el) return 'n/a';
+    const rec = records.get(el);
+    if (rec) return rec.state;
+    // 未入 records 的段落按同一资格闸判：不合格（<40 字符的标题等）返回 n/a，
+    // 段末工具据此不渲染「译」，避免点了只弹「未找到可翻译段落」。
+    return qualifies(el, normalizeText(el)) ? 'idle' : 'n/a';
+  };
 
   /* ---------- R71 快捷键分发（顶层文档 keydown capture） ---------- */
   // 扩展自建 UI 的 shadow host：焦点落在其内部（如伴读输入框）时事件被重定向到 host，

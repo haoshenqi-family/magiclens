@@ -538,6 +538,24 @@ async function main() {
     'R75：设置页必须可录制朗读快捷键');
 
   console.log('PASS extension module contract: R75 page read-aloud AI voice + menu/shortcut');
+
+  // ---- R76 段末工具：只留「朗读 + 翻译」两个按钮，翻译复用 page-translate 状态机 ----
+  assert.strictEqual((readSrc.match(/class="mlr-pbtn /g) || []).length, 2,
+    'R76：段末工具只能有朗读 + 翻译两个按钮（用户拍板不加其他动作）');
+  assert.ok(readSrc.includes('mlr-speak') && readSrc.includes('mlr-trans'),
+    'R76：段末工具按钮必须是 .mlr-speak 与 .mlr-trans');
+  assert.ok(readSrc.includes('__magicLensParagraphTranslate')
+    && readSrc.includes('__magicLensParagraphTranslateState'),
+    'R76：段末「译」必须复用 page-translate 的单段翻译状态机（不复制资格/缓存/计费口径）');
+  assert.ok(ptSrc.includes('function translateParagraphEl')
+    && ptSrc.includes('window.__magicLensParagraphTranslate ='),
+    'R76：page-translate 必须暴露段落翻译入口');
+  assert.ok(/function translateParagraphAt[\s\S]{0,400}translateParagraphEl\(el\)/.test(ptSrc),
+    'R76：Alt+P 与段末「译」必须共用 translateParagraphEl');
+  assert.ok(readSrc.includes('[data-magiclens-translation]'),
+    'R76：段落文本必须剔除内联译文块（列表项译文块插在元素内部，否则重扫掉出朗读列表）');
+
+  console.log('PASS extension module contract: R76 paragraph tools speak + translate');
 }
 
 main().catch((error) => {

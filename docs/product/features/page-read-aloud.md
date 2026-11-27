@@ -1,6 +1,6 @@
 # 网页正文朗读（L3 实现说明）
 
-> 状态：现行。R75 引入（v0.8.37）。
+> 状态：现行。R75 引入、R76 增段末「译」（v0.8.38）。
 
 ## 实现
 
@@ -10,10 +10,11 @@
   `P,LI,BLOCKQUOTE,DD,DT,H1-H6` 后按「可见 + 最短字符数 + 中文占比 ≤30%」过滤；
   排除 `nav/header/footer/aside/form/pre/code/contenteditable` 与全部 MagicLens host。
   列表/引用内嵌 `<p>` 时只取最内层，按归一文本去重，单页上限 200 段。
-- 段末 ▶ 是一个共享浮钮（不是每段插 DOM）：`mousemove → closest(BLOCK_SEL) → WeakMap`
-  找到段落，用 `Range.getClientRects()` 取最后一行矩形，把 24px 圆钮摆在行尾右侧
+- 段末工具是一组共享浮钮（不是每段插 DOM）：`mousemove → closest(BLOCK_SEL) → WeakMap`
+  找到段落，用 `Range.getClientRects()` 取最后一行矩形，把两个 24px 圆钮摆在行尾右侧
   （与 magicbook 段落工具同位置语义；末行顶到视口右缘时落到行下右对齐）；
-  播放中同一按钮变 ■（请求在途为 ⟳），再点即停；滚动/移出 220ms 后收起。
+  滚动/移出 220ms 后收起。
+
 - 连播队列把每段用 `__magicLensSplitForSpeech(text, 1800)` 切句后扁平化。播放前调用
   `ML_TTS_SPEAK`，并 `prefetch` 下一段；SW 侧 `ttsInflight` 合并同文本并发请求，
   `ttsaudio` IndexedDB 缓存命中直接回字节。
@@ -27,6 +28,20 @@
 - 快捷键走页面级 `keydown capture` + `__magicLensComboMatches`，默认 `Alt+KeyS`，
   存 `shortcutReadAloud`；编辑态与其它扩展 UI 内不触发，朗读控制条自身聚焦时不拦截。
 - 能力握手：`document.documentElement.dataset.magiclensRead = '1'`。
+
+## 段末工具（R76：只有 ▶ 与 译）
+
+- **▶ 朗读**：播放中变 ■（请求在途为 ⟳），再点即停；状态来自 `page-speak.js` 自己的
+  `reader.lastEl`。
+- **译**：不重写翻译状态机，直接调 `page-translate.js` 的
+  `window.__magicLensParagraphTranslate(el)`（与 `Alt+P`、按住 Shift 悬停同一入口）；
+  点一次翻当前段（单段 `translate-batch`，`start(false)` 不做整页发现），再点撤销。
+  按钮态由 `__magicLensParagraphTranslateState(el)` 读同一份 `records`：在途 ⟳、
+  已译 `is-done`（再点=撤销）。
+- **资格闸同源**：状态接口对未翻译段落现场判资格（≥40 字符、CJK ≤30%、排除代码/编辑器/
+  扩展 UI），不合格返回 `n/a`，段末工具不渲染「译」——短标题只留 ▶。
+- 两个按钮之外**不加**任何动作（用户拍板）；不向宿主 DOM 插节点，译文块仍由
+  `page-translate.js` 以 `data-magiclens-translation` 内联插入。
 
 ## 边界
 
@@ -49,3 +64,6 @@
 8. 未登录点朗读 → 提示重新登录；积分不足 → 显示服务端文案，不静默无声。
 9. 同一段停止后重播 → 不再发 `/tts/speak`（SW 本地缓存命中，零积分）。
 10. magicbook 阅读器页不出现第二套朗读 UI（iframe 不装配 + 扩展悬浮球让位）。
+11. 正文段末同时出现 ▶ 与 译；短标题（<40 字符）只有 ▶，不出现点了会报错的「译」。
+12. 点「译」→ 只发 1 段 `translate-batch`，译文块出现在该段下方、按钮变淡；再点撤销，
+     不发新请求；与 `Alt+P` 行为一致（同一段互相同步）。

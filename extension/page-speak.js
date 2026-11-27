@@ -1,8 +1,8 @@
 /* MagicLens 网页正文朗读（R75）。
  *
  * 目标：把「像听文章一样听网页」做成默认 AI 音的轻量能力——正文段落逐段朗读、
- * 当前段高亮并自动滚入视口、每段段末一个 ▶（播放中变 ■，可再点停止）、整页连播，
- * 入口为快捷键与右键菜单。
+ * 当前段高亮并自动滚入视口、每段段末两个按钮 ▶ / 译（播放中 ▶ 变 ■ 可再点停止，
+ * 译复用 page-translate 的单段翻译状态机）、整页连播，入口为快捷键与右键菜单。
  *
  * 硬性约定（与 content/chat/page-translate 同口径）：
  * - 只操作顶层文档；magicbook 阅读器正文在 iframe，站点自身已有段落朗读，本模块不抢。
@@ -43,6 +43,7 @@
   let readerSeq = 0;
   let hoverItem = null;
   let hoverTimer = null;
+  let transTimer = null;
   let lastContextItem = null;
   let toastTimer = null;
   let lastSpeed = 1;
@@ -59,7 +60,10 @@
       * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif; }
       .mlr-hover, .mlr-bar, .mlr-toast, .mlr-hl { position: fixed; z-index: 2147483644; }
       .mlr-hover {
-        display: none; align-items: center; justify-content: center;
+        display: none; align-items: center; gap: 4px;
+      }
+      .mlr-pbtn {
+        display: inline-flex; align-items: center; justify-content: center;
         width: 24px; height: 24px; padding: 0;
         border: 1px solid rgba(79,70,229,.18); border-radius: 50%;
         background: rgba(255,255,255,.9); color: #4f46e5;
@@ -68,9 +72,10 @@
         backdrop-filter: blur(6px);
         transition: background .12s ease, color .12s ease, opacity .12s ease;
       }
-      .mlr-hover:hover { background: #eef2ff; }
-      .mlr-hover.is-active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
-      .mlr-hover.is-loading { animation: mlr-pulse 1.1s ease-in-out infinite; }
+      .mlr-pbtn:hover { background: #eef2ff; }
+      .mlr-pbtn.is-active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+      .mlr-pbtn.is-loading { animation: mlr-pulse 1.1s ease-in-out infinite; }
+      .mlr-trans.is-done { opacity: .55; }
       @keyframes mlr-pulse { 50% { opacity: .45; } }
       .mlr-bar {
         display: none; left: 50%; bottom: 24px; transform: translateX(-50%);
@@ -102,10 +107,13 @@
         background: rgba(79,70,229,.06);
         box-shadow: 0 0 0 2px rgba(79,70,229,.08);
       }
-      @media (prefers-reduced-motion: reduce) { .mlr-bar, .mlr-hover { backdrop-filter: none; } }
+      @media (prefers-reduced-motion: reduce) { .mlr-bar, .mlr-pbtn { backdrop-filter: none; } }
     </style>
     <div class="mlr-hl"></div>
-    <button class="mlr-hover" type="button" title="朗读这一段">▶</button>
+    <div class="mlr-hover" role="group" aria-label="MagicLens 段落工具">
+      <button class="mlr-pbtn mlr-speak" type="button" title="朗读这一段">▶</button>
+      <button class="mlr-pbtn mlr-trans" type="button" title="翻译这一段">译</button>
+    </div>
     <div class="mlr-toast" role="status" aria-live="polite"></div>
     <div class="mlr-bar" role="toolbar" aria-label="MagicLens 正文朗读">
       <span class="mlr-pos">0/0</span>
@@ -118,6 +126,8 @@
   const ui = {
     hl: shadow.querySelector('.mlr-hl'),
     hover: shadow.querySelector('.mlr-hover'),
+    speak: shadow.querySelector('.mlr-speak'),
+    trans: shadow.querySelector('.mlr-trans'),
     toast: shadow.querySelector('.mlr-toast'),
     bar: shadow.querySelector('.mlr-bar'),
     pos: shadow.querySelector('.mlr-pos'),
@@ -143,8 +153,16 @@
   }
 
   /* ---------- 段落发现与资格 ---------- */
+  // 段落文本：剔除 page-translate 内联译文块（列表项把译文块插在元素内部，
+  // innerText 会混进中文，重扫时整段被判成「中文主导」而掉出朗读列表）。
   function normalizeText(el) {
-    return (el.innerText || '').replace(/\s+/g, ' ').trim();
+    let raw = el.innerText || '';
+    if (el.querySelector && el.querySelector('[data-magiclens-translation]')) {
+      const clone = el.cloneNode(true);
+      clone.querySelectorAll('[data-magiclens-translation]').forEach((n) => n.remove());
+      raw = clone.innerText || clone.textContent || raw;
+    }
+    return raw.replace(/\s+/g, ' ').trim();
   }
 
   function isVisible(el) {
@@ -211,7 +229,9 @@
   };
 
   /* ---------- 段末 ▶ ---------- */
-  const HOVER_SIZE = 24;
+  const BTN_SIZE = 24;
+  const BTN_GAP = 4;
+  const TOOLS_W = BTN_SIZE * 2 + BTN_GAP; // 段末只留两个动作：朗读 + 翻译
 
   const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 
@@ -232,21 +252,56 @@
   function syncHoverIcon() {
     const active = Boolean(reader) && Boolean(hoverItem) && reader.lastEl === hoverItem.el;
     const loading = active && reader.busy;
-    ui.hover.classList.toggle('is-active', active);
-    ui.hover.classList.toggle('is-loading', loading);
-    ui.hover.textContent = active ? (loading ? '⟳' : '■') : '▶';
-    ui.hover.title = active ? '停止朗读这一段' : '朗读这一段';
+    ui.speak.classList.toggle('is-active', active);
+    ui.speak.classList.toggle('is-loading', loading);
+    ui.speak.textContent = active ? (loading ? '⟳' : '■') : '▶';
+    ui.speak.title = active ? '停止朗读这一段' : '朗读这一段';
+  }
+
+  // 「译」按钮态读 page-translate.js 的段末翻译状态机（同一份 records，不复制状态）。
+  function paraTransState(el) {
+    const read = window.__magicLensParagraphTranslateState;
+    if (typeof read !== 'function' || !el) return 'n/a';
+    try { return read(el) || 'n/a'; } catch { return 'n/a'; }
+  }
+
+  const transBusy = (state) => state === 'pending' || state === 'loading';
+
+  function syncTransIcon() {
+    const state = hoverItem ? paraTransState(hoverItem.el) : 'n/a';
+    const busy = transBusy(state);
+    // 不合格的段落（短标题等）只留 ▶：翻译按钮与 Alt+P 同一资格闸，不做「点了才报错」。
+    ui.trans.style.display = state === 'n/a' ? 'none' : 'inline-flex';
+    ui.trans.classList.toggle('is-done', state === 'done');
+    ui.trans.classList.toggle('is-loading', busy);
+    ui.trans.textContent = busy ? '⟳' : '译';
+    ui.trans.title = state === 'done' ? '撤销这一段译文' : '翻译这一段';
+  }
+
+  // 「译」是异步请求（攒批 debounce + 网络）：点完持续跟随该段状态到落定，
+  // 避免按钮停在 ⟳ 或错过 done 反馈。
+  function followTransState(el, ticks = 60) {
+    if (transTimer) { clearTimeout(transTimer); transTimer = null; }
+    if (!hoverItem || hoverItem.el !== el) return;
+    syncTransIcon();
+    if (!transBusy(paraTransState(el)) || ticks <= 0) return;
+    transTimer = setTimeout(() => followTransState(el, ticks - 1), 200);
   }
 
   function resetHoverIcon() {
-    ui.hover.classList.remove('is-active', 'is-loading');
-    ui.hover.textContent = '▶';
-    ui.hover.title = '朗读这一段';
+    ui.speak.classList.remove('is-active', 'is-loading');
+    ui.speak.textContent = '▶';
+    ui.speak.title = '朗读这一段';
+    ui.trans.classList.remove('is-done', 'is-loading');
+    ui.trans.style.display = 'inline-flex';
+    ui.trans.textContent = '译';
+    ui.trans.title = '翻译这一段';
   }
 
   function hideHover() {
     if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
     hoverItem = null;
+    if (transTimer) { clearTimeout(transTimer); transTimer = null; }
     resetHoverIcon();
     ui.hover.style.display = 'none';
   }
@@ -261,20 +316,22 @@
     if (box.bottom < 8 || box.top > innerHeight - 8) { hideHover(); return; }
     const line = lastLineRect(item.el);
     hoverItem = item;
+    syncHoverIcon();
+    syncTransIcon(); // 先定「译」是否显示，组宽才能算准（短标题只占一个按钮）
+    const width = ui.trans.style.display === 'none' ? BTN_SIZE : TOOLS_W;
     // 对齐 magicbook R215 的「段末图标」语义：贴最后一行右端、与行垂直居中。
     // 扩展不能改宿主 DOM（closed Shadow DOM 约束），所以仍是唯一一个固定定位按钮，
     // 只是把落点从段落右上角挪到段末。
-    let top = line.top + (line.height - HOVER_SIZE) / 2;
+    let top = line.top + (line.height - BTN_SIZE) / 2;
     let left = line.right + 6;
-    if (left + HOVER_SIZE > innerWidth - 4) {
+    if (left + width > innerWidth - 4) {
       // 末行顶到视口右缘（满行/窄屏）：落到该行下方右对齐，避免压住文字。
       top = line.bottom + 4;
-      left = line.right - HOVER_SIZE;
+      left = line.right - width;
     }
-    ui.hover.style.top = `${clamp(top, 4, innerHeight - HOVER_SIZE - 4)}px`;
-    ui.hover.style.left = `${clamp(left, 4, innerWidth - HOVER_SIZE - 4)}px`;
+    ui.hover.style.top = `${clamp(top, 4, innerHeight - BTN_SIZE - 4)}px`;
+    ui.hover.style.left = `${clamp(left, 4, innerWidth - width - 4)}px`;
     ui.hover.style.display = 'inline-flex';
-    syncHoverIcon();
   }
 
   function onMouseMove(e) {
@@ -293,12 +350,23 @@
     if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
   });
   ui.hover.addEventListener('mouseleave', scheduleHideHover);
-  ui.hover.addEventListener('click', () => {
+  ui.speak.addEventListener('click', (e) => {
+    e.stopPropagation();
     const item = hoverItem;
     if (!item) return;
     // 与 magicbook 同口径：正在读这一段时再点 = 停止（■），否则从这一段起读。
     if (reader && reader.lastEl === item.el) { stopReader(false); return; }
     readParagraph(item);
+  });
+  ui.trans.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const item = hoverItem;
+    if (!item) return;
+    const run = window.__magicLensParagraphTranslate;
+    if (typeof run !== 'function') { toast('段落翻译未就绪，请刷新页面后重试'); return; }
+    try { run(item.el); } catch { toast('翻译失败，请稍后重试'); }
+    syncTransIcon();
+    followTransState(item.el);
   });
 
   /* ---------- 播放器与队列 ---------- */
