@@ -524,6 +524,10 @@ async function main() {
     'R75：必须写能力握手标记 data-magiclens-read');
   assert.ok(readSrc.includes('__magicLensSplitForSpeech'),
     'R75：超长段落必须复用共同分段器（≤1800 字符）');
+  assert.ok(readSrc.includes('getClientRects') && readSrc.includes('lastLineRect'),
+    'R75：段落 ▶ 必须定位到最后一行行尾（对齐 magicbook 段末工具）');
+  assert.ok(readSrc.includes('syncHoverIcon') && readSrc.includes("'■'"),
+    'R75：播放中段末按钮必须变 ■ 且可再点停止');
 
   const bgSrc = read('background.js');
   assert.ok(bgSrc.includes('TTS_CACHE_STORE') && bgSrc.includes('ttsInflight'),

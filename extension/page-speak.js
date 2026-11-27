@@ -1,7 +1,8 @@
 /* MagicLens 网页正文朗读（R75）。
  *
  * 目标：把「像听文章一样听网页」做成默认 AI 音的轻量能力——正文段落逐段朗读、
- * 当前段高亮并自动滚入视口、每段一个 ▶、整页连播，入口为快捷键与右键菜单。
+ * 当前段高亮并自动滚入视口、每段段末一个 ▶（播放中变 ■，可再点停止）、整页连播，
+ * 入口为快捷键与右键菜单。
  *
  * 硬性约定（与 content/chat/page-translate 同口径）：
  * - 只操作顶层文档；magicbook 阅读器正文在 iframe，站点自身已有段落朗读，本模块不抢。
@@ -58,15 +59,19 @@
       * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif; }
       .mlr-hover, .mlr-bar, .mlr-toast, .mlr-hl { position: fixed; z-index: 2147483644; }
       .mlr-hover {
-        display: none; align-items: center; gap: 4px;
-        transform: translate(-100%, 0);
-        padding: 5px 9px; border: 1px solid rgba(79,70,229,.22); border-radius: 999px;
-        background: rgba(255,255,255,.96); color: #4f46e5;
-        box-shadow: 0 4px 14px rgba(17,24,39,.16);
-        font-size: 12px; line-height: 1; cursor: pointer; user-select: none;
+        display: none; align-items: center; justify-content: center;
+        width: 24px; height: 24px; padding: 0;
+        border: 1px solid rgba(79,70,229,.18); border-radius: 50%;
+        background: rgba(255,255,255,.9); color: #4f46e5;
+        box-shadow: 0 2px 8px rgba(17,24,39,.12);
+        font-size: 11px; line-height: 1; cursor: pointer; user-select: none;
         backdrop-filter: blur(6px);
+        transition: background .12s ease, color .12s ease, opacity .12s ease;
       }
       .mlr-hover:hover { background: #eef2ff; }
+      .mlr-hover.is-active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+      .mlr-hover.is-loading { animation: mlr-pulse 1.1s ease-in-out infinite; }
+      @keyframes mlr-pulse { 50% { opacity: .45; } }
       .mlr-bar {
         display: none; left: 50%; bottom: 24px; transform: translateX(-50%);
         align-items: center; gap: 4px;
@@ -100,7 +105,7 @@
       @media (prefers-reduced-motion: reduce) { .mlr-bar, .mlr-hover { backdrop-filter: none; } }
     </style>
     <div class="mlr-hl"></div>
-    <button class="mlr-hover" type="button" title="朗读这一段">▶ 朗读</button>
+    <button class="mlr-hover" type="button" title="朗读这一段">▶</button>
     <div class="mlr-toast" role="status" aria-live="polite"></div>
     <div class="mlr-bar" role="toolbar" aria-label="MagicLens 正文朗读">
       <span class="mlr-pos">0/0</span>
@@ -205,10 +210,44 @@
     }, 900);
   };
 
-  /* ---------- 悬浮 ▶ ---------- */
+  /* ---------- 段末 ▶ ---------- */
+  const HOVER_SIZE = 24;
+
+  const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+
+  // 段落「最后一行」的矩形：range 逐行 rect 的最后一个即段末行；
+  // 取不到（空段/异常）回退整段矩形。
+  function lastLineRect(el) {
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const rects = Array.from(range.getClientRects())
+        .filter((r) => r.width > 1 && r.height > 1);
+      if (rects.length) return rects[rects.length - 1];
+    } catch { /* 回退整段矩形 */ }
+    return el.getBoundingClientRect();
+  }
+
+  // 图标态与播放态同源：正在读这一段 → ■（请求在途时 ⟳），否则 ▶。
+  function syncHoverIcon() {
+    const active = Boolean(reader) && Boolean(hoverItem) && reader.lastEl === hoverItem.el;
+    const loading = active && reader.busy;
+    ui.hover.classList.toggle('is-active', active);
+    ui.hover.classList.toggle('is-loading', loading);
+    ui.hover.textContent = active ? (loading ? '⟳' : '■') : '▶';
+    ui.hover.title = active ? '停止朗读这一段' : '朗读这一段';
+  }
+
+  function resetHoverIcon() {
+    ui.hover.classList.remove('is-active', 'is-loading');
+    ui.hover.textContent = '▶';
+    ui.hover.title = '朗读这一段';
+  }
+
   function hideHover() {
     if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
     hoverItem = null;
+    resetHoverIcon();
     ui.hover.style.display = 'none';
   }
 
@@ -218,16 +257,27 @@
   };
 
   function showHover(item) {
-    const r = item.el.getBoundingClientRect();
-    if (r.bottom < 8 || r.top > innerHeight - 8) { hideHover(); return; }
+    const box = item.el.getBoundingClientRect();
+    if (box.bottom < 8 || box.top > innerHeight - 8) { hideHover(); return; }
+    const line = lastLineRect(item.el);
     hoverItem = item;
-    ui.hover.style.top = `${Math.max(8, r.top + 4)}px`;
-    ui.hover.style.left = `${Math.min(innerWidth - 8, r.right - 6)}px`;
+    // 对齐 magicbook R215 的「段末图标」语义：贴最后一行右端、与行垂直居中。
+    // 扩展不能改宿主 DOM（closed Shadow DOM 约束），所以仍是唯一一个固定定位按钮，
+    // 只是把落点从段落右上角挪到段末。
+    let top = line.top + (line.height - HOVER_SIZE) / 2;
+    let left = line.right + 6;
+    if (left + HOVER_SIZE > innerWidth - 4) {
+      // 末行顶到视口右缘（满行/窄屏）：落到该行下方右对齐，避免压住文字。
+      top = line.bottom + 4;
+      left = line.right - HOVER_SIZE;
+    }
+    ui.hover.style.top = `${clamp(top, 4, innerHeight - HOVER_SIZE - 4)}px`;
+    ui.hover.style.left = `${clamp(left, 4, innerWidth - HOVER_SIZE - 4)}px`;
     ui.hover.style.display = 'inline-flex';
+    syncHoverIcon();
   }
 
   function onMouseMove(e) {
-    if (reader) { hideHover(); return; }
     const raw = e.target;
     if (!raw || (raw.closest && raw.closest(HOST_SELECTOR))) return;
     const el = raw.closest ? raw.closest(BLOCK_SEL) : null;
@@ -235,7 +285,8 @@
     const item = itemByEl.get(el);
     if (!item) { scheduleHideHover(); return; }
     if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
-    showHover(item);
+    // 同一段内移动不重算段末行（Range.getClientRects 会强制排版）；换段/已收起才定位。
+    if (item !== hoverItem || ui.hover.style.display === 'none') showHover(item);
   }
 
   ui.hover.addEventListener('mouseenter', () => {
@@ -243,7 +294,11 @@
   });
   ui.hover.addEventListener('mouseleave', scheduleHideHover);
   ui.hover.addEventListener('click', () => {
-    if (hoverItem) readParagraph(hoverItem);
+    const item = hoverItem;
+    if (!item) return;
+    // 与 magicbook 同口径：正在读这一段时再点 = 停止（■），否则从这一段起读。
+    if (reader && reader.lastEl === item.el) { stopReader(false); return; }
+    readParagraph(item);
   });
 
   /* ---------- 播放器与队列 ---------- */
@@ -403,7 +458,9 @@
     if (resizeRaf) return;
     resizeRaf = requestAnimationFrame(() => {
       resizeRaf = 0;
-      hideHover();
+      // 段末按钮锚在段落最后一行：滚动/自动滚屏时跟着段走（像行内工具），
+      // 段已滚出视口时 showHover 内部会收起；已收起的不会被滚动重新唤起。
+      if (hoverItem && ui.hover.style.display !== 'none') showHover(hoverItem);
       positionHighlight();
     });
   };
@@ -434,11 +491,13 @@
       focusParagraph(seg.el);
     }
     updateBar();
+    syncHoverIcon();
     prefetch((r.segments[r.i + 1] || {}).text);
 
     fetchAudio(seg.text).then((resp) => {
       if (!reader || reader.token !== r.token || r.segSeq !== seq) return;
       r.busy = false;
+      syncHoverIcon();
       // 请求在途时用户已暂停：不抢播，恢复时再走一次（本地缓存命中，零积分）。
       if (r.paused) return;
       if (!resp.ok) {
@@ -468,6 +527,10 @@
   function startReader(items, baseIndex) {
     const segments = buildSegments(items, baseIndex);
     if (!segments.length) { toast('未找到可朗读的英文正文段落'); return; }
+    // 从段末 ▶ 起读单段时保留按钮位置：播放中图标变 ■，用户可原地再点停止。
+    const keepItem = items.length === 1 && hoverItem && hoverItem.el === items[0].el
+      ? hoverItem
+      : null;
     stopReader(true);
     reader = {
       token: ++readerSeq,
@@ -484,7 +547,13 @@
       ctx: null,
       lastEl: null,
     };
-    hideHover();
+    if (keepItem) {
+      hoverItem = keepItem;
+      ui.hover.style.display = 'inline-flex';
+      syncHoverIcon();
+    } else {
+      hideHover();
+    }
     playCurrent();
   }
 
@@ -520,6 +589,7 @@
     ui.bar.style.display = 'none';
     ui.hl.style.display = 'none';
     ui.pos.textContent = '0/0';
+    syncHoverIcon();
     if (!silent) toast('已停止朗读');
   }
 

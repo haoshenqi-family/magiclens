@@ -1,6 +1,6 @@
 # 网页正文朗读（L3 实现说明）
 
-> 状态：现行。R75 引入（v0.8.36）。
+> 状态：现行。R75 引入（v0.8.37）。
 
 ## 实现
 
@@ -10,8 +10,10 @@
   `P,LI,BLOCKQUOTE,DD,DT,H1-H6` 后按「可见 + 最短字符数 + 中文占比 ≤30%」过滤；
   排除 `nav/header/footer/aside/form/pre/code/contenteditable` 与全部 MagicLens host。
   列表/引用内嵌 `<p>` 时只取最内层，按归一文本去重，单页上限 200 段。
-- 悬浮 ▶ 是一个共享浮钮（不是每段插 DOM）：`mousemove → closest(BLOCK_SEL) → WeakMap`
-  找到段落，按 `getBoundingClientRect` 定位；滚动/移出 220ms 后收起。
+- 段末 ▶ 是一个共享浮钮（不是每段插 DOM）：`mousemove → closest(BLOCK_SEL) → WeakMap`
+  找到段落，用 `Range.getClientRects()` 取最后一行矩形，把 24px 圆钮摆在行尾右侧
+  （与 magicbook 段落工具同位置语义；末行顶到视口右缘时落到行下右对齐）；
+  播放中同一按钮变 ■（请求在途为 ⟳），再点即停；滚动/移出 220ms 后收起。
 - 连播队列把每段用 `__magicLensSplitForSpeech(text, 1800)` 切句后扁平化。播放前调用
   `ML_TTS_SPEAK`，并 `prefetch` 下一段；SW 侧 `ttsInflight` 合并同文本并发请求，
   `ttsaudio` IndexedDB 缓存命中直接回字节。
@@ -37,8 +39,8 @@
 
 ## 手工 AC
 
-1. 打开一篇英文长文（如 Anthropic 文章），鼠标移到正文段落，出现「▶ 朗读」。
-2. 点「▶ 朗读」→ 默认 AI 音读出该段；当前段有高亮框，长段自动切句连续播。
+1. 打开一篇英文长文（如 Anthropic 文章），鼠标移到正文段落，段落最后一行末尾出现小圆 ▶。
+2. 点 ▶ → 默认 AI 音读出该段，图标变 ■；当前段有高亮框，长段自动切句连续播；再点 ■ 停止。
 3. 控制条显示当前段/总段；暂停后能继续；「下一段」立即跳读；停止后高亮与控制条收起。
 4. 语速 1.0→0.75→0.5 循环，变速不变调；刷新页面后档位保持。
 5. 按 `Alt+S`（或设置页改键）从当前视口起整页连播，页面自动滚屏；再按一次停止。
