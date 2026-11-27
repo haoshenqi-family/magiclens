@@ -1,6 +1,6 @@
 # LLD — R76 段末工具：朗读 + 翻译两个按钮
 
-> 状态：开发完成待真机验收（2026-11-27，0.8.38-202611271605 测试版）
+> 状态：已发布 v0.8.38（2026-11-27）
 > 关联需求：magiclens R76；设计决策见 `docs/product/design.md` §25；L3 见
 > `docs/product/features/page-read-aloud.md`。
 

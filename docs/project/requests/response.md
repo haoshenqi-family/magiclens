@@ -321,5 +321,34 @@ R66–R75 攒批次待用户确认；PingCode idea 未建待用户令。
 `ml-read-aloud` 增加「短标题无译 / 点译只发 1 段 / `is-done` / 撤销零新请求」断言后 PASS；
 `guard.py` 19 行缺口 0；**浏览器全特性 19/19 PASS**。版本 0.8.38-202611271605 测试版。
 
-**遗留**：真机 AC 10 条待用户（`r76-para-tools/ac/manual-ac.md`）；正式发布 R66–R76
-攒批次待用户确认。
+**遗留**：真机 AC 10 条待用户（`r76-para-tools/ac/manual-ac.md`）；已随 **v0.8.38** 正式发布
+（2026-11-27）。
+
+## 2026-11-27（R77：发布正式版 v0.8.38）
+
+### R77（用户：「release magiclens」）
+
+**回应**：按 AGENTS.md §0.2 两段式执行正式发布，把 v0.8.24 之后攒批的 **R63–R76** 合成
+正式版 **v0.8.38**。
+
+**发布前闸门（正式发布态）**：`runner.py --repo magiclens --tier T1` **22/22 PASS**
+（19 个浏览器特性 + 3 个静态守卫，0 FAIL / 0 SKIP，48s，报告
+`reports/fnos-dev-T1-1795767375.json`）；`guard.py` magiclens 19 行缺口 0；`node --check`
+全部扩展脚本通过。R75/R76 的手工 AC 中「视觉/手感」项需人眼，行为链路已由套件覆盖
+（段末定位、▶→■→停止、译单段计费/撤销、缓存零请求等）。
+
+**发布动作**：
+
+- `2999bb7` chore(release)：`version_name` 去时间戳（`0.8.38-202611271605` → `0.8.38`）
+  push `develop`。
+- `b5329b4` release 合并提交：在 `origin/release` 头上 `--no-ff` 合并 `origin/develop`
+  push `release`；合并后 `git diff --stat origin/develop HEAD` 为空（测的就是发的）。
+
+**发布产物验证**：workflow run `45964579755` 成功（改动范围判定 docs-only=false）；
+GitHub Release **v0.8.38**（Latest，2026-11-27T08:18:09Z），资产
+`magiclens-extension-v0.8.38.zip`（148187 B），包内 `extension/manifest.json`
+`version=0.8.38`、`version_name=0.8.38`。
+
+**遗留**：真机装 v0.8.38 后按 `r75-page-read-aloud/ac/manual-ac.md`（10 条）与
+`r76-para-tools/ac/manual-ac.md`（10 条）做视觉/手感抽查；PingCode 版本 Published 与
+idea 回写待用户令（本仓 idea 未建）。

@@ -1,6 +1,6 @@
 # LLD — R75 网页正文段落朗读（默认 AI 音 + 每段 ▶ + 快捷键/右键菜单）
 
-> 状态：开发中（2026-11-27）
+> 状态：已发布 v0.8.38（2026-11-27）
 > 关联需求：magiclens R75；设计决策见 `docs/product/design.md` §24；L3 见
 > `docs/product/features/page-read-aloud.md`。
 
