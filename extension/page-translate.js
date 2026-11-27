@@ -95,7 +95,7 @@
    * 已录段落）共用同一门槛，两条入口的资格口径永不漂移。 */
   function qualifies(el, text) {
     if (el.closest('pre, code, [contenteditable], [data-magiclens-translation]')) return false;
-    if (el.closest('#magiclens-host, #magiclens-chat-host, #magiclens-ball-host, #magiclens-pt-host')) return false;
+    if (el.closest('#magiclens-host, #magiclens-chat-host, #magiclens-ball-host, #magiclens-pt-host, #magiclens-read-host')) return false;
     if (text.length < MIN_CHARS) return false;
     const cjk = (text.match(CJK_RE) || []).length;
     return cjk / text.length <= CJK_RATIO_MAX;
@@ -495,7 +495,7 @@
   /* ---------- R71 快捷键分发（顶层文档 keydown capture） ---------- */
   // 扩展自建 UI 的 shadow host：焦点落在其内部（如伴读输入框）时事件被重定向到 host，
   // 外层只见 div——显式忽略，避免在伴读抽屉里打字误触翻译
-  const LENS_HOST_IDS = 'magiclens-host, magiclens-chat-host, magiclens-ball-host, magiclens-pt-host';
+  const LENS_HOST_IDS = 'magiclens-host, magiclens-chat-host, magiclens-ball-host, magiclens-pt-host, magiclens-read-host';
 
   function isEditableTarget(t) {
     if (!t || !t.tagName) return false; // target 为 document/window 时不拦

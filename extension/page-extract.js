@@ -37,7 +37,7 @@
       while (walker.nextNode()) {
         const el = walker.currentNode;
         // 跳过 MagicLens 自己的 UI 与表单类噪声
-        if (el.closest('#magiclens-host, #magiclens-chat-host, script, style, noscript, textarea, input, select')) continue;
+        if (el.closest('#magiclens-host, #magiclens-chat-host, #magiclens-read-host, script, style, noscript, textarea, input, select')) continue;
         const text = (el.innerText || '').replace(/\s+/g, ' ').trim();
         if (text.length < 2 || seen.has(text)) continue;
         seen.add(text);

@@ -266,3 +266,28 @@ response.md 现 10 节未超窗口。冲突记录：无撞号；占号时 R68 �
 **验证**：ml-shortcuts 全过；浏览器 18/18；guard 三向 18 行 0 缺口；契约守卫 7 段全绿；**CfT 真实浏览器端到端复测全过**——修复前失败的完整键序（整页→关→双击别名→Alt+P 单段→撤销）+ Wikipedia 真实页（首屏 8 段真实中文译文、scrollTo 后 IO 续批至 16 段、关闭清零），截图存档 /tmp/ml-browser-test/。0.8.35-202611232133 测试版。
 
 **遗留**：真机抽查 AC（`r74-shortcut-misfire/ac/manual-ac.md` 8 条，重点=双击后快速 Alt+A 手感）；正式发布 R66–R74 攒批次待用户确认；PingCode idea 待用户令。
+
+## 2026-11-27（R75：网页正文段落朗读——默认 AI 音 + 每段 ▶ + 快捷键/右键菜单）
+
+### R75（用户：以 Anthropic《Building always-on agents》为例问「能让 magiclens 也朗读段落吗」→ 拍板「默认 AI 音 / 不弹计费确认 / 快捷键和右键菜单，增加每段 ▶」）
+
+**做了什么**：新增 `extension/page-speak.js`，把网页正文变成可连播的「文章」——段落悬浮
+「▶ 朗读」、`Alt+S` 整页连播（设置页可改）、右键「朗读本段 / 朗读全文」；当前段高亮并自动
+滚屏，控制条支持暂停/继续、下一段、1.0/0.75/0.5 变速、停止。默认全程走 moon-well
+`/tts/speak` AI 音（≤1800 字符切句顺序播），失败不回落浏览器机械音；401/积分不足文案在
+控制条上方可见。
+
+**省钱与口径**：用户拍板不做计费二次确认，因此 SW 增文本级 IndexedDB `ttsaudio` 缓存
+（200 段 LRU / 7 天，与服务端临时语音档同寿命）+ `ttsInflight` single-flight；播放前预取
+下一段，同一段重听零网络零积分。首次仍按 moon-well 口径 `floor(字符/50)` 计费、服务端缓存
+命中 1 积分/段。UI 全挂 closed Shadow DOM `#magiclens-read-host`；只装配顶层文档
+（magicbook 阅读器 iframe 交给站点自身朗读）；禁用站零 host 零监听。
+
+**验证**：`node --check extension/*.js` 全过；`check-extension-modules.js` 新增 R75 契约段
+全绿（AI 音链路/注入顺序/右键菜单/缓存/设置项/握手）；集成套件同任务同步 matrix +1
+（ml-read-aloud，19 行）+ `e2e_bridge` +1 + `run.js` 用例（握手→悬浮▶→`/tts/speak`→
+控制条 2/7→变速持久化→停止→Alt+S 再播），`guard.py` 19 行缺口 0；**浏览器全特性
+19/19 PASS**（mock `/tts/speak` 改为可解码静音 WAV 以稳定观察播放条）。
+
+**遗留**：真机 AC 10 条待用户（`r75-page-read-aloud/ac/manual-ac.md`）；正式发布
+R66–R75 攒批次待用户确认；PingCode idea 未建待用户令。

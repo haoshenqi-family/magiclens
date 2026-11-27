@@ -43,11 +43,17 @@ async function main() {
       lastError: null,
       onMessage: { addListener: (fn) => { messageListener = fn; } },
       onInstalled: { addListener: () => {} },
+      onStartup: { addListener: () => {} },
       sendMessage: () => {},
       openOptionsPage: () => {},
     },
     storage,
     commands: { onCommand: { addListener: () => {} } },
+    contextMenus: {
+      removeAll: (cb) => { if (cb) cb(); },
+      create: () => {},
+      onClicked: { addListener: () => {} },
+    },
     tabs: {
       create: () => {},
       query: () => {},
@@ -497,6 +503,37 @@ async function main() {
   assert.ok(ptR74.includes('sessionSeq += 1'), 'start() 必须递增会话代');
 
   console.log('PASS extension module contract: R74 double-tap quiet window + session-seq guard');
+
+  // ---- R75 正文朗读：AI 音链路、段落独立模块、右键菜单与快捷键契约 ----
+  const readSrc = read('page-speak.js');
+  assert.ok(manifest.permissions.includes('contextMenus'),
+    'R75：右键菜单需要 manifest contextMenus 权限');
+  const mainEntryR75 = manifest.content_scripts.find((entry) => entry.js.includes('page-speak.js'));
+  assert.ok(mainEntryR75, 'R75：page-speak.js 必须注入主文档');
+  assert.ok(mainEntryR75.js.indexOf('common.js') < mainEntryR75.js.indexOf('page-speak.js'),
+    'R75：page-speak.js 必须晚于 common.js（依赖 defaults / combo / split 三件套）');
+  assert.ok(readSrc.includes('window.top !== window'),
+    'R75：page-speak.js 必须只装配顶层文档（iframe 交给 magicbook 自身朗读）');
+  assert.ok(readSrc.includes('MSG.ML_TTS_SPEAK') && !readSrc.includes('speechSynthesis'),
+    'R75：网页朗读必须默认 AI 音（ML_TTS_SPEAK），不得退回浏览器机械音');
+  assert.ok(readSrc.includes('shortcutReadAloud') && readSrc.includes('__magicLensComboMatches'),
+    'R75：快捷键必须走 common.js 三件套与 shortcutReadAloud 设置键');
+  assert.ok(readSrc.includes('ML_READ_PARAGRAPH') && readSrc.includes('ML_READ_TOGGLE'),
+    'R75：必须消费右键菜单两条消息');
+  assert.ok(readSrc.includes("data-magiclensRead") || readSrc.includes("dataset.magiclensRead"),
+    'R75：必须写能力握手标记 data-magiclens-read');
+  assert.ok(readSrc.includes('__magicLensSplitForSpeech'),
+    'R75：超长段落必须复用共同分段器（≤1800 字符）');
+
+  const bgSrc = read('background.js');
+  assert.ok(bgSrc.includes('TTS_CACHE_STORE') && bgSrc.includes('ttsInflight'),
+    'R75：SW 必须带文本级朗读缓存与 single-flight（预取不重复计费）');
+  assert.ok(bgSrc.includes('READ_MENU_PARAGRAPH') && bgSrc.includes('READ_MENU_TOGGLE'),
+    'R75：background 必须创建两条右键菜单并转发');
+  assert.ok(optHtml.includes('id="scRead"') && optSrc.includes('shortcutReadAloud'),
+    'R75：设置页必须可录制朗读快捷键');
+
+  console.log('PASS extension module contract: R75 page read-aloud AI voice + menu/shortcut');
 }
 
 main().catch((error) => {

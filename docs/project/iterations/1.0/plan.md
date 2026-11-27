@@ -25,6 +25,7 @@
 | MAGICLENS-10 R56 magicbook 站内悬浮球去重 | 缺陷 | （无 PJM，台账承载） | [r56-ball-yield/](./r56-ball-yield/)（LLD） | 已 merge 本地 develop（0.8.20 测试版，同树续作），待真机验收（2026-10-27） |
 | MAGICLENS-11 R57 划词仅单词直译，其余交给 AI | 用户故事 | [idea Mr7EGN8B](https://haoshenqi.pingcode.com/ship/ideas/Mr7EGN8B)（ML-54，In progress） | [r57-selection-ai/](./r57-selection-ai/)（LLD） | 开发完成（0.8.21 测试版），待真机验收（2026-10-29） |
 | MAGICLENS-12 R63 滚动复习词卡 unknown message type（SW 版本漂移） | 缺陷 | （无 PJM，台账承载） | [r63-review-sw-skew/](./r63-review-sw-skew/)（LLD） | 已 merge 本地 develop（0.8.25-202611131705 测试版），待真机验收（2026-11-13） |
+| MAGICLENS-13 R75 网页正文段落朗读（默认 AI 音 / 每段▶ / 快捷键+右键菜单） | 用户故事 | （无 PJM，台账承载） | [r75-page-read-aloud/](./r75-page-read-aloud/)（LLD + AC） | 开发完成待真机验收（0.8.36-202611271524 测试版，2026-11-27） |
 
 ## 备注
 

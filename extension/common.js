@@ -31,6 +31,8 @@
     //（与沉浸式翻译一致）/ Alt+P=悬停单段翻译；''=禁用。设置页「快捷键」节可录制/清除。
     shortcutPageToggle: 'Alt+KeyA',
     shortcutParagraph: 'Alt+KeyP',
+    // R75 网页正文朗读：Alt+S=整页连播开/停（每段悬浮 ▶ 与右键菜单不受此键位影响）
+    shortcutReadAloud: 'Alt+KeyS',
   });
 
   if (g.__magicLensNormDomain) return;

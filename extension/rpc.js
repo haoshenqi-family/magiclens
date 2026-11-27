@@ -63,6 +63,10 @@
     ML_MARK: 'ml:mark',
     ML_OPENSELECTION: 'ml:openSelection',
     ML_OPENOPTIONS: 'ml:openOptions',
+    // R75 网页正文朗读：右键菜单 → background 转发给当前标签页的 page-speak.js。
+    // PARAGRAPH 带 selectionText（选中文本优先），TOGGLE 为整页连播开/停。
+    ML_READ_PARAGRAPH: 'ml:read-paragraph',
+    ML_READ_TOGGLE: 'ml:read-toggle',
     // R67 段落整页翻译：popup→tab 的开/关切换（悬浮球直调 window 钩子不走此消息）
     ML_PT_TOGGLE: 'ml:pt-toggle',
     // R53 伴读语音：START/STOP/CANCEL 是 content→SW；GO/DONE 是 SW→offscreen 文档的

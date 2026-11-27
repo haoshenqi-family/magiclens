@@ -32,8 +32,27 @@ $auto.addEventListener('change', () => {
  * page-translate.js 经 storage.onChanged 采纳、已开页面即时生效。键位串形制与
  * 展示文案走 common.js 三件套（e.code 形制，mac 死键字符不影响匹配）。 */
 const SC_ROWS = [
-  { id: 'scPage', clearId: 'scPageClear', key: 'shortcutPageToggle', other: 'shortcutParagraph', otherName: '翻译段落' },
-  { id: 'scPara', clearId: 'scParaClear', key: 'shortcutParagraph', other: 'shortcutPageToggle', otherName: '整页翻译' },
+  {
+    id: 'scPage', clearId: 'scPageClear', key: 'shortcutPageToggle',
+    others: [
+      { key: 'shortcutParagraph', name: '翻译段落' },
+      { key: 'shortcutReadAloud', name: '朗读正文' },
+    ],
+  },
+  {
+    id: 'scPara', clearId: 'scParaClear', key: 'shortcutParagraph',
+    others: [
+      { key: 'shortcutPageToggle', name: '整页翻译' },
+      { key: 'shortcutReadAloud', name: '朗读正文' },
+    ],
+  },
+  {
+    id: 'scRead', clearId: 'scReadClear', key: 'shortcutReadAloud',
+    others: [
+      { key: 'shortcutPageToggle', name: '整页翻译' },
+      { key: 'shortcutParagraph', name: '翻译段落' },
+    ],
+  },
 ];
 const $scErr = document.getElementById('scErr');
 const showScErr = (text) => { $scErr.textContent = text || ''; $scErr.hidden = !text; };
@@ -59,7 +78,8 @@ for (const row of SC_ROWS) {
     const combo = window.__magicLensComboFromEvent(e);
     if (!combo) return; // 仅修饰键或无主修饰键：继续等待（裸键/纯 Shift 不可录制）
     chrome.storage.sync.get(__magicLensDefaults, (c) => {
-      if (c[row.other] === combo) return showScErr(`与「${row.otherName}」的快捷键重复，请换一个组合键`);
+      const conflict = row.others.find((other) => c[other.key] === combo);
+      if (conflict) return showScErr(`与「${conflict.name}」的快捷键重复，请换一个组合键`);
       chrome.storage.sync.set({ [row.key]: combo }, () => input.blur());
     });
   });
