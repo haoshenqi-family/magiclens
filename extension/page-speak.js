@@ -320,7 +320,7 @@
     syncTransIcon(); // 先定「译」是否显示，组宽才能算准（短标题只占一个按钮）
     const width = ui.trans.style.display === 'none' ? BTN_SIZE : TOOLS_W;
     // 对齐 magicbook R215 的「段末图标」语义：贴最后一行右端、与行垂直居中。
-    // 扩展不能改宿主 DOM（closed Shadow DOM 约束），所以仍是唯一一个固定定位按钮，
+    // 扩展不能改宿主 DOM（closed Shadow DOM 约束），所以仍是唯一一组固定定位按钮，
     // 只是把落点从段落右上角挪到段末。
     let top = line.top + (line.height - BTN_SIZE) / 2;
     let left = line.right + 6;
