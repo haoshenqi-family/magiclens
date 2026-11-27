@@ -21,6 +21,18 @@
     // 不突现悬浮球，想要时设置页自行打开
     ballEnabled: false,
     ballAsked: false,
+    // R70：悬浮球气泡/词卡的逐项配置真值源迁 moon-well（POST /buddy/quick-actions，
+    // 与 magicbook buddy 页「伙伴悬浮球快捷动作」同一份配置；R69 的本地 bubble*/ballReview
+    // 键随之作废删除——单一真值，不再有本地开关）。扩展侧只读：拉取结果缓存在
+    // chrome.storage.local `magiclens.ballQuickActions` = {selected:[], stored:bool, ts}
+    // 供断网兜底；stored=false（用户从未在 buddy 页保存过）或无缓存时按注册表全量渲染。
+    // 逐项可配的入口在设置页引导去 buddy 页（options.js）。
+    // R71 翻译快捷键默认键位（串形制见 __magicLensComboFromEvent）：Alt+A=整页翻译开关
+    //（与沉浸式翻译一致）/ Alt+P=悬停单段翻译；''=禁用。设置页「快捷键」节可录制/清除。
+    shortcutPageToggle: 'Alt+KeyA',
+    shortcutParagraph: 'Alt+KeyP',
+    // R75 网页正文朗读：Alt+S=整页连播开/停（每段悬浮 ▶ 与右键菜单不受此键位影响）
+    shortcutReadAloud: 'Alt+KeyS',
   });
 
   if (g.__magicLensNormDomain) return;
@@ -52,6 +64,28 @@
       return Boolean(n) && (h === n || h.endsWith(`.${n}`));
     });
   };
+
+  /* R70 悬浮球气泡注册表（单源）：径向气泡的唯一权威清单。id 即 moon-well
+   * 快捷动作白名单 id（POST /buddy/quick-actions 的 selected 成员，与 buddy 页同一份
+   * 配置），两侧白名单由 check-ball-visibility.js 跨仓断言对齐（registry id ⊆
+   * moon-well BuddyService.QUICK_ACTION_IDS）。
+   * ⚠️ 新增/下线气泡的纪律（守卫强制，违反即挂）：
+   *   1. 只改本表——声明 {id, icon, label}；id 必须已在 moon-well 白名单内
+   *      （buddy 页 chips 才能表达它；缺什么先去 moon-well BuddyService 扩白名单）；
+   *   2. ball.js 的 RUNS 表按 id 补动作处理器（锁 B：RUNS 的 id 集合必须等于本表），
+   *      禁止在 ball.js 私挂 ACTIONS 字面量绕过本表；
+   *   3. review=滚动复习词卡不是径向气泡，不进本表——由服务端 selected 含 'review'
+   *      驱动（ball.js 门控）。
+   * Why 表只放纯数据不放处理器：options 页不加载 ball.js（此处须可独立求值），
+   * 而 __magicLensAsk/MSG 等 handler 依赖 ball.js/content.js 的作用域。 */
+  g.__magicLensBallActions = Object.freeze([
+    { id: 'chat', icon: '💬', label: '伴读对话' },
+    { id: 'highlight', icon: '〰', label: '生词高亮' },
+    { id: 'page-translate', icon: '🌐', label: '整页翻译' },
+    { id: 'learning', icon: '🎓', label: '每日学习' },
+    { id: 'library', icon: '📚', label: '书库' },
+    { id: 'me', icon: '👤', label: '我的' },
+  ]);
 
   /** R56：宿主已自带常驻入口的域名——扩展悬浮球在这些域及子域自动让位。
    * Why 不放开给用户配置：这是「同一入口不能有两个」的产品约束，不是用户偏好；
@@ -185,6 +219,58 @@
     esc = esc.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     restore(true);
     return esc;
+  };
+
+  /* ---------- R71 翻译快捷键：键位串三件套（options / page-translate / 守卫三方共用） ----------
+   * 串形制 = 修饰键（固定序 Alt,Ctrl,Meta,Shift）+ "+" + e.code，如 Alt+KeyA、Ctrl+Shift+Comma。
+   * Why 存 e.code 不存 e.key：macOS Option 组合把 e.key 变成死键字符（Alt+A→å、Alt+P→π），
+   * 按 key 匹配在 Mac 上整段失效；e.code 是物理键位，跨布局稳定。空串 = 该键禁用。
+   * Why 落 common.js 纯函数：options 页不加载 page-translate.js（R69 registry 同因），
+   * 且 Node 守卫（check-extension-modules.js R71 段）可直接锁契约防漂移。 */
+
+  const COMBO_MODS = ['altKey', 'ctrlKey', 'metaKey', 'shiftKey'];
+  const COMBO_MOD_NAMES = { altKey: 'Alt', ctrlKey: 'Ctrl', metaKey: 'Meta', shiftKey: 'Shift' };
+  // 修饰键自身的物理键（R72）：裸按 Alt/Shift 等不可录制也不可匹配——否则会录出
+  // "Alt+AltLeft" 怪串，且双击 Alt 连击检测会误碰已录键位串
+  const COMBO_MOD_CODE_RE = /^(Alt|Control|Meta|Shift)(Left|Right)$/;
+  // e.code → 展示名：字母/数字剥前缀，常见命名键给可读符号（录制框回显用）
+  const COMBO_CODE_LABELS = {
+    Comma: ',', Period: '.', Slash: '/', Semicolon: ';', Quote: "'",
+    BracketLeft: '[', BracketRight: ']', Backslash: '\\', Minus: '-', Equal: '=',
+    Backquote: '`', Space: '空格', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓',
+  };
+  const COMBO_CODE_LABEL = (code) =>
+    COMBO_CODE_LABELS[code] || (/^Key./.test(code) ? code.slice(3)
+      : /^Digit./.test(code) ? code.slice(5) : code);
+
+  /** KeyboardEvent → 键位串。无主修饰键（Alt/Ctrl/Meta 任一）返回 null：
+   * 裸键/纯 Shift 属于网页本身（页面聚焦时要打字），不可录制为快捷键。
+   * 修饰键自身的物理键（R72）也返回 null——裸按 Alt 录不出怪串、双击连击不误碰已录串。 */
+  g.__magicLensComboFromEvent = (e) => {
+    if (!e || typeof e.code !== 'string' || !e.code) return null;
+    if (COMBO_MOD_CODE_RE.test(e.code)) return null;
+    if (!e.altKey && !e.ctrlKey && !e.metaKey) return null;
+    const parts = COMBO_MODS.filter((k) => e[k]).map((k) => COMBO_MOD_NAMES[k]);
+    parts.push(e.code);
+    return parts.join('+');
+  };
+
+  /** 键位串与事件全等比对（修饰键集合 + code 逐一对上）；串非法/空返回 false。 */
+  g.__magicLensComboMatches = (stored, e) => {
+    const combo = String(stored || '');
+    if (!combo) return false;
+    const made = g.__magicLensComboFromEvent(e);
+    return Boolean(made) && made === combo;
+  };
+
+  /** 键位串 → 展示文案（Alt+KeyA → Alt+A）；空/非法串返回空串（设置页显「未设置」）。 */
+  g.__magicLensComboLabel = (stored) => {
+    const combo = String(stored || '');
+    if (!combo) return '';
+    const parts = combo.split('+');
+    const code = parts.pop();
+    if (!code || parts.some((p) => !COMBO_MOD_NAMES[`${p.toLowerCase()}Key`])) return '';
+    return [...parts, COMBO_CODE_LABEL(code)].join('+');
   };
 
   /* ---------- R53 伴读语音共享工具（content / background / offscreen 三处共用） ---------- */

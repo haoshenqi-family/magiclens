@@ -27,6 +27,74 @@ $auto.addEventListener('change', () => {
   chrome.storage.sync.set({ autoTranslate: $auto.checked });
 });
 
+/* ---------- R71 翻译快捷键：录制式自定义 ----------
+ * storage 为唯一事实源（域名管理同款）：录制/清除只写 chrome.storage.sync，
+ * page-translate.js 经 storage.onChanged 采纳、已开页面即时生效。键位串形制与
+ * 展示文案走 common.js 三件套（e.code 形制，mac 死键字符不影响匹配）。 */
+const SC_ROWS = [
+  {
+    id: 'scPage', clearId: 'scPageClear', key: 'shortcutPageToggle',
+    others: [
+      { key: 'shortcutParagraph', name: '翻译段落' },
+      { key: 'shortcutReadAloud', name: '朗读正文' },
+    ],
+  },
+  {
+    id: 'scPara', clearId: 'scParaClear', key: 'shortcutParagraph',
+    others: [
+      { key: 'shortcutPageToggle', name: '整页翻译' },
+      { key: 'shortcutReadAloud', name: '朗读正文' },
+    ],
+  },
+  {
+    id: 'scRead', clearId: 'scReadClear', key: 'shortcutReadAloud',
+    others: [
+      { key: 'shortcutPageToggle', name: '整页翻译' },
+      { key: 'shortcutParagraph', name: '翻译段落' },
+    ],
+  },
+];
+const $scErr = document.getElementById('scErr');
+const showScErr = (text) => { $scErr.textContent = text || ''; $scErr.hidden = !text; };
+const renderCombo = (input, stored) => {
+  input.value = window.__magicLensComboLabel(stored) || '';
+  input.placeholder = input.value ? '' : '未设置（点击录制）';
+};
+
+for (const row of SC_ROWS) {
+  const input = document.getElementById(row.id);
+  const reload = () => chrome.storage.sync.get(__magicLensDefaults, (c) => renderCombo(input, c[row.key]));
+  reload();
+  input.addEventListener('focus', () => {
+    input.value = '按下组合键（Esc 取消）';
+    input.classList.add('rec');
+    showScErr('');
+  });
+  input.addEventListener('blur', () => { input.classList.remove('rec'); reload(); });
+  input.addEventListener('keydown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.key === 'Escape') return input.blur(); // 取消：blur 即还原原值
+    const combo = window.__magicLensComboFromEvent(e);
+    if (!combo) return; // 仅修饰键或无主修饰键：继续等待（裸键/纯 Shift 不可录制）
+    chrome.storage.sync.get(__magicLensDefaults, (c) => {
+      const conflict = row.others.find((other) => c[other.key] === combo);
+      if (conflict) return showScErr(`与「${conflict.name}」的快捷键重复，请换一个组合键`);
+      chrome.storage.sync.set({ [row.key]: combo }, () => input.blur());
+    });
+  });
+  document.getElementById(row.clearId).addEventListener('click', () => chrome.storage.sync.set({ [row.key]: '' }));
+}
+// 跨窗口/双开设置页同步：仅刷新非录制中的框，避免覆写「按下组合键」提示态
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'sync') return;
+  for (const row of SC_ROWS) {
+    if (!changes[row.key]) continue;
+    const input = document.getElementById(row.id);
+    if (document.activeElement !== input) renderCombo(input, changes[row.key].newValue);
+  }
+});
+
 /* ---------- 常驻入口（R54）：首次安装引导 + 常驻开关 ----------
  * 引导卡片只在用户尚未表态（ballAsked=false）时显示——安装时 background 自动打开
  * 本页正好承接；表态后永不再问，开关随时可翻。任何一次明确选择都同时落
@@ -47,6 +115,14 @@ document.getElementById('ballAskOn').addEventListener('click', () => setBall(tru
 document.getElementById('ballAskOff').addEventListener('click', () => setBall(false));
 $ball.addEventListener('change', () => {
   chrome.storage.sync.set({ ballEnabled: $ball.checked, ballAsked: true });
+});
+
+/* ---------- R70 悬浮球快捷动作配置（真值源=moon-well，buddy 页） ----------
+ * R69 的本地逐气泡开关已随真值迁移移除（单一真值不漂移）：扩展球只读
+ * moon-well POST /buddy/quick-actions（与 magicbook buddy 页「伙伴悬浮球快捷动作」
+ * 同一份），本页只负责把用户送去那里。 */
+document.getElementById('buddyConfigBtn').addEventListener('click', () => {
+  window.open(`${window.__magicLensSiteOrigin}/buddy`, '_blank', 'noopener');
 });
 
 $loginBtn.addEventListener('click', () => {

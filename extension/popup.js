@@ -91,6 +91,24 @@ document.getElementById('rescan').addEventListener('click', () => {
   });
 });
 
+/* ---------- 整页段落翻译开关（R67） ----------
+ * Why 直发 tabs.sendMessage 不走 background：SW 转发 case 的 sender.tab 只对 content
+ * script 来源成立，popup 发出的消息没有 tab，必须自己指到当前标签页。
+ * 按页临时态、无全局设置键——回包如实展示（含「请刷新页面」类可行动文案）。 */
+document.getElementById('pageTranslate').addEventListener('click', () => {
+  if (siteDisabled) return showStatus(false, '本站已在域名管理中禁用，恢复后刷新生效');
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tab = tabs && tabs[0];
+    if (!tab || tab.id == null) return showStatus(false, '找不到当前标签页');
+    chrome.tabs.sendMessage(tab.id, { type: MSG.ML_PT_TOGGLE }, (resp) => {
+      if (chrome.runtime.lastError || !resp || !resp.ok) {
+        return showStatus(false, (resp && resp.error) || '本页不支持整页翻译（浏览器内置页等）');
+      }
+      showStatus(true, resp.active ? '✓ 整页翻译已开启，滚动即译' : '整页翻译已关闭');
+    });
+  });
+});
+
 function showStatus(ok, text) {
   $status.className = ok ? '' : 'warn';
   $status.textContent = text;

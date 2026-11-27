@@ -268,3 +268,203 @@ MagicLens 扩展悬浮球在这些域自动隐藏；其他网站继续按用户�
   交给 AI 时由伴读发送侧既有的 4000 字上限截断，不在气泡阶段误报「选区过长」。
 - 中文判定覆盖 BMP 与扩展 A 区汉字；单个英文单词仍沿用与朗读一致的撇号/连字符口径。
 - 数字、URL、代码、英中混排均归入 `ai`，不尝试猜测用户想翻译还是提问。
+
+## 19. 划词发音四级链路：真人词音缓存与页面 CSP 解耦（2026-11-14，R66，v0.8.27；服务端 moon-well R259）
+
+**背景**：R43 起单词发音走有道 dictvoice，但 content script 直接 `new Audio(词典外链)`：
+零缓存、受宿主页 `media-src` CSP 管（严格站点被页面 CSP 打回机械音）、词典源单点。
+用户拍板：缓存每个单词的真人发音；词典直连失效走后端（后端给的也必须是词典真人音，
+不是 TTS 合成），后端也失效才机器合成；不预取。
+
+**决策**：
+
+- 四级的第 1~3 级全部收进 background SW（新消息 `ML_DICT_SPEAK`，rpc.js 注册表）：
+  ① IndexedDB 词音缓存（库 `magiclens`/store `dictvoice`，软上限 3000 词 LRU，键=
+  trim+弯撇号归一+小写，与 moon-well 服务端同口径）；② 有道 dictvoice 直连（SW fetch
+  吃 host_permissions 豁免）；③ moon-well `POST /tts/dict-voice`（R259：服务端拉词典
+  真人音落 MinIO 永久缓存 write-through，多设备共享、词典源变质时的存量保底）。
+- content 收 base64 字节后走 Web Audio（`decodeAudioData` + BufferSource）播放，与
+  宿主页 CSP 完全无涉；浏览器 speechSynthesis 机械声退居最终兜底（四级全空 / 短语
+  句子 / 解码或自动播放策略拦截）。迟到响应与迟到回退经 `speakSeq` + `current.text`
+  双闸作废。
+- 全链路零积分零 key（R53 `/tts/speak` 与 SRS `word-audio` 都是 TTS 机械音，语义不同
+  不复用）。
+
+**边界**：
+
+- 不预取：发音仍点 🔊 才取；缓存只加速重复播放与离线复播。
+- 音色固定美音（type=2），英音（type=1）未开口径；词形不做屈折还原（trains 与 train
+  词典音不同）。
+- 集成套件 ml-speak 行升级为四级口径（SW 直连 fail-fast → 代理命中双断言）。
+
+## 20. 段落整页翻译：攒批懒加载与内容性插入（2026-11-14，R67，v0.8.28；moon-well 零改动）
+
+**决策**：P1 收尾项「段落整页翻译（translate-batch）」落地（§5 遗留清零）。新模块
+`page-translate.js`（主清单注入，顶层 + 同源 iframe 经 contentDocument 伸手，§12 L165 口径）：
+悬浮球「🌐 整页翻译」气泡（经 SW 转发 ML_PT_TOGGLE）与 popup 按钮按页开关；段落进视口才请求
+（IO rootMargin 400px），**攒满 8 段或 800ms 即发、单飞行**，译文以兄弟块插原段下方（textContent-only）。
+
+- **为什么攒批是契约级设计**：服务端把一次请求内的 miss 段合并为一次 LLM 调用（per-call 计费 1 积分）
+  + 缓存命中段 1 积分/段——逐段发把 miss 路径放大 8 倍；批量让「一页英文」的成本从几十积分压到十几积分。
+  服务端 ES 缓存命中仍计费，故页内再挂一层内存缓存挡 toggle 循环的重复扣费（双层省钱）。
+- **Shadow DOM 口径的边界澄清**：AGENTS.md §0.2「UI 一律挂 closed Shadow DOM」管的是**UI 面板**
+  （气泡/抽屉/chip）；译文块是**内容性插入**（magicbook 阅读器 `reading-translation` 同款形态），
+  用内联 style 自包含——不注入全局样式表、不污染 window，约束的精神（样式隔离）不受损；
+  状态 chip 照旧 closed Shadow DOM（`#magiclens-pt-host`）。译文块带 `data-magiclens-translation`
+  标记，highlight.js `skipped()` 排除（译文英文词不进判定矩阵），划词/发现三处同步排除。
+- **计费护栏**：按页手动开关（无全局设置键，刷新即回关闭）、单次开启 ≤100 段、失败段两端不缓存可重试。
+  语义对齐 magicbook R291（顺序逐段 → 这里升级为批量顺序）与「整页翻译每加一项都只是往同一对中继加
+  消息类型」的 §12 预言——本次只加了 ML_TRANSLATE_BATCH / ML_PT_TOGGLE 两条消息类型。
+
+## 21. 悬浮球气泡逐项配置：registry 单源与双锁（2026-11-15，R69，v0.8.30）
+
+**决策**：清 R54 登记的「可配置性 LLD 遗留」——悬浮球六个径向气泡（💬 伴读对话 / 〰 生词高亮 /
+🌐 整页翻译 / 🎓 每日学习 / 📚 书库 / 👤 我的）+ 滚动复习词卡全部逐项可配置，入口在设置页
+「悬浮球」区块（用户拍板）。核心是**结构性防复发**：把「新增气泡必须可配置」从口头纪律
+变成代码契约。
+
+- **单源**：`common.js __magicLensBallActions`（frozen 纯数据：id/icon/label/cfgKey）——
+  ball.js 渲染、options.js 配置 UI、守卫对账三方共读这一份；run 处理器留在 ball.js 按 id
+  映射（options 页不加载 ball.js，故表必须可独立求值）。`__magicLensDefaults` 新增
+  `bubble*` × 6 + `ballReview`，默认全 true=升级零变化。
+- **双锁**（check-ball-visibility.js）：锁 A=注册表 cfgKey ↔ defaults bubble*/ballReview
+  键双向覆盖（ballReview 是词卡开关非气泡，单独断言）；锁 B=ball.js 禁私挂字面量 ACTIONS、
+  RUNS 按 id 全覆盖、options.js 必须引用注册表。再加注册表注释里的三条纪律（⚠️ 新增气泡
+  只改表一处）——下次加气泡若绕过配置面，守卫直接挂。
+- **即时重建**：配置变更走 remove()+build(cfg)+applySavedPosition() 整体重建（R223 命名
+  监听纪律下唯一对称拆装路径；位置/词卡状态从 storage 恢复）；sync() 按 visualSignature
+  判重，token 等非视觉键不触发重建。
+- **FAB 本体点击跟随配置**：chat 启用→开抽屉；被关→第一个启用气泡兜底；全关→
+  ML_OPENOPTIONS 开设置页（用户永远有「重新开启」的回路）。零气泡时 openBubbles 早退
+  （bubbles-open 还承担复习卡让位，空展开会误隐藏词卡）。
+
+## 22. 悬浮球配置真值源迁 moon-well：两颗球同一份配置（2026-11-15，R70，v0.8.31；moon-well R260 + magicbook R294 接力）
+
+**决策**：R69 的「扩展设置页本地开关」被用户纠偏——真意是**与 magicbook buddy 页同一份配置**。
+真值源收敛到 moon-well `POST /buddy/quick-actions`（R225/R234 迁移时 javadoc 就写明「三端共用单一
+配置源」的预留设计），扩展球只读。
+
+- **分工**：moon-well R260 扩白名单（+highlight/page-translate/review，扩展专有三项）；
+  magicbook R294 薄代理 + 存量懒迁移（stored=false 且 view_settings 有存量 → 代回填一次）
+  + 离线兜底 + buddy 页配置面 7→10（扩展项带「仅扩展」标、宿主球按 HOST_ACTION_IDS 过滤）；
+  magiclens R70 只读拉取。
+- **扩展侧语义**：缓存先行（storage.local magiclens.ballQuickActions）+ 启动即拉取校正，
+  签名变化才重建（球首屏零等待、断网用缓存）；`stored=true` 按 `selected ∩ registry`
+  **服务端顺序**渲染、词卡=selected 含 'review'；`stored=false`=注册表全量（升级零变化）。
+  R69 本地键（bubble*×6+ballReview）删除——单一真值不留影子开关。
+- **防复发升级**：R69 双锁的锁 A 从「本地默认键对账」升级为**跨仓断言**（registry id ⊆
+  moon-well BuddyService.QUICK_ACTION_IDS，`../moon-well` 同层文本解析）——新增气泡先扩
+  后端白名单，buddy 页才能表达它；锁 B 增补「options 不得再引用 registry」（防本地开关复活）。
+- **review 不是气泡**：词卡由 selected 含 'review' 驱动、不进 registry——宿主球无词卡是
+  自然分化，一个 chip 管两端。
+
+## 23. 翻译快捷键：扩展内录制式自定义 + 悬停单段翻译（2026-11-23，R71，v0.8.32；moon-well 零改动）
+
+**决策**：给「整页翻译」「翻译段落」配快捷键（用户点名参考沉浸式翻译），**方案 A=扩展内
+keydown 监听 + 设置页录制**（沉浸式翻译同款交互）；默认键位 `Alt+A`=整页开/关（与沉浸式
+翻译一致）、`Alt+P`=悬停单段翻译。被否：方案 B `chrome.commands`——键位自定义 UI 归
+`chrome://extensions/shortcuts`、扩展不可编程读写，与「快捷键设置」诉求不符；
+`toggle-highlight`（Alt+U）维持 commands 现状不动。后果（方案 A 固有，与沉浸式一致）：
+快捷键仅在网页聚焦时生效；iframe 内聚焦不响应。
+
+- **键位串形制**：`修饰键(固定序 Alt,Ctrl,Meta,Shift)+"+"+e.code`（如 `Alt+KeyA`），
+  存 chrome.storage.sync（`__magicLensDefaults` 两键，R46 单点纪律；`''`=禁用）。
+  **Why 存 e.code 不存 e.key**：macOS Option 组合把 e.key 变死键字符（Alt+A→å、
+  Alt+P→π），按 key 匹配在 Mac 整段失效。展示与匹配走 common.js 三件套
+  （`__magicLensComboFromEvent/Matches/Label`，纯函数供 options/page-translate/守卫三方共用，
+  Node 守卫锁契约）。
+- **悬停单段翻译**（page-translate.js 内新增）：鼠标锚点（顶层 mousemove 记坐标）→
+  `elementFromPoint → closest(TEXT_TAGS)` → 复用拆出的 `qualifies` 资格判定（与整页发现
+  同门槛零漂移）。状态机：done→按=撤销（置 `dismissed` 防 MO 重扫复活，sessionCache
+  保留译文=复活零计费）；pending/loading→忽略；idle/failed/新段→`start(false)` 保底开启
+  （**不做全页发现**——否则视口段落被放大成批量计费）→ `enqueue` 走既有攒批管线。
+- **触发守卫**：编辑态（input/textarea/select/contenteditable）不触发（mac 死键字符不搞
+  双重效果）；扩展自建 shadow host（含伴读抽屉——closed shadow 重定向让外层只见 host div）
+  显式忽略；域名禁用站静默；未命中组合零拦截（网页自身快捷键零干扰）；命中才
+  `preventDefault+stopPropagation`。
+- **设置页**：「快捷键」节两行录制框 + 清除；Esc 取消；与另一条冲突拒绝；storage 为唯一
+  事实源，page-translate 经 `storage.onChanged` 即时采纳（已开页面免刷新）。
+- **测试**：VM 契约段（combo round-trip + defaults + 装配静态断言）+ 集成套件
+  `ml-shortcuts`（单段→撤销→编辑态→整页 5+1 缓存合批→关闭→未命中零拦截），
+  guard 三向全绿。
+
+### 23.1 R72 增补：双击 Alt 别名 + Shift 悬停单段 + Mac 键位说明（2026-11-23，v0.8.33）
+
+核实沉浸式翻译官方口径（官方文档/FAQ）：整页开关=`Alt+A`；悬停段落翻译**无独立快捷键**，
+是「按住 Shift + 悬停」且**默认关闭**（Shift 通吃双平台、避开 mac Option 死键，代价是
+选区冲突误触，issue #1749 在讨论长按误触优化）；**「双击 Alt」不是官方功能**。用户拍板
+**两个都加**（保留 Alt+A/Alt+P）：
+
+- **双击 Alt/⌥ 切整页**（固定别名不进 storage）：裸 Alt（`code∈{AltLeft,AltRight}` 且仅
+  altKey）两次 keydown 间隔 ≤500ms（`DOUBLE_ALT_MS`）→ 走 `toggle()` 同一路径；任何其他
+  keydown 断连击；单次裸 Alt 不拦截不动作。
+- **按住 Shift 悬停单段**：裸 Shift（`code∈{ShiftLeft,ShiftRight}` 且仅 shiftKey）→
+  `translateParagraphAt(lastX, lastY)`，复用 Alt+P 全套状态机与资格闸。Why 敢默认启用而
+  沉浸式默认关：触发前提是光标已悬停在合格段落上（`elementFromPoint` 资格闸），纯 Shift
+  在其他位置零反应；Shift+Tab/方向键/字母均非裸 Shift 不命中。
+- **修饰键 code 闸**（`__magicLensComboFromEvent`）：`code` 命中修饰键物理键
+  （AltLeft 族）→ 返回 null——录制器自动「继续等待」（根修 `Alt+AltLeft` 怪串）、匹配器
+  永不命中裸修饰键（双击连击不误碰已录串）。
+- Mac 口径：Alt+A/Alt+P 在 Mac 即 ⌥A/⌥P（e.code 匹配，无平台分叉），设置页 hint 补
+  「Mac 上 Alt=⌥ Option」说明。
+
+## 24. 网页正文段落朗读：默认 AI 音 + 段末 ▶ + 快捷键/右键菜单（2026-11-27，R75，v0.8.37）
+
+**背景**：用户以 Anthropic《Building always-on agents》长文为例，问 MagicLens 能否「朗读段落」。
+现状是「选中整段点 🔊」可读，但走浏览器 `speechSynthesis`（机械音、单段、无连播/高亮）；
+用户拍板：**默认 AI 音、不做计费二次确认、快捷键 + 右键菜单、增加每段 ▶**。
+
+**决策**：
+
+- **独立模块 `page-speak.js`**，只装配顶层文档。段落发现复用「可见 + 非中文主导 + 排除代码/
+  导航/扩展 UI」的正文口径（`P/LI/BLOCKQUOTE/DD/DT/H1-H6`，标题最短 8 字符、正文 40 字符，
+  单页 ≤200 段）。magicbook 阅读器正文在 iframe 且站点已有段落朗读，本模块不抢。
+- **默认 AI 音**：一律走 `ML_TTS_SPEAK → /tts/speak`（1..2000 字符）；超过 1800 字符用
+  `__magicLensSplitForSpeech` 切句顺序播。不退回 `speechSynthesis`，避免「装了 AI 音却听到机械声」。
+- **三种入口**：段落末尾悬浮 ▶（随段落 hover 出现在最后一行行尾，对齐 magicbook 段落工具；
+  播放中变 ■ 可再点停止）；整页连播快捷键（默认 `Alt+S`，设置页可录制，`''`=禁用）；
+  右键菜单「朗读本段」「朗读全文 / 停止」。右键带选区时优先朗读包含选区的段落。
+- **播放器**：控制条（暂停/继续、下一段、`1.0/0.75/0.5x`、停止）+ 当前段高亮 + 自动滚屏；
+  语速存 `chrome.storage.local magiclens.ttsSpeed`，与聊天朗读共用。播放优先 `<audio>` +
+  `preservesPitch`（可暂停/变速不变调），宿主页 `media-src` 严格时回退 Web Audio。
+- **成本与缓存**：听=消费仍是 moon-well 口径（首次 `floor(字符/50)`，服务端缓存命中 1 积分/段）。
+  用户选「不二次确认」，因此用工程手段省钱：播放前预取下一段（SW single-flight 合并并发）、
+  SW 新增**文本级 IndexedDB 音频缓存**（`ttsaudio` store，200 段 LRU、7 天 TTL，与 moon-well
+  临时语音档同寿命）——同一段重听零网络零积分。长文首次全篇约「字符数/50」积分。
+- **失败可见**：401 提示重新登录；积分不足/服务端错误把 moon-well 的干净文案显示在控制条上方，
+  不静默降级成「没声音」。
+
+**边界**：
+
+- 仅顶层文档；同源 iframe 不装配；magicbook 域（含子域）整体让位宿主阅读器，避免双重朗读。
+- 只读正文段落，不读表格单元格、代码块、表单、导航/页眉页脚与扩展自身 UI。
+- 主开关在页面加载时判定；禁用站/关闭态零 UI 零监听。页面加载后再打开主开关需刷新。
+- SPA 动态正文有 900ms 防抖重扫；连播中不重扫，避免播放引用失效。
+
+## 25. 段末工具条只留「朗读 + 翻译」：译复用 Alt+P 状态机（2026-11-27，R76，v0.8.38）
+
+**背景**：R75 把朗读入口放到段落末尾（对齐 magicbook 段落工具）后，用户要求「段落末尾的
+翻译按钮也加上，只要这两个，其他不要」——即段末只保留 **▶ 朗读 / 译** 两个动作。
+
+**决策**：
+
+- **UI 仍在 `page-speak.js` 的同一个 shadow host**：`.mlr-hover` 由单按钮改为一组两个
+  24px 圆钮（`.mlr-speak` / `.mlr-trans`），仍是一个固定定位的共享浮钮、不向宿主插 DOM；
+  组宽 52px，贴段落最后一行行尾，右侧放不下时落到行下右对齐。
+- **翻译不自建第二套状态机**：`page-translate.js` 把 R71 单段翻译核心抽成
+  `translateParagraphEl(el)`，Alt+P / 按住 Shift 悬停 / 段末「译」三个入口共用它；
+  只经 `window.__magicLensParagraphTranslate(State)` 暴露两个函数，`records`/队列/
+  页内缓存/计费护栏都不外泄，也不复制资格口径。
+- **不做「点了才报错」**：`__magicLensParagraphTranslateState(el)` 对未入 records 的段落
+  按同一资格闸（≥40 字符、CJK ≤30%、排除代码/编辑器/扩展 UI）现场判定，不合格返回
+  `n/a`，段末工具据此不渲染「译」——短标题（<40 字符，如本文 fixture 的 H1）只留 ▶。
+- **按钮态**：`译` 在请求在途显示 `⟳`、已译显示 `is-done`（半透明，语义=再点撤销）；
+  `▶` 保持 R75 语义（播放中 `■`，再点停止）。两个按钮状态都从各自真值源读，不互相推断。
+
+**边界**：
+
+- 段末工具**只有这两个按钮**：不提供标注/问 AI/复制等其它动作（用户明确拍板）。
+- 与 Alt+P 同一份省钱口径：单段只发 1 段 `translate-batch`，页内缓存命中零请求，
+  撤销不动网络；「译」不触发整页发现（`start(false)`），不会把一次点击放大成整页计费。
+- 翻译块的插入/撤销仍归 `page-translate.js`（`data-magiclens-translation` 排除标记不变），
+  朗读的高亮/滚屏互不干扰。

@@ -27,14 +27,17 @@
     const seen = new Set();
     let total = 0;
     try {
+      // ⚠️ 必须用 FILTER_SKIP 而非 REJECT（R73）：REJECT 会把不匹配容器连同整棵子树
+      // 剪掉——真实页面的正文段落都嵌在 div/article 里，从 body 出发遇容器即全灭
+      //（伴读上下文采零、只剩标题）；SKIP 只跳节点本身、继续下钻
       const walker = document.createTreeWalker(
         document.body, NodeFilter.SHOW_ELEMENT,
-        { acceptNode: (el) => (el.matches(TEXT_TAGS) && visible(el) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT) }
+        { acceptNode: (el) => (el.matches(TEXT_TAGS) && visible(el) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP) }
       );
       while (walker.nextNode()) {
         const el = walker.currentNode;
         // 跳过 MagicLens 自己的 UI 与表单类噪声
-        if (el.closest('#magiclens-host, #magiclens-chat-host, script, style, noscript, textarea, input, select')) continue;
+        if (el.closest('#magiclens-host, #magiclens-chat-host, #magiclens-read-host, script, style, noscript, textarea, input, select')) continue;
         const text = (el.innerText || '').replace(/\s+/g, ' ').trim();
         if (text.length < 2 || seen.has(text)) continue;
         seen.add(text);

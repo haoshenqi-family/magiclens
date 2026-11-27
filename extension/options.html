@@ -37,6 +37,11 @@
     /* R54 常驻入口：首次安装引导卡片 */
     .ball-ask { border: 1px solid #c7d2fe; background: #eef2ff; border-radius: 10px; padding: 12px 14px; }
     .ball-ask label { color: #4338ca; }
+    /* R71 翻译快捷键录制 */
+    .klabel { flex: 0 0 9.5em; font-size: 13px; font-weight: 400; }
+    .key-input { flex: 1; min-width: 0; border: 1px solid #d1d5db; border-radius: 8px; padding: 7px 10px; font: inherit; color: #374151; background: #f9fafb; cursor: pointer; }
+    .key-input.rec { outline: 2px solid #c7d2fe; color: #4f46e5; background: #fff; }
+    .key-input::placeholder { color: #9ca3af; }
   </style>
 </head>
 <body>
@@ -87,10 +92,34 @@
     <label><input type="checkbox" id="autoTranslate"> 选中即自动翻译（关闭后需点气泡里的「译」）</label>
   </div>
 
-  <!-- R54 常驻入口开关（悬浮球） -->
+  <!-- R71 翻译快捷键：录制式自定义（沉浸式翻译同款交互），存 chrome.storage.sync，''=禁用 -->
+  <div class="field">
+    <label>快捷键</label>
+    <div class="row">
+      <span class="klabel">整页翻译 开/关</span>
+      <input type="text" id="scPage" class="key-input" readonly>
+      <button id="scPageClear" class="ghost">清除</button>
+    </div>
+    <div class="row">
+      <span class="klabel">翻译鼠标所在段落</span>
+      <input type="text" id="scPara" class="key-input" readonly>
+      <button id="scParaClear" class="ghost">清除</button>
+    </div>
+    <div class="row">
+      <span class="klabel">朗读网页正文 开/停</span>
+      <input type="text" id="scRead" class="key-input" readonly>
+      <button id="scReadClear" class="ghost">清除</button>
+    </div>
+    <div id="scErr" class="err-hint" hidden></div>
+    <div class="hint">点击输入框后按下组合键即可录制（Esc 取消，需含 Alt / Ctrl / ⌘ 任一修饰键；Mac 上 Alt = <b>⌥ Option</b>）；对已打开页面<b>即时生效</b>。<b>整页翻译</b>=当前网页正文随滚动整段双语对照（同悬浮球 🌐 / popup 按钮）；<b>翻译段落</b>=只译鼠标所在的那一段，再按一次撤销；<b>朗读正文</b>=从当前视口起逐段 AI 朗读、自动滚屏，再按一次停止。另有两个固定别名：<b>双击 Alt / ⌥</b> 同样切换整页翻译；<b>按住 Shift</b> 悬停到正文段落即翻译该段（沉浸式翻译同款交互）。正在输入文字的编辑框内与域名管理名单站点不触发。</div>
+  </div>
+
+  <!-- R54 常驻入口开关（悬浮球）+ R70 逐项配置真值源=moon-well（buddy 页） -->
   <div class="field">
     <label><input type="checkbox" id="ballEnabled"> 常驻入口（悬浮球）：网页右下角显示，点击直接打开 AI 伴读</label>
     <div class="hint">已打开的页面<b>实时生效</b>（无需刷新）；magicbook 站内使用站点自带悬浮球，扩展球会自动隐藏；域名管理名单里的站点不显示；主开关关闭或扩展被禁用时也不显示。关闭悬浮球后仍可划词点「问 AI」进入伴读。</div>
+    <div class="hint">气泡快捷功能（💬 对话 / 〰 生词高亮 / 🌐 整页翻译 / 🎓 每日学习 / 📚 书库 / 👤 我的）与滚动复习词卡与 <b>magicbook 伙伴页同一份配置</b>：在伙伴页「伙伴悬浮球快捷动作」勾选（扩展专有三项带「仅扩展」标），保存后扩展球下次构建生效；从未配置过 = 全部显示。</div>
+    <div class="row"><button id="buddyConfigBtn">打开 magicbook 伙伴页配置</button></div>
   </div>
 
   <div class="field">

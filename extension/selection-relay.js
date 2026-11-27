@@ -44,7 +44,35 @@
   let extVersion;
   try { extVersion = chrome.runtime.getManifest().version; } catch { return; }
 
+  // R68 发送端抽取：控件轨与 range 轨共用（文本 + 已换算到顶层视口的矩形）。
+  function sendSelection(text, mapped) {
+    try {
+      chrome.runtime.sendMessage({ type: MSG.ML_SELECTION, text, rect: mapped }, () => {
+        void chrome.runtime.lastError; // 顶层尚未装载（站点禁用/刚重载）时无人接收，静默即可
+      });
+    } catch {
+      retire(); // 发消息这一刻上下文已失效：摘掉自己，不要再抛第二次
+    }
+  }
+
   function report() {
+    // R68 控件轨：input/textarea 内选区不进 window.getSelection()（与顶层
+    // selectionInfo 同口径）——iframe 内的输入框/批注框此前同样划词不弹。只读
+    // selectionStart/End，对宿主文档零干扰；控件内无有效选区即结束，不回退全
+    // 文档轨（此时 window 选区必为塌缩，回退只会重复判空）。锚点用字段矩形：
+    // iframe 内字段一般不大，不做顶层那套光标行近似。
+    const active = document.activeElement;
+    if ((active instanceof HTMLTextAreaElement ||
+         (active instanceof HTMLInputElement &&
+          ['text', 'search', 'url', 'tel'].includes(active.type))) && !active.disabled) {
+      const s = active.selectionStart, e = active.selectionEnd;
+      if (s == null || e == null || s === e) return;
+      const text = active.value.slice(s, e).replace(/\s+/g, ' ').trim();
+      if (!text) return;
+      const mapped = toTopViewport(active.getBoundingClientRect());
+      if (mapped) sendSelection(text, mapped);
+      return;
+    }
     let sel;
     try { sel = window.getSelection(); } catch { return; } // 文档可能已随翻章销毁
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return; // 取消选区不弹：收起另有路径
@@ -55,13 +83,7 @@
     if (!rect.width && !rect.height) return; // 选区不可见（折叠元素内等）
     const mapped = toTopViewport(rect);
     if (!mapped) return;
-    try {
-      chrome.runtime.sendMessage({ type: MSG.ML_SELECTION, text, rect: mapped }, () => {
-        void chrome.runtime.lastError; // 顶层尚未装载（站点禁用/刚重载）时无人接收，静默即可
-      });
-    } catch {
-      retire(); // 发消息这一刻上下文已失效：摘掉自己，不要再抛第二次
-    }
+    sendSelection(text, mapped);
   }
 
   // 能力握手标记（R37）：写在**本文档**上，供宿主页面（magicbook 阅读器）逐项判断

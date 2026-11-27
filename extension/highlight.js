@@ -99,7 +99,10 @@
 
   function skipped(el) {
     for (let n = el; n; n = n.parentElement) {
-      if (SKIP_TAGS.has(n.tagName) || n.id === 'magiclens-host' || n.id === 'magiclens-chat-host') return true;
+      if (SKIP_TAGS.has(n.tagName) || n.id === 'magiclens-host' || n.id === 'magiclens-chat-host' || n.id === 'magiclens-read-host') return true;
+      // R67：整页翻译的译文块不参与生词判定/高亮——译文里偶带的英文词（专名等）
+      // 入判定矩阵是纯噪声，且波浪线叠在译文上视觉混乱
+      if (n.hasAttribute && n.hasAttribute('data-magiclens-translation')) return true;
       if (n.isContentEditable) return true;
     }
     return false;
@@ -633,7 +636,7 @@
 
   /* ---------- 点词交互：点高亮词 → 唤起划词气泡 ---------- */
   function isOwnUiPath(e) {
-    return e.composedPath().some((n) => n && (n.id === 'magiclens-host' || n.id === 'magiclens-chat-host'));
+    return e.composedPath().some((n) => n && (n.id === 'magiclens-host' || n.id === 'magiclens-chat-host' || n.id === 'magiclens-read-host'));
   }
 
   function onWordClick(e, st) {

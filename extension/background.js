@@ -230,32 +230,264 @@ async function transcribeAudio(audioBase64) {
  * Why 超时放宽到 180s：fnOS 本地 Qwen3-TTS 长段合成本来就要分钟级（tts.local.timeout-ms 同值）。 */
 const TTS_TIMEOUT_MS = 180000;
 
-async function synthesizeSpeech(text) {
-  const out = await callMoonWellRaw('/tts/speak', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
-  }, TTS_TIMEOUT_MS);
-  if (out.error) return { ok: false, error: out.error, status: out.status ?? 0, auth: out.auth };
-  const resp = out.resp;
-  const type = (resp.headers.get('Content-Type') || '').toLowerCase();
-  if (resp.ok && (type.startsWith('audio/') || type.startsWith('application/octet-stream'))) {
-    return { ok: true, audioBase64: __magicLensB64Encode(await resp.arrayBuffer()) };
-  }
-  // 失败体是 moon-well 的 Result 信封（HTTP 500 + JSON），典型是「积分不足，无法使用AI功能」。
-  // 不带出 message 的话前端只能拿 JSON 字节去解码，把计费拒绝伪装成「播放器坏了」（R227）。
-  let payload = null;
+const ttsInflight = new Map();
+
+async function synthesizeSpeech(rawText) {
+  const text = String(rawText || '').slice(0, 2000);
+  if (!text.trim()) return { ok: false, error: 'text 不能为空', status: 0 };
+  // 预取与当前段可能同时请求同一文本：single-flight 合并，避免一次朗读重复计费。
+  if (ttsInflight.has(text)) return ttsInflight.get(text);
+  const job = (async () => {
+    // R75：文本级本地缓存。命中直接回字节，零网络零积分；服务端 7 天临时缓存仍在，
+    // 这里只是把「同一浏览器重听」从 1 积分/段降为 0。
+    const cached = await ttsCacheGet(text);
+    if (cached) {
+      await ttsCachePut(text, cached); // LRU touch
+      return { ok: true, audioBase64: cached, source: 'cache' };
+    }
+    const out = await callMoonWellRaw('/tts/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    }, TTS_TIMEOUT_MS);
+    if (out.error) return { ok: false, error: out.error, status: out.status ?? 0, auth: out.auth };
+    const resp = out.resp;
+    const type = (resp.headers.get('Content-Type') || '').toLowerCase();
+    if (resp.ok && (type.startsWith('audio/') || type.startsWith('application/octet-stream'))) {
+      const audioBase64 = __magicLensB64Encode(await resp.arrayBuffer());
+      // 写完再回：保证紧接着的同段重播必定命中本地缓存（缓存写失败已在内部降级）。
+      await ttsCachePut(text, audioBase64);
+      return { ok: true, audioBase64, source: 'tts' };
+    }
+    // 失败体是 moon-well 的 Result 信封（HTTP 500 + JSON），典型是「积分不足，无法使用AI功能」。
+    // 不带出 message 的话前端只能拿 JSON 字节去解码，把计费拒绝伪装成「播放器坏了」（R227）。
+    let payload = null;
+    try {
+      payload = await resp.json();
+    } catch {
+      /* 非 JSON 按状态码兜底 */
+    }
+    return {
+      ok: false,
+      error: (payload && (payload.message || payload.msg)) || `HTTP ${resp.status}`,
+      status: resp.status,
+      auth: resp.status === 401 || resp.status === 403,
+    };
+  })();
+  ttsInflight.set(text, job);
   try {
-    payload = await resp.json();
-  } catch {
-    /* 非 JSON 按状态码兜底 */
+    return await job;
+  } finally {
+    ttsInflight.delete(text);
   }
-  return {
-    ok: false,
-    error: (payload && (payload.message || payload.msg)) || `HTTP ${resp.status}`,
-    status: resp.status,
-    auth: resp.status === 401 || resp.status === 403,
-  };
+}
+
+/* ---------- R66 划词发音：四级链路（IndexedDB 缓存 → 词典直连 → moon-well 词典代理） ----------
+ * 单个英文单词的真人词库音统一由 SW 取字节回传（content 用 Web Audio 解码播放，与宿主
+ * 页 CSP 无涉——此前 content 直接 new Audio(词典外链)，在 media-src 严格的站点会被页面
+ * CSP 打回机械音）。浏览器 speechSynthesis 机械声退居最终兜底，由 content 在四级全空时
+ * 自行降级。缓存键与 moon-well DictVoiceService 同口径：trim + 弯撇号归一 + 小写。
+ * Why SW 缓存不用 chrome.storage：local 默认 ~10MB 只装得下 ~800 词（R43 实测 ~12KB/词），
+ * IndexedDB 无此配额墙且跨 SW 挂起持久；软上限 LRU 防无界增长。 */
+const DICT_VOICE_URL = 'https://dict.youdao.com/dictvoice?type=2&audio='; // type=2 美式（1 英式）
+// 与 moon-well DictVoiceService.SINGLE_WORD_RE 同口径（客户端已 trim + 归一）
+const DICT_WORD_RE = /^[a-z](?:[a-z'-]*[a-z])?$/;
+const DICT_CACHE_DB = 'magiclens';
+const DICT_CACHE_STORE = 'dictvoice';
+const DICT_CACHE_MAX = 3000; // 3000 词 ≈ 36MB，超限按 ts LRU 剪最旧
+// R75 正文朗读：文本级音频缓存。服务端临时档 7 天，客户端同 TTL；200 段足够覆盖
+// 数篇长文的连续重听，避免把 IndexedDB 撑到浏览器配额。
+const TTS_CACHE_STORE = 'ttsaudio';
+const TTS_CACHE_MAX = 200;
+const TTS_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const DICT_FETCH_TIMEOUT_MS = 5000;   // 词典直连：小文件（~12KB/词），5s 足够
+const DICT_PROXY_TIMEOUT_MS = 10000;  // 后端代理：跨公网到 fnOS，放宽一点
+
+let dictCachePromise = null;
+
+/** IndexedDB 单例：库/表首次打开时创建，ts 索引供 LRU 剪枝按时间序遍历。 */
+function dictCache() {
+  if (!dictCachePromise) {
+    dictCachePromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(DICT_CACHE_DB, 2);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(DICT_CACHE_STORE)) {
+          const store = db.createObjectStore(DICT_CACHE_STORE, { keyPath: 'word' });
+          store.createIndex('ts', 'ts');
+        }
+        if (!db.objectStoreNames.contains(TTS_CACHE_STORE)) {
+          const store = db.createObjectStore(TTS_CACHE_STORE, { keyPath: 'text' });
+          store.createIndex('ts', 'ts');
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error || new Error('indexeddb open failed'));
+      req.onblocked = () => reject(new Error('indexeddb upgrade blocked'));
+    });
+  }
+  return dictCachePromise;
+}
+
+async function dictCacheGet(word) {
+  try {
+    const db = await dictCache();
+    return await new Promise((resolve, reject) => {
+      const req = db.transaction(DICT_CACHE_STORE).objectStore(DICT_CACHE_STORE).get(word);
+      req.onsuccess = () => resolve(req.result ? req.result.audio : null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) {
+    // 缓存读失败按 miss 降级（缓存是加速器不是依赖），本次照走四级链路后半程
+    console.warn('[MagicLens] 词音缓存读失败，按 miss 处理', e);
+    return null;
+  }
+}
+
+async function dictCachePut(word, audio) {
+  try {
+    const db = await dictCache();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(DICT_CACHE_STORE, 'readwrite');
+      tx.objectStore(DICT_CACHE_STORE).put({ word, audio, ts: Date.now() });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    await cacheTrim(db, DICT_CACHE_STORE, DICT_CACHE_MAX);
+  } catch (e) {
+    // 写失败不拦播放：本次字节已在手，下次 miss 自愈重拉
+    console.warn('[MagicLens] 词音缓存写失败（不影响本次播放）', e);
+  }
+}
+
+/** 软上限剪枝：超过 max 时按 ts 索引从最旧开始删。 */
+async function cacheTrim(db, storeName, max) {
+  const tx = db.transaction(storeName, 'readwrite');
+  const store = tx.objectStore(storeName);
+  const count = await new Promise((resolve, reject) => {
+    const req = store.count();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  if (count <= max) return;
+  const index = store.index('ts');
+  let excess = count - max;
+  await new Promise((resolve, reject) => {
+    const req = index.openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor || excess <= 0) return resolve();
+      cursor.delete();
+      excess -= 1;
+      cursor.continue();
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function ttsCacheGet(text) {
+  try {
+    const db = await dictCache();
+    const rec = await new Promise((resolve, reject) => {
+      const req = db.transaction(TTS_CACHE_STORE).objectStore(TTS_CACHE_STORE).get(text);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+    if (!rec || !rec.audio) return null;
+    if (Date.now() - Number(rec.ts || 0) > TTS_CACHE_TTL_MS) return null;
+    return rec.audio;
+  } catch (e) {
+    console.warn('[MagicLens] 朗读缓存读失败，按 miss 处理', e);
+    return null;
+  }
+}
+
+async function ttsCachePut(text, audio) {
+  try {
+    const db = await dictCache();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(TTS_CACHE_STORE, 'readwrite');
+      tx.objectStore(TTS_CACHE_STORE).put({ text, audio, ts: Date.now() });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    await cacheTrim(db, TTS_CACHE_STORE, TTS_CACHE_MAX);
+  } catch (e) {
+    console.warn('[MagicLens] 朗读缓存写失败（不影响本次播放）', e);
+  }
+}
+
+/** 词典直连：SW fetch 吃 host_permissions 豁免（无 CORS 顾虑）。形制校验同服务端——
+ * 非 200 / 非 audio/* / 空体都视为无词典音，绝不把错误页字节当音频回传。 */
+async function dictDirectVoice(word) {
+  try {
+    const resp = await fetch(DICT_VOICE_URL + encodeURIComponent(word), {
+      signal: AbortSignal.timeout(DICT_FETCH_TIMEOUT_MS),
+    });
+    const type = (resp.headers.get('Content-Type') || '').toLowerCase();
+    if (!resp.ok || !type.startsWith('audio/')) return null;
+    const buf = await resp.arrayBuffer();
+    return buf.byteLength > 0 ? __magicLensB64Encode(buf) : null;
+  } catch (e) {
+    console.warn('[MagicLens] 词典直连失败，转后端代理', e && e.message);
+    return null;
+  }
+}
+
+/** 后端代理：moon-well /tts/dict-voice（R259，词典真人音非 TTS 合成；MinIO 永久缓存
+ * write-through——多设备共享，且哪天词典源变质，服务端存量词音仍在）。404/断网/未登录
+ * 都返回 null，由 content 落到机器合成兜底；错误详情不外露（用户无需感知失败原因）。 */
+async function dictProxyVoice(word) {
+  try {
+    const out = await callMoonWellRaw('/tts/dict-voice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word }),
+    }, DICT_PROXY_TIMEOUT_MS);
+    if (out.error || !out.resp) return null;
+    const resp = out.resp;
+    const type = (resp.headers.get('Content-Type') || '').toLowerCase();
+    if (!resp.ok || !(type.startsWith('audio/') || type.startsWith('application/octet-stream'))) return null;
+    const buf = await resp.arrayBuffer();
+    return buf.byteLength > 0 ? __magicLensB64Encode(buf) : null;
+  } catch (e) {
+    console.warn('[MagicLens] 后端词典代理失败', e && e.message);
+    return null;
+  }
+}
+
+// single-flight：同词并发请求共享一次四级链路（R39 在途守卫同思路，防连点叠请求）
+const dictInflight = new Map();
+
+async function speakWord(rawWord) {
+  // 归一与 moon-well 同口径：trim + 弯撇号归一 + 小写（don’t 与 don't 共享一条缓存）
+  const word = String(rawWord || '').trim().replace(/’/g, "'").toLowerCase();
+  if (!DICT_WORD_RE.test(word)) return { ok: false, error: 'not-a-word' };
+  if (dictInflight.has(word)) return dictInflight.get(word);
+  const job = (async () => {
+    try {
+      const cached = await dictCacheGet(word);
+      if (cached) {
+        dictCachePut(word, cached); // LRU touch：命中也刷新 ts（写失败无碍）
+        return { ok: true, audioBase64: cached, source: 'cache' };
+      }
+      const direct = await dictDirectVoice(word);
+      if (direct) {
+        dictCachePut(word, direct);
+        return { ok: true, audioBase64: direct, source: 'dict' };
+      }
+      const proxied = await dictProxyVoice(word);
+      if (proxied) {
+        dictCachePut(word, proxied); // 后端音同样入客户端缓存：下次零网络
+        return { ok: true, audioBase64: proxied, source: 'proxy' };
+      }
+      return { ok: false, error: 'no dict voice' };
+    } finally {
+      dictInflight.delete(word);
+    }
+  })();
+  dictInflight.set(word, job);
+  return job;
 }
 
 // R40 查词补报：会话内去重即可（SW 挂起重置后服务端幂等兜底），遥测失败静默
@@ -287,6 +519,33 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse(
           await callApi('/vocabulary/reading/translate', {
             body: { text },
+          })
+        );
+        break;
+      }
+      case MSG.ML_TRANSLATE_BATCH: {
+        // R67 段落整页翻译：批量端点 moon-well /vocabulary/reading/translate-batch。
+        // 契约（服务端 ReadingTranslationBatchRequest）：paragraphs ≤20 且每段 ≤2000 字符，
+        // 返回 Result<List<String>> 顺序数组、""=该段失败（可重试、未写缓存）。
+        // 计费 = 1 积分/次 LLM 调用（miss 段服务端合并为一次调用）+ 1 积分/缓存命中段。
+        // Why 60s：一次调用要 LLM 译完最多 20 段，20s 交互超时不够（服务端同步无流式）
+        const paragraphs = (Array.isArray(msg.paragraphs) ? msg.paragraphs : [])
+          .map((p) => String(p || '').replace(/\s+/g, ' ').trim())
+          .filter(Boolean)
+          .slice(0, 20)
+          .map((p) => p.slice(0, 2000));
+        if (!paragraphs.length) {
+          sendResponse({ ok: false, error: '没有可翻译的段落', status: 0 });
+          break;
+        }
+        sendResponse(
+          await callApi('/vocabulary/reading/translate-batch', {
+            body: {
+              paragraphs,
+              bookName: String(msg.bookName || '').slice(0, 200),
+              chapter: String(msg.chapter || '').slice(0, 200),
+            },
+            timeoutMs: 60000,
           })
         );
         break;
@@ -354,6 +613,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           '/ai/agent/memory/list', '/ai/agent/memory/save', '/ai/agent/memory/delete',
           '/ai/agent/book-profile',
           '/buddy/catalog', // R54 修订：悬浮球 buddy 形象（equipped 伙伴头像直链）
+          // R70 悬浮球快捷动作真值源（buddy 页同源配置；buddy 域全 POST，读也是 POST）
+          '/buddy/quick-actions',
         ]);
         if (!ALLOWED.has(msg.path)) {
           sendResponse({ ok: false, error: 'path not allowed', status: 0 });
@@ -377,6 +638,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             });
           }
           sendResponse({ ok: true });
+        });
+        break;
+      }
+      case MSG.ML_PT_TOGGLE: {
+        // R67 段落整页翻译开关：悬浮球（content script 用不了 chrome.tabs）经此转发给
+        // 同 tab 的 page-translate.js。popup 直发 tabs.sendMessage 不走此 case（sender 无 tab）。
+        // Why 不做 storage 兜底翻转（与 ML_HL_TOGGLE 不同）：段落翻译是按页临时态、无全局设置键，
+        // 旧页面收不到就如实回错——话术给可行动指引（R63 教训：unknown message type 不进 UI）
+        if (!sender.tab || sender.tab.id == null) {
+          sendResponse({ ok: false, error: '找不到当前标签页' });
+          break;
+        }
+        chrome.tabs.sendMessage(sender.tab.id, { type: MSG.ML_PT_TOGGLE }, (resp) => {
+          if (chrome.runtime.lastError) {
+            sendResponse({ ok: false, error: '本页尚未加载段落翻译，请刷新页面后重试' });
+            return;
+          }
+          sendResponse(resp || { ok: false, error: '本页尚未加载段落翻译，请刷新页面后重试' });
         });
         break;
       }
@@ -493,16 +772,56 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // 与宿主页 CSP 无涉——字节经消息通道进来，连 connect-src 都不占用）
         sendResponse(await synthesizeSpeech(String(msg.text || '').slice(0, 2000)));
         break;
+      case MSG.ML_DICT_SPEAK:
+        // R66 划词发音：单词真人词库音四级链路（IndexedDB 缓存 → 词典直连 → moon-well
+        // 词典代理），字节回传后 content 用 Web Audio 解码；四级全空由 content 落机器合成
+        sendResponse(await speakWord(msg.word));
+        break;
       default:
-        sendResponse({ ok: false, error: 'unknown message type' });
+        // R63：把不认识的类型本身带回去——版本漂移（旧 SW 跑着旧消息表、新 content script
+        // 发新类型）时在 console 一眼能定位；错误串前缀保持不变，content 侧按前缀翻话术
+        sendResponse({ ok: false, error: 'unknown message type', type: (msg && msg.type) || null });
     }
   })();
   return true; // 保持通道开启，等待异步 sendResponse
 });
 
+/* ---------- R75 右键菜单：正文段落朗读 ---------- */
+const READ_MENU_PARAGRAPH = 'magiclens-read-paragraph';
+const READ_MENU_TOGGLE = 'magiclens-read-toggle';
+
+function ensureReadMenus() {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: READ_MENU_PARAGRAPH,
+      title: 'MagicLens 朗读本段',
+      contexts: ['page', 'selection'],
+      documentUrlPatterns: ['http://*/*', 'https://*/*'],
+    });
+    chrome.contextMenus.create({
+      id: READ_MENU_TOGGLE,
+      title: 'MagicLens 朗读全文 / 停止',
+      contexts: ['page', 'selection'],
+      documentUrlPatterns: ['http://*/*', 'https://*/*'],
+    });
+  });
+}
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (!tab || tab.id == null) return;
+  if (info.menuItemId !== READ_MENU_PARAGRAPH && info.menuItemId !== READ_MENU_TOGGLE) return;
+  const type = info.menuItemId === READ_MENU_PARAGRAPH ? MSG.ML_READ_PARAGRAPH : MSG.ML_READ_TOGGLE;
+  chrome.tabs.sendMessage(tab.id, {
+    type,
+    selectionText: info.selectionText || '',
+  }, () => void chrome.runtime.lastError);
+});
+
 chrome.runtime.onInstalled.addListener((details) => {
+  ensureReadMenus();
   if (details.reason === 'install') chrome.runtime.openOptionsPage();
 });
+chrome.runtime.onStartup.addListener(ensureReadMenus);
 
 // Alt+U 快捷开关生词高亮（manifest commands）：优先转发给当前标签页的 highlight.js；
 // 页面无 content script 时（chrome:// 内置页、扩展重载前的旧标签）由 background

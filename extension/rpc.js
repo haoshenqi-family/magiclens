@@ -51,6 +51,9 @@
     ML_API: 'ml:api',
     ML_AUTH: 'ml:auth',
     ML_DETAIL: 'ml:detail',
+    // R66 划词发音：单词真人词库音四级链路（IndexedDB 缓存 → 词典直连 → moon-well
+    // 词典代理），SW 统一取字节回传，content 用 Web Audio 解码播放（对宿主页 CSP 免疫）
+    ML_DICT_SPEAK: 'ml:dict-speak',
     ML_FAMILIAR: 'ml:familiar',
     ML_HL_RESCAN: 'ml:hl-rescan',
     ML_HL_TOGGLE: 'ml:hl-toggle',
@@ -60,6 +63,12 @@
     ML_MARK: 'ml:mark',
     ML_OPENSELECTION: 'ml:openSelection',
     ML_OPENOPTIONS: 'ml:openOptions',
+    // R75 网页正文朗读：右键菜单 → background 转发给当前标签页的 page-speak.js。
+    // PARAGRAPH 带 selectionText（选中文本优先），TOGGLE 为整页连播开/停。
+    ML_READ_PARAGRAPH: 'ml:read-paragraph',
+    ML_READ_TOGGLE: 'ml:read-toggle',
+    // R67 段落整页翻译：popup→tab 的开/关切换（悬浮球直调 window 钩子不走此消息）
+    ML_PT_TOGGLE: 'ml:pt-toggle',
     // R53 伴读语音：START/STOP/CANCEL 是 content→SW；GO/DONE 是 SW→offscreen 文档的
     // 内部转发。Why 分两套：content 的 runtime.sendMessage 会广播到全部扩展上下文
     //（含 offscreen），offscreen 只认自己那两个类型、其余不回话，避免抢占响应通道。
@@ -77,6 +86,11 @@
     ML_SELECTION: 'ml:selection',
     ML_SETTINGS: 'ml:settings',
     ML_TRANSLATE: 'ml:translate',
+    // R67 段落整页翻译：批量段落翻译端点（moon-well /vocabulary/reading/translate-batch，
+    // Result<List<String>> 顺序数组、""=该段失败）。Why 专设消息不走 ML_API 白名单：
+    // 白名单是 chat 面板域的 POST 代理，批量翻译语义独立且超时口径不同（60s），
+    // 与 ML_REVIEW_QUEUE 同构——各自一条消息
+    ML_TRANSLATE_BATCH: 'ml:translate-batch',
     ML_TTS_SPEAK: 'ml:tts-speak',
   });
 
