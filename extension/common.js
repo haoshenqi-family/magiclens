@@ -35,6 +35,31 @@
     shortcutReadAloud: 'Alt+KeyS',
   });
 
+  /* R78：正文文本块解析（page-translate / page-speak 共用，单点口径）。
+   * Why：段落引擎原先只认 P/LI/… 标准标签，Google 支持社区把帖子正文放在
+   * <html-blob> 自定义元素里（整页 0 个 <p>），Alt+P 与段末 ▶/译 全部落空。
+   * 解析分两级：标准段标签（含 html-blob）优先；否则从命中元素向上找最近的
+   * 块级文本容器（display 非 inline、文本 ≥40 字），兜住 div 承载正文的站点。
+   * 这里只解析「候选元素」，长度/中文占比/去重仍由各模块的 qualifies 判。 */
+  g.__magicLensTextBlockSelector = 'P,LI,BLOCKQUOTE,TD,TH,DD,DT,H1,H2,H3,H4,H5,H6,HTML-BLOB';
+  g.__magicLensClosestTextBlock = (el) => {
+    if (!el || typeof el.closest !== 'function') return null;
+    // 代码块/编辑器/导航/扩展自建 UI 不参与（与 page-speak 的 SKIP 口径对齐）
+    if (el.closest('pre,code,[contenteditable],nav,header,footer,aside,form,[aria-hidden="true"],[role="navigation"],[role="banner"],[role="contentinfo"]')) return null;
+    const hit = el.closest(g.__magicLensTextBlockSelector);
+    if (hit) return hit;
+    // 通用兜底：向上找最近的块级文本容器。停到 body/html 前，避免把整页当一段。
+    let node = el;
+    for (let depth = 0; node && depth < 8; depth += 1, node = node.parentElement) {
+      if (node === document.body || node === document.documentElement) break;
+      const text = (node.innerText || '').replace(/\s+/g, ' ').trim();
+      if (text.length < 40) continue;
+      const display = getComputedStyle(node).display;
+      if (display && display !== 'inline') return node;
+    }
+    return null;
+  };
+
   if (g.__magicLensNormDomain) return;
 
   /** 输入归一化为 hostname：小写、剥协议/端口/路径/末尾点/`*.` 前缀。

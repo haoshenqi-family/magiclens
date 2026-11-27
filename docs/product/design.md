@@ -468,3 +468,25 @@ keydown 监听 + 设置页录制**（沉浸式翻译同款交互）；默认键�
   撤销不动网络；「译」不触发整页发现（`start(false)`），不会把一次点击放大成整页计费。
 - 翻译块的插入/撤销仍归 `page-translate.js`（`data-magiclens-translation` 排除标记不变），
   朗读的高亮/滚屏互不干扰。
+
+## 26. 正文块兼容自定义元素；自建 UI 点击不重采选区（2026-11-27，R78，v0.8.39）
+
+**背景**：Google 支持社区帖子正文放在 `<html-blob>` 自定义元素里（整页 0 个 `<p>`），
+`Alt+P` 报「未找到可翻译段落」、段末 ▶/译 不出现；同页气泡里点「译」无任何反馈。
+
+**决策一：正文块解析收口到 `common.js`**（`__magicLensTextBlockSelector` /
+`__magicLensClosestTextBlock`）——
+
+- 标准段标签集并入 `HTML-BLOB`；未命中时从点击元素向上最多 8 层找「块级显示 + 文本 ≥40 字」
+  的最近容器，兜住 div 承载正文的站点；
+- 统一排除代码/编辑器/导航/页脚/地标 role，只解析候选，资格与计费口径仍归各模块；
+- 优点：page-translate 与 page-speak 共用一份命中口径，不再各自维护标签集；
+  代价：`html-blob` 整块按一段处理（`<br><br>` 多段帖子不细拆）。
+
+**决策二：`mouseup` 落在 `#magiclens-*` UI 内一律不重采选区**——
+
+- 点击气泡按钮会冒泡 `mouseup`，而 closed Shadow DOM 的点击不清页面选区；旧实现 60ms 后
+  重新 `processSelection` → `openBubble` 重置 `current/seq/`提示文案，在途翻译回包被
+  seq 判代丢弃，表现为「点译没反应」；
+- 与既有 `onMouseDown` 同一道 `composedPath()` 闸：扩展自己的 UI 点击永不触发选区采集，
+  页面正文划选不受影响。

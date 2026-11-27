@@ -1,15 +1,17 @@
 # 网页正文朗读（L3 实现说明）
 
-> 状态：现行。R75 引入、R76 增段末「译」（v0.8.38）。
+> 状态：现行。R75 引入、R76 增段末「译」（v0.8.38）、R78 支持 `html-blob` 正文（0.8.39）。
 
 ## 实现
 
 - `extension/page-speak.js` 是唯一实现模块，manifest 在主文档条目中晚于
   `common.js / rpc.js / page-translate.js` 注入；非顶层文档直接 return。
 - 段落发现用 `TreeWalker(SHOW_ELEMENT)` + `FILTER_SKIP` 下钻容器，命中
-  `P,LI,BLOCKQUOTE,DD,DT,H1-H6` 后按「可见 + 最短字符数 + 中文占比 ≤30%」过滤；
+  `P,LI,BLOCKQUOTE,DD,DT,H1-H6,HTML-BLOB` 后按「可见 + 最短字符数 + 中文占比 ≤30%」过滤；
   排除 `nav/header/footer/aside/form/pre/code/contenteditable` 与全部 MagicLens host。
   列表/引用内嵌 `<p>` 时只取最内层，按归一文本去重，单页上限 200 段。
+  `HTML-BLOB`（R78）是 Google 支持社区等站点的正文容器，页面可能一个 `<p>` 都没有；
+  它内部若还有标准段落标签则跳过外层，交给内层。
 - 段末工具是一组共享浮钮（不是每段插 DOM）：`mousemove → closest(BLOCK_SEL) → WeakMap`
   找到段落，用 `Range.getClientRects()` 取最后一行矩形，把两个 24px 圆钮摆在行尾右侧
   （与 magicbook 段落工具同位置语义；末行顶到视口右缘时落到行下右对齐）；
@@ -40,6 +42,9 @@
   已译 `is-done`（再点=撤销）。
 - **资格闸同源**：状态接口对未翻译段落现场判资格（≥40 字符、CJK ≤30%、排除代码/编辑器/
   扩展 UI），不合格返回 `n/a`，段末工具不渲染「译」——短标题只留 ▶。
+- **命中口径（R78）**：悬停/右键统一走 `common.js` 的 `__magicLensClosestTextBlock(el)`——
+  先标准段标签 + `HTML-BLOB`，未命中再向上找最近的块级文本容器（div 承载正文的站点兜底）；
+  `pre/code/contenteditable/nav/header/footer/aside/form/[aria-hidden]` 一律不进。
 - 两个按钮之外**不加**任何动作（用户拍板）；不向宿主 DOM 插节点，译文块仍由
   `page-translate.js` 以 `data-magiclens-translation` 内联插入。
 
@@ -47,6 +52,8 @@
 
 - 只处理顶层文档；iframe 正文不装配；magicbook 域（含子域）整体让位宿主阅读器。
 - 只读正文段落；不读表格单元格、代码块、表单、导航/页眉页脚与扩展 UI。
+- `html-blob` 按**一个正文块**处理：Google 社区用 `<br><br>` 分段的帖子整帖作为一段
+  朗读/翻译（不再按 `<br>` 细分）。
 - 主开关与域名禁用只在页面加载时判定；加载后关闭主开关会立即停播并收起 UI，再打开需刷新。
 - 连播中不重扫 DOM；SPA 变更在空闲时 900ms 防抖重扫。
 - 音频缓存 200 段、7 天；超限按 `ts` LRU 剪枝，写失败不影响本次播放。

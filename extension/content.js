@@ -777,7 +777,15 @@ function startMainEngine() {
   // mouseup 后延迟一帧等待选区稳定；dblclick 选词后也会触发 mouseup
   // Why 具名 handler：孤儿副本退役时要能摘掉自己的监听（见 retireOrphan），
   // 匿名箭头函数无法 remove，摘不掉的监听会在页面上留一个「点了没反应」的幽灵气泡
-  const onMouseUp = () => setTimeout(processSelection, 60);
+  // Why（R78）：点气泡按钮同样会在文档上冒泡 mouseup，而选中态仍在——若照常延迟
+  // 采集选区，openBubble 会把刚点开的「翻译中…」文案、current 与 seq 一起重置，
+  // 在途回包随即被 seq 判代丢弃；真机表现就是「点『译』毫无反应」。与 onMouseDown
+  // 同口径：来自任意 MagicLens 自建 UI 的 mouseup 一律不触发选区采集。
+  const onMouseUp = (e) => {
+    if (e && typeof e.composedPath === 'function'
+      && e.composedPath().some((n) => n && n.id && /^magiclens-/.test(n.id))) return;
+    setTimeout(processSelection, 60);
+  };
   const onMouseDown = (e) => {
     if (!e.composedPath().includes(host)) hide();
   };

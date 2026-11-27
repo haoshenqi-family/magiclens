@@ -27,6 +27,7 @@
 | MAGICLENS-12 R63 滚动复习词卡 unknown message type（SW 版本漂移） | 缺陷 | （无 PJM，台账承载） | [r63-review-sw-skew/](./r63-review-sw-skew/)（LLD） | 已 merge 本地 develop（0.8.25-202611131705 测试版），待真机验收（2026-11-13） |
 | MAGICLENS-13 R75 网页正文段落朗读（默认 AI 音 / 段末▶ / 快捷键+右键菜单） | 用户故事 | （无 PJM，台账承载） | [r75-page-read-aloud/](./r75-page-read-aloud/)（LLD + AC） | 已随 **v0.8.38** 正式发布（2026-11-27，GitHub Release + zip） |
 | MAGICLENS-14 R76 段末工具加「译」（只保留朗读 + 翻译两个按钮） | 用户故事 | （无 PJM，台账承载） | [r76-para-tools/](./r76-para-tools/)（LLD + AC） | 已随 **v0.8.38** 正式发布（2026-11-27，GitHub Release + zip） |
+| MAGICLENS-15 R78 缺陷：气泡「译」点击无效 + Alt+P/段末工具识别不到 html-blob 正文 | 缺陷 | （无 PJM，台账承载） | [r78-blob-paragraphs/](./r78-blob-paragraphs/)（LLD + AC） | 开发完成（0.8.39-202611271639 测试版），待真机验收 |
 
 ## 备注
 

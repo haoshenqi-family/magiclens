@@ -44,8 +44,13 @@
   const CJK_RATIO_MAX = 0.3; // 中文占比过高的段落翻译无意义（目标用户在读英文网页）
   const IO_ROOT_MARGIN = '400px 0px'; // 比高亮（200px）更宽：翻译是整段请求，提前起批减少滚动等待感
 
-  // 沿用 page-extract.js 的块级标签集（Why 不含 SPAN：行内噪声大），PRE 剔除——代码块不该被翻译
-  const TEXT_TAGS = 'P,LI,BLOCKQUOTE,TD,TH,DD,DT,H1,H2,H3,H4,H5,H6';
+  // 沿用 page-extract.js 的块级标签集（Why 不含 SPAN：行内噪声大），PRE 剔除——代码块不该被翻译。
+  // R78：并入 HTML-BLOB——Google 支持社区等站点的帖子正文就装在这个自定义元素里，
+  // 页面常常一个 <p> 都没有；不认它时 Alt+P/段末「译」/整页翻译全部找不到段落。
+  const TEXT_TAGS = window.__magicLensTextBlockSelector
+    || 'P,LI,BLOCKQUOTE,TD,TH,DD,DT,H1,H2,H3,H4,H5,H6,HTML-BLOB';
+  // html-blob 内部若还有真正的段落标签，交给内层（整块+逐段都翻会重复计费）
+  const NESTED_BLOCK_TAGS = 'P,LI,BLOCKQUOTE,TD,TH,DD,DT,H1,H2,H3,H4,H5,H6';
 
   /* ---------- 状态 ---------- */
   let siteDisabled = false;   // 域名管理禁用：与高亮同口径，写死在本页生命周期内（刷新生效）
@@ -104,6 +109,7 @@
   /** 段落文本是否够格翻译：资格 + 页面级去重。返回归一化文本或 null */
   function paragraphText(el, seen) {
     if (records.has(el)) return null;
+    if (el.tagName === 'HTML-BLOB' && el.querySelector(NESTED_BLOCK_TAGS)) return null;
     const text = normalizeText(el);
     if (!qualifies(el, text)) return null;
     if (seen.has(text)) return null;
@@ -491,12 +497,14 @@
     return target.state;
   }
 
+  // R78：命中元素先按标准段标签解析；命不中再向上找块级文本容器
+  // （html-blob / div 承载正文的站点——Google 支持社区整页 0 个 <p>）。
   function translateParagraphAt(x, y) {
     if (siteDisabled) return; // 禁用站零反应（与划词/高亮同一份禁用语义）
     if (!cfg.enabled) return hint('划词翻译总开关已关闭，请先在 popup 开启');
     if (x < 0 && y < 0) return hint(NO_PARA_HINT); // 鼠标未进过页面（尚无锚点）
     const hit = document.elementFromPoint(x, y);
-    const el = hit && hit.closest ? hit.closest(TEXT_TAGS) : null;
+    const el = window.__magicLensClosestTextBlock(hit);
     if (!el) return hint(NO_PARA_HINT);
     translateParagraphEl(el);
   }
